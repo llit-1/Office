@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35303.130
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Office.Server", "Office.Server\Office.Server.csproj", "{ED3613A3-087A-438D-831A-7AD01EE446EE}"
+EndProject
+Project("{54A90642-561A-4BB1-A94E-469ADEE60C69}") = "office.client", "office.client\office.client.esproj", "{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{ED3613A3-087A-438D-831A-7AD01EE446EE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED3613A3-087A-438D-831A-7AD01EE446EE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED3613A3-087A-438D-831A-7AD01EE446EE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED3613A3-087A-438D-831A-7AD01EE446EE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Debug|Any CPU.Deploy.0 = Debug|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD89FB8D-17BE-4204-AFA2-57C3927FF4C7}.Release|Any CPU.Deploy.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A53937AA-A503-4ED3-B068-F04DEC1D5233}
+	EndGlobalSection
+EndGlobal
