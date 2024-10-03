@@ -1,0 +1,55 @@
+@font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-Thin.otf') format('opentype');
+	font-weight: 100; /* Установите правильный вес */
+	font-style: normal;
+  }
+  
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-ExtraLight.otf') format('opentype');
+	font-weight: 200; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-Light.otf') format('opentype');
+	font-weight: 300; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-Regular.otf') format('opentype');
+	font-weight: 400; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-SemiBold.otf') format('opentype');
+	font-weight: 600; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-Bold.otf') format('opentype');
+	font-weight: 700; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-ExtraBold.otf') format('opentype');
+	font-weight: 800; /* Установите правильный вес */
+	font-style: normal;
+  }
+
+  @font-face {
+	font-family: 'Akrobat';
+	src: url('./Akrobat-Black.otf') format('opentype');
+	font-weight: 900; /* Установите правильный вес */
+	font-style: normal;
+  }

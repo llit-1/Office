@@ -1,0 +1,111 @@
+ul {
+    width: 250px;
+    background-color: white;
+    height: 100%;
+    transition: 0.15s all linear;
+    overflow: hidden;
+}
+
+ul > li {
+    list-style-type: none;
+    height: 60px;
+    width: 100%;
+    border-bottom: 1px solid #E5E5E5;
+    border-right: 1px solid #E5E5E5;
+    transition: 0.2s all ease-in-out;
+    position: relative;
+}
+
+ul > li.active::before {
+    content: "";
+    background-color: #F47920;
+    height: 100%;
+    width: 3.5px;
+    top: 1px;
+    left: 0;
+    position: absolute;
+}
+
+
+ul > li:not(:first-child):hover {
+    font-weight: 800;
+    font-size: 22px;
+    /* transform: scale(1.05); */
+    cursor: pointer;
+    background-color: #e2e2e2;
+}
+
+ul > li > div {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    height: 100%;
+    flex-direction: row;
+    gap: 10px;
+}
+
+ul > li > div > p {
+    font-size: 16px;
+    font-family: "Akrobat";
+    padding-left: 20px;
+    height: 100%;
+    overflow: hidden;
+    transition: max-height 0.25s ease, visibility 0.25s ease;
+    max-height: 0;
+    visibility: hidden;
+    white-space: nowrap;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+ul > li:first-child {
+    display: flex;
+    justify-content: end;
+}
+
+.collapsed {
+    width: 60px;
+    display: flex;
+    flex-direction: column;
+}
+
+.expanded {
+    width: 300px;
+}
+
+.hidden_text {
+    display: none;
+}
+
+.visible_text {
+    max-height: 60px;
+    visibility: visible;
+}
+
+.hamburger {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    min-width: 60px;
+    justify-content: center;
+    align-items: center;
+    background-color: #F47920;
+    transition: all 0.3s ease;
+}
+
+.hamburger:hover {
+    background-color: #4C4C4C;
+}
+
+.hamburger_logo {
+    background: url("/public/img/logo.svg") 15px center / 150px 30px no-repeat;
+    width: 200px;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-position: center center;
+}
+
+.hamburger_logo_hidden_text {
+    background: none;
+}

@@ -101,31 +101,36 @@ namespace Office.Server.Controllers
 
         private bool ADCheck(string login, string password, ref string? displayName)
         {
-            using (DirectoryEntry entry = new DirectoryEntry("LDAP://dc1.shzhleb.ru", login, password))
+            try
             {
-                // Создаем объект DirectorySearcher для поиска пользователя
-                using (DirectorySearcher searcher = new DirectorySearcher(entry))
+                using (DirectoryEntry entry = new DirectoryEntry("LDAP://dc1.shzhleb.ru", login, password))
                 {
-                    // Устанавливаем фильтр поиска по логину пользователя
-                    searcher.Filter = $"(&(objectClass=user)(sAMAccountName={login}))";
-
-                    // Выполняем поиск
-                    SearchResult result = searcher.FindOne();
-
-                    if (result != null)
+                    // Создаем объект DirectorySearcher для поиска пользователя
+                    using (DirectorySearcher searcher = new DirectorySearcher(entry))
                     {
-                        // Получаем объект DirectoryEntry найденного пользователя
-                        DirectoryEntry userEntry = result.GetDirectoryEntry();
-                        // Получаем данные пользователя
-                         displayName = userEntry.Properties["displayName"].Value?.ToString();
-                        return true;
-                    }
-                    else
-                    {
+                        // Устанавливаем фильтр поиска по логину пользователя
+                        searcher.Filter = $"(&(objectClass=user)(sAMAccountName={login}))";
+
+                        // Выполняем поиск
+                        SearchResult result = searcher.FindOne();
+
+                        if (result != null)
+                        {
+                            // Получаем объект DirectoryEntry найденного пользователя
+                            DirectoryEntry userEntry = result.GetDirectoryEntry();
+                            // Получаем данные пользователя
+                            displayName = userEntry.Properties["displayName"].Value?.ToString();
+                            return true;
+                        }
+
                         return false;
                     }
                 }
             }
+            catch {
+                return false;
+            }
+           
         }
     }
 }

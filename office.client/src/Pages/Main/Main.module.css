@@ -1,0 +1,17 @@
+@media screen and (min-width: 587px) {
+    .wrapper_tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Устанавливаем минимальную ширину плитки */
+        gap: 10px; /* Зазоры между плитками */
+        height: fit-content;
+    }
+}
+
+@media screen and (max-width: 586px)
+{
+    .wrapper_tiles {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+}

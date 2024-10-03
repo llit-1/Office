@@ -1,0 +1,48 @@
+.notFoundContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    font-family: Akrobat;
+    font-size: 3em;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.notFoundButton {
+    border: 1px solid #F47920;
+    padding: 10px 15px;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    font-size: 16px;
+    font-family: "Akrobat";
+}
+
+.notFoundButton:hover {
+    background-color: #F47920;
+    color: white;
+    cursor: pointer;
+    transform: scale(1.1);
+}
+
+.circle {
+    border: 12px solid #F47920;
+    padding: 50px;
+    border-radius: 50%;
+    animation: rotate 4s infinite;
+    transition: all 3s linear;
+    margin: 15px 0px;
+}
+
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg) scale(1);
+    }
+    50% {
+        transform: rotate(180deg) scale(1.2);
+    }
+    100% {
+        transform: rotate(360deg) scale(1);
+    }
+}
