@@ -5,9 +5,10 @@ using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
 using System.IdentityModel.Tokens.Jwt;
-using System.Reflection.PortableExecutable;
-using System.Security.Claims;
+using System;
+using System.DirectoryServices;
 using System.Text;
+using System.Security.Claims;
 
 namespace Office.Server.Controllers
 {
@@ -24,47 +25,60 @@ namespace Office.Server.Controllers
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginModel loginModel)
         {
-            //if (loginModel is null)
-            //{
-            //    return Unauthorized(new { message = "loginModel is null" });
-            //}
-            //string password = loginModel.Password;
-            //string login = loginModel.Login;
-            //if (password == null || login == null)
-            //{
-            //    return Unauthorized(new { message = "Данные введены некорректно!" });
-            //}
+            if (loginModel is null)
+            {
+                return Unauthorized(new { message = "loginModel is null" });
+            }
+            string password = loginModel.Password;
+            string login = loginModel.Login;
+            if (password == null || login == null)
+            {
+                return Unauthorized(new { message = "Данные введены некорректно!" });
+            }
+            string? displayName = "";
 
-            //OfficeUser user = _rKNETDBContext.OfficeUser.FirstOrDefault(c => c.Login == login);
-
-            //// если пользователя нет в БД
-            //if (user == null)
-            //{
-            //    using (PrincipalContext context = new PrincipalContext(login, password, "shzhleb"))
-                    
-            //}
-
-
-            //if (user != null &&(user.Password == null || user.Password != Global.Encrypt(password)))
-            //{
-            //    return Unauthorized(new { message = "Ошибка авторизации" });
-            //}
-            //if (true)
-            //{
-                
-            //}
-            //return Ok(GetToken(phone));
-            return Ok(loginModel);
+            OfficeUser? user = _rKNETDBContext.OfficeUser.FirstOrDefault(c => c.Login == login);
+            if (ADCheck(login,password,ref displayName))
+            {
+                if (user == null)
+                {
+                    _rKNETDBContext.OfficeUser.Add(new OfficeUser(login, displayName));
+                    _rKNETDBContext.SaveChanges();
+                    user = _rKNETDBContext.OfficeUser.FirstOrDefault(c => c.Login == login);
+                }                                
+            }            
+            else
+            {
+                if (user == null || (user.Password != Global.Encrypt(password)))
+                {
+                    return Unauthorized(new { message = "Ошибка авторизации" });
+                }
+            }
+            if (user != null)
+            {
+                AuthAnswer answer = new AuthAnswer();
+                answer.id = user.Id;
+                answer.token = GetToken(login);
+                return Ok(answer);
+            }
+            return Unauthorized(new { message = "Ошибка БД" });
         }
 
 
 
         public class LoginModel
         {
-            public string Login { get; set; }
-            public string Password { get; set; }
+            public string Login { get; set; } = "";
+            public string Password { get; set; } = "";
 
         }
+        private class AuthAnswer
+        {
+            public int id { get; set; }
+            public string token { get; set; } = "";
+        }
+
+
 
         private string GetToken(string name)
         {
@@ -84,44 +98,34 @@ namespace Office.Server.Controllers
             return token;
         }
 
-        //private bool ADIdentity(string domain, string username, string password, out string fullName, out string Error, out string jobTitle)
-        //{
-        //    fullName = string.Empty;
-        //    jobTitle = string.Empty;
-        //    Error = string.Empty;
 
-        //    var domainAndUsername = string.Format("{0}\\{1}", domain, username);
-        //    var ldapPath = "LDAP://dc1.shzhleb.ru";
+        private bool ADCheck(string login, string password, ref string? displayName)
+        {
+            using (DirectoryEntry entry = new DirectoryEntry("LDAP://dc1.shzhleb.ru", login, password))
+            {
+                // Создаем объект DirectorySearcher для поиска пользователя
+                using (DirectorySearcher searcher = new DirectorySearcher(entry))
+                {
+                    // Устанавливаем фильтр поиска по логину пользователя
+                    searcher.Filter = $"(&(objectClass=user)(sAMAccountName={login}))";
 
-        //    try
-        //    {
-        //        var entry = new DirectoryEntry(ldapPath, domainAndUsername, password);
-        //        // Bind to the native AdsObject to force authentication.
-        //        var obj = entry.NativeObject;
-        //        var search = new DirectorySearcher(entry) { Filter = "(SAMAccountName=" + username + ")" };
+                    // Выполняем поиск
+                    SearchResult result = searcher.FindOne();
 
-        //        search.PropertiesToLoad.Add("displayName"); // Выводимое имя
-        //        search.PropertiesToLoad.Add("title");
-
-        //        try
-        //        {
-        //            var result = search.FindOne();
-        //            fullName = result.GetDirectoryEntry().Properties["displayName"].Value.ToString();
-        //            jobTitle = result.GetDirectoryEntry().Properties["title"].Value.ToString();
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            Error = "ошибка получения свойств пользователя Active Directory: " + e.ToString();
-        //        }
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        Error = "ошибка имени пользователя или пароля";
-        //        return false;
-        //    }
-
-        //    return true;
-        //}
-
+                    if (result != null)
+                    {
+                        // Получаем объект DirectoryEntry найденного пользователя
+                        DirectoryEntry userEntry = result.GetDirectoryEntry();
+                        // Получаем данные пользователя
+                         displayName = userEntry.Properties["displayName"].Value?.ToString();
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+        }
     }
 }
