@@ -1,0 +1,28 @@
+.backArrow_container {
+    width: 100%;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    flex-direction: row;
+    padding-bottom: 10px;
+}
+
+.backArrow_wrapper {
+    display: flex;
+    flex-direction: row;
+    width: fit-content;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    transition: all 0.2s linear;
+}
+
+.backArrow_wrapper:hover {
+    color: rgb(70, 70, 70);
+}
+
+.backArrow_text {
+    font-family: "Akrobat";
+    padding-bottom: 3px;
+}

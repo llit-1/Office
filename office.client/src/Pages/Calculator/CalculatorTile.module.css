@@ -1,0 +1,19 @@
+.calculator_tile {
+    width: 201px;
+    height: 50px;
+    color: white;
+    background-color: #F47920;
+    padding: 10px;
+    font-family: "Akrobat";
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    transition: all 0.2s linear;
+}
+
+.calculator_tile:hover {
+    cursor: pointer;
+    background-color: #f47820c5;
+}

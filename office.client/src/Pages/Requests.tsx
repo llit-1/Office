@@ -30,8 +30,6 @@ export const Auth = async (
 
     if (response.status === 200) {
       const data = response.data;
-      localStorage.removeItem("token");
-      localStorage.removeItem("id");
       localStorage.setItem("token", data.token);
       localStorage.setItem("id", data.id.toString());
       

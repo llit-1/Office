@@ -16,14 +16,15 @@ export interface MenuPart {
   name: string;
   component: JSX.Element;
   path: string;
+  img: string;
 };
 
 // Экспортируем массив данных
 export const menuParts : MenuPart[] = [
-  { name: "Главная страница", component: <HomeIcon sx={stylesForIcon} />, path: "/Main" },
-  { name: "Калькулятор", component: <CalculateRoundedIcon sx={stylesForIcon} />, path: "/Calculator"},
-  { name: "Торговые точки", component: <StorefrontOutlinedIcon sx={stylesForIcon} />, path: "/TT" },
-  { name: "Пользователи", component: <GroupOutlinedIcon sx={stylesForIcon} />, path: "/Users"},
-  { name: "Настройки", component: <SettingsOutlinedIcon sx={stylesForIcon} />, path: "/Settings"},
-  { name: "Помощь", component: <QuestionMarkOutlinedIcon sx={stylesForIcon} />, path: "/Help"},
+  { name: "Главная страница", component: <HomeIcon sx={stylesForIcon} />, path: "/Main", img: "" },
+  { name: "Калькулятор", component: <CalculateRoundedIcon sx={stylesForIcon} />, path: "/Calculator", img: "public/img/calculator.svg"},
+  { name: "Торговые точки", component: <StorefrontOutlinedIcon sx={stylesForIcon} />, path: "/TT", img: "public/img/shop.svg" },
+  { name: "Пользователи", component: <GroupOutlinedIcon sx={stylesForIcon} />, path: "/Users", img: "public/img/users.svg"},
+  { name: "Настройки", component: <SettingsOutlinedIcon sx={stylesForIcon} />, path: "/Settings", img: "public/img/settings.svg"},
+  { name: "Помощь", component: <QuestionMarkOutlinedIcon sx={stylesForIcon} />, path: "/Help", img: "public/img/help.svg"},
 ];

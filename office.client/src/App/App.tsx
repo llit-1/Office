@@ -5,9 +5,10 @@ import useWindowSize from '../Hooks/useWindowSize';
 // import {useAppSelector, useAppDispatch} from "../Hooks/hook"
 // import { hideNotification } from '../Store/notificationSlice
 //import SnackBarCustom from "./Components/SnackBarCustom.tsx";
-import { Outlet} from "react-router-dom"
+import { Outlet, useNavigate } from "react-router-dom"
 
 import {HeaderMobile} from "../HeaderMobile/HeaderMobile"
+import { useEffect } from 'react';
 
 
 function App() {
@@ -21,7 +22,11 @@ function App() {
 
     // Хук для вычиления размеров экрана, чтобы подкинуть правильное меню
     const { width } = useWindowSize();
+    const navigate = useNavigate()
 
+    useEffect(() => {
+        navigate("Main")
+    }, [])
 
     return (
         <>

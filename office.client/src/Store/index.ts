@@ -1,11 +1,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
-import notificationReducer from './notificationSlice'
+import notificationReducer from './notificationSlice';
+import backButtonReducer from './stateForBackButtonSlice';
+import pageTitleReducer from "./stateForPageTitleSlice"
 
 const store = configureStore({
   reducer: {
     auth: authReducer,
     notification: notificationReducer,
+    backButton: backButtonReducer,
+    pageTitle: pageTitleReducer,
   },
 });
 

@@ -1,0 +1,67 @@
+* {
+    font-family: "Akrobat";
+    font-weight: 300;
+}
+
+.calculate_table {
+    border-collapse: collapse;
+    border-spacing: 0;
+}
+
+.calculate_table th {
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.calculate_table tbody tr:hover {
+    background-color: #F47920;
+}
+
+.calculate_table th, .calculate_table td {
+    border: 1px solid #ccc;
+    padding: 5px;
+    text-align: center;
+}
+
+.calculate_table thead th {
+    padding: 10px;
+}
+
+.calculate_table input {
+    width: 60px;
+    height: 30px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.calculate_wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 20px;
+}
+
+.calculate_about {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: center;
+    align-items: center;
+}
+
+.calculate_about > span {
+    background-color: #F47920;
+    width: 200px;
+    text-align: center;
+    padding: 5px;
+    font-weight: 600;
+}
+
+.calculate_img {
+    width: 100px;
+}
+
+.even {
+    background-color: white;
+}

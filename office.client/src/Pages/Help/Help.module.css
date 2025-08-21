@@ -1,0 +1,22 @@
+.wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ul {
+    width: fit-content;
+    height: fit-content;
+    background: transparent;
+}
+
+.ul > li {
+    border: none;
+    height: fit-content;
+    padding: 5px;
+    text-align: center;
+}

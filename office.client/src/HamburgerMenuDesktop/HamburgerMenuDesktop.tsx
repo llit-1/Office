@@ -30,7 +30,7 @@ const HamburgerMenu = () => {
   };
 
   return (
-    <ul className={isCollapsed ? styles.collapsed : styles.expanded}>
+      <ul className={isCollapsed ? styles.collapsed : styles.expanded}>
       <li>
         {isCollapsed ? <div className={styles.hamburger_logo_hidden_text}></div> : <div className={styles.hamburger_logo}></div>}
         <div className={styles.hamburger}>

@@ -1,0 +1,31 @@
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using Office.Server.DbContexts.RKNETDB;
+using Office.Server.DbContexts.RKNETDB.Models;
+using System.IdentityModel.Tokens.Jwt;
+using System;
+using System.DirectoryServices;
+using System.Text;
+using System.Security.Claims;
+
+namespace Office.Server.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class CalculatorController : ControllerBase
+    {
+        private readonly RKNETDBContext _rKNETDBContext;
+        public CalculatorController(RKNETDBContext rKNETDBContext)
+        {
+            _rKNETDBContext = rKNETDBContext;
+        }
+
+        public IActionResult Vipechka(string id)
+        {
+            return Ok();
+        }
+
+    }
+}
