@@ -1,23 +1,21 @@
 // import styles from "./Calculate.module.css"
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import arrow from "../../Components/BackArrow/BackArrow.module.css"
+import { useDispatch } from "react-redux";
 import styles from "./Calculate.module.css"
+import { pathSet } from "../../Store/stateForBackButtonSlice";
+import { useEffect } from "react";
 
-interface CalculateProps {
-  switchState: React.Dispatch<React.SetStateAction<number>>;
-}
 
-const Calculate : React.FC<CalculateProps> = ({switchState}) => {
+const Calculate = () => {
+
+  const dispatch = useDispatch();
+
+    useEffect(() => {
+        dispatch(pathSet({ path: "/Calculator/SelectTT" }));
+  }, [dispatch]);
+
 
   return (
     <>
-      <div className={arrow.backArrow_container}>
-        <div className={arrow.backArrow_wrapper} onClick={() => switchState(2)}>
-          <ArrowBackIcon />
-          <span className={arrow.backArrow_text}>назад</span>
-        </div>
-      </div>
-
       <div className={styles.calculate_wrapper}>
         <div className={styles.calculate_about}>
           <div className={styles.calculate_about}>

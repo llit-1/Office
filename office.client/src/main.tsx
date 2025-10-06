@@ -14,8 +14,9 @@ import Help from "./Pages/Help/Help"
 import Main from "./Pages/Main/Main"
 import { NotificationsProvider } from '@toolpad/core';
 import CalculatorCategories from './Pages/Calculator/CalculatorCategories';
-
-
+import Calculate from './Pages/Calculator/Calculate';
+import CalculatorSelectTT from './Pages/Calculator/CalculatorSelectTT';
+import Calculator from './Pages/Calculator/Calculator';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -26,8 +27,14 @@ createRoot(document.getElementById('root')!).render(
 
                   <Route path='/' element={<App /> }>
                     <Route path="Main" element={<Main />} />
-                    <Route path="Calculator" element={<CalculatorCategories />} />
-                    <Route path="TT" element={<TT />} />
+
+                    <Route path="Calculator" element={<Calculator />}>
+                      <Route path="SelectCategory" element={<CalculatorCategories />}/>
+                      <Route path="SelectTT" element={<CalculatorSelectTT />}/>
+                      <Route path="Calculate" element={<Calculate />}/>
+                    </Route>
+
+                    <Route path="TT" element={<TT />}/>
                     <Route path="Users" element={<Users />} />
                     <Route path="Settings" element={<Settings />} />
                     <Route path="Help" element={<Help />} /> 

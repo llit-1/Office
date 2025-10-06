@@ -13,6 +13,7 @@
     user-select: none;
     text-decoration: none;
     color: #6d6d6d;
+    min-width: 225px;
 }
 
 .categoryTile_wrapper:hover {

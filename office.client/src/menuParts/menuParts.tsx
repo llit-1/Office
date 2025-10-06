@@ -22,7 +22,7 @@ export interface MenuPart {
 // Экспортируем массив данных
 export const menuParts : MenuPart[] = [
   { name: "Главная страница", component: <HomeIcon sx={stylesForIcon} />, path: "/Main", img: "" },
-  { name: "Калькулятор", component: <CalculateRoundedIcon sx={stylesForIcon} />, path: "/Calculator", img: "public/img/calculator.svg"},
+  { name: "Калькулятор", component: <CalculateRoundedIcon sx={stylesForIcon} />, path: "/Calculator/SelectCategory", img: "public/img/calculator.svg"},
   { name: "Торговые точки", component: <StorefrontOutlinedIcon sx={stylesForIcon} />, path: "/TT", img: "public/img/shop.svg" },
   { name: "Пользователи", component: <GroupOutlinedIcon sx={stylesForIcon} />, path: "/Users", img: "public/img/users.svg"},
   { name: "Настройки", component: <SettingsOutlinedIcon sx={stylesForIcon} />, path: "/Settings", img: "public/img/settings.svg"},

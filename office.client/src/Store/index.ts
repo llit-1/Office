@@ -3,6 +3,7 @@ import authReducer from './authSlice';
 import notificationReducer from './notificationSlice';
 import backButtonReducer from './stateForBackButtonSlice';
 import pageTitleReducer from "./stateForPageTitleSlice"
+import calculatorSlice from "./calculatorSlice"
 
 const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const store = configureStore({
     notification: notificationReducer,
     backButton: backButtonReducer,
     pageTitle: pageTitleReducer,
+    calculatorData: calculatorSlice,
   },
 });
 

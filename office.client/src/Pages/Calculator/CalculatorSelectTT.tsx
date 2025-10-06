@@ -1,14 +1,17 @@
+import { useDispatch } from "react-redux";
 import styles from "./CalculatorSelectTT.module.css"
 import CalculatorTile from './CalculatorTile'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import arrow from "../../Components/BackArrow/BackArrow.module.css"
+import { pathSet } from "../../Store/stateForBackButtonSlice";
+import { useEffect } from "react";
 
-interface CalculatorSelectTTProps {
-  switchState: React.Dispatch<React.SetStateAction<number>>;
-}
+const CalculatorSelectTT = () => {
 
+  const dispatch = useDispatch();
 
-const CalculatorSelectTT : React.FC<CalculatorSelectTTProps> = ({switchState}) => {
+    useEffect(() => {
+        dispatch(pathSet({ path: "/Calculator/SelectCategory" }));
+  }, [dispatch]);
+
 
 
   const data: Record<number, string> = {
@@ -28,21 +31,12 @@ const CalculatorSelectTT : React.FC<CalculatorSelectTTProps> = ({switchState}) =
     14: "Улица Дыбенко 14",
     15: "Энгельса проспект 21"
   };
-  
-
 
   return (
     <>
-      <div className={arrow.backArrow_container}>
-        <div className={arrow.backArrow_wrapper} onClick={() => switchState(1)}>
-          <ArrowBackIcon />
-          <span className={arrow.backArrow_text}>назад</span>
-        </div>
-      </div>
-
       <div className={styles.calculator_wrapper}>
         {Object.entries(data).map(([key, value]) => (
-          <CalculatorTile switchState={switchState} key={key} value={value}/>
+          <CalculatorTile key={key} value={value}/>
         ))}
       </div>
     </>

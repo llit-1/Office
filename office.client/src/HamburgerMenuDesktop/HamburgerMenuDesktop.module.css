@@ -73,10 +73,12 @@ ul > li:first-child {
     width: 60px;
     display: flex;
     flex-direction: column;
+    min-width: 60px;
 }
 
 .expanded {
-    width: 300px;
+    width: 250px;
+    min-width: 250px;
 }
 
 .hidden_text {

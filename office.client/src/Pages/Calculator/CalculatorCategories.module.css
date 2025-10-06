@@ -1,7 +1,13 @@
 .calculatorCategories_wrapper {
     width: 100%;
-    display: flex;
-    justify-content: start;
-    align-items: start;
     gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+}
+
+@media screen and (max-width: 500px) {
+    .calculatorCategories_wrapper {
+        flex-direction: column;
+        gap: 10px;
+    }
 }

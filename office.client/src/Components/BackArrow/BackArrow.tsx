@@ -2,7 +2,7 @@ import styles from "./BackArrow.module.css"
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { RootState } from "../../Store/index"; // путь зависит от структуры проекта
+import { RootState } from "../../Store/index";
 
 const BackArrow: React.FC = () => {
   const navigate = useNavigate()
