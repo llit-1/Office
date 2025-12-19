@@ -3,38 +3,6 @@
     font-weight: 300;
 }
 
-.calculate_table {
-    border-collapse: collapse;
-    border-spacing: 0;
-}
-
-.calculate_table th {
-    font-weight: 600;
-    font-size: 16px;
-}
-
-.calculate_table tbody tr:hover {
-    background-color: #F47920;
-}
-
-.calculate_table th, .calculate_table td {
-    border: 1px solid #ccc;
-    padding: 5px;
-    text-align: center;
-}
-
-.calculate_table thead th {
-    padding: 10px;
-}
-
-.calculate_table input {
-    width: 60px;
-    height: 30px;
-    text-align: center;
-    font-size: 18px;
-    font-weight: 600;
-}
-
 .calculate_wrapper {
     display: flex;
     flex-direction: row;
@@ -64,4 +32,137 @@
 
 .even {
     background-color: white;
+}
+
+
+.calculateWrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.calculate_inner {
+    background: white;
+    height: fit-content;
+    padding: 20px;
+    border-radius: 8px;
+    gap: 6px;
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    width: 100%;
+    max-width: 800px;
+    box-shadow: 0px 4px 5px 0px #0000002e;
+}
+
+
+.headerRow {
+    background-color: #fca160 !important;
+    padding: 10px 6px !important;
+}
+
+.headerRow div {
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+}
+
+.calculate_inner_tbody {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-right: 6px;
+  margin-right: -12px; 
+}
+
+.calculate_inner_tbody::-webkit-scrollbar {
+  width: 8px; /* ширина полосы прокрутки */
+  height: 8px; /* для горизонтальной */
+}
+
+.calculate_inner_tbody::-webkit-scrollbar-track {
+  background: #f1f1f1; /* светлый фон */
+  border-radius: 8px;
+}
+
+.calculate_inner_tbody::-webkit-scrollbar-thumb {
+  background-color: #b0b0b0;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.calculate_inner_tbody::-webkit-scrollbar-thumb:hover {
+  background-color: #888;
+}
+
+
+.calculate_inner_tbody > div:nth-child(even) {
+    background: #8080801a;
+    
+}
+
+.calculate_inner_tbody > div:nth-child(odd) {
+    background: white;
+}
+
+.calculate_inner_tbody > div {
+    width: 100%;
+    border: 1px solid #dfdfdf;
+}
+
+.inputWrapper {
+    position: relative;     /* обязательно */
+    width: 50%;
+    max-width: 450px;
+    height: 60px;
+    min-width: 420px;
+    min-height: 50px;
+}
+
+.newRow {
+    display: grid;
+    grid-template-columns:
+        3fr     /* Наименование */
+        2fr     /* Время дефроста */
+        2fr     /* Режим выпечки */
+        1fr     /* Осталось */
+        1fr     /* План */
+        1fr;    /* Факт */
+
+    gap: 20px;
+    background: #EEEEEE;
+    padding: 6px;
+    border-radius: 8px;
+    align-items: center;
+}
+
+.newRow label {
+    font-weight: 500;
+}
+
+.newRow input {
+    width: 100%;
+    max-width: 60px;
+    justify-self: center;
+    margin-left: 4px;
+    padding: 6px 0;
+    border-radius: 8px;
+    border: 1px solid #F47920;
+    text-align: center;
+    font-size: 16px;
+    transition: all 0.1s ease;
+}
+
+.newRow input:focus-visible {
+    outline: 1px solid #F47920;
+    /* border: 2px solid #F47920; */
+}
+
+.newRow div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }

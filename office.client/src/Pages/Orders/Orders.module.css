@@ -1,0 +1,191 @@
+.orderWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+.orderTypeWrapper {
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0px 4px 5px 0px #0000002e;
+    gap: 10px;
+    background-color: white;
+}
+
+.orderType {
+    padding: 10px 15px;
+    background-color: #00000010;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: all 0.2s linear;
+}
+
+.orderType.selected {
+    background-color: var(--color-primary);
+    color: white;
+    cursor: pointer;
+}
+
+.orderType:not(.selected):hover {
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.10);
+}
+
+.orderBody {
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0px 4px 5px 0px #0000002e;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-height: calc(100% - 70px);
+}
+
+.settingOrderBody {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.filters {
+    display: flex;
+    gap: 10px;
+    flex-direction: row;
+}
+
+.createOrderBtn {
+    border-radius: 8px;
+    border: none;
+    padding: 10px 15px;
+    background: var(--color-primary);
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    border: 1px solid #e6e6e6;
+    font-weight: 500;
+    font-size: 16px;
+    transition: all 0.2s linear;
+}
+
+.createOrderBtn:hover {
+    cursor: pointer;
+    background: #d36218;
+}
+
+.orderList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 15px;
+    height: fit-content;
+    overflow: hidden;
+    transition: all 0.5s linear;
+    border: 1px solid #E5E5E5;
+    padding: 15px;
+    border-radius: 8px;
+    background: #EEEEEE;
+    box-shadow: inset -1px -1px 8px 0px #00000063;
+}
+
+.orderItem {
+  width: 100%;
+  display: flex;
+  background-color: #fca160;
+  min-height: 45px;
+  border-radius: 8px;
+  padding: 5px 15px;
+  transition: all 0.2s linear;
+  flex-direction: column;
+}
+
+.titleItem {
+  display: flex;
+  justify-content: space-between;
+  flex-direction: row;
+  width: 100%;
+  align-items: center;
+  height: 45px;
+}
+
+.orderItem:hover {
+  cursor: pointer;
+  background-color: #fb8b4a;
+}
+
+/* ВАЖНО: плавность делаем через max-height/opacity, не display:none */
+.collapse {
+  width: 100%;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 260ms ease, opacity 200ms ease;
+}
+
+.collapse.open {
+  max-height: 200px; /* можно увеличить, если внутри будет больше контента */
+  opacity: 1;
+}
+
+/* Внутренний “второй уровень” */
+.collapseInner {
+  width: 100%;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 240ms ease, opacity 180ms ease;
+}
+
+.collapseInner.open {
+  max-height: 140px;
+  opacity: 1;
+}
+
+.orderDetails {
+  width: 100%;
+  border-radius: 8px;
+  margin-top: 6px;
+  padding: 10px 12px;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* Просто чтобы визуально уровни отличались */
+.level1 {
+  background: #fff3ea;
+}
+
+.level2 {
+  background: #ffffff;
+  border: 1px solid #f0f0f0;
+}
+
+.ttCard {
+    background: #FFD1B7;
+    border-radius: 8px;
+    /* background: #6e6e6e; */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+    transition: all 0.2s linear;
+    color: #333333;
+}
+
+.ttCard span {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.ttCard:hover {
+    cursor: pointer;
+    transform: translate(0, -2px);
+}

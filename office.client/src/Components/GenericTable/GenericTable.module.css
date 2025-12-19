@@ -1,0 +1,237 @@
+.table_search {
+  background-color: white;
+  width: fit-content;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding-left: 5px;
+  margin-bottom: 10px;
+}
+
+.table_search > span {
+  width: 24px;
+  height: 24px;
+}
+
+.table_search > input {
+  border: none;
+  margin-left: 10px;
+  background-color: transparent;
+  outline: none;
+  height: 40px;
+  padding-right: 5px;
+  font-size: 16px;
+}
+
+.tableWrapper {
+  margin: 0px 8px;
+}
+
+/* 🔹 Сам трек скролла */
+.scrollableTbody::-webkit-scrollbar {
+  width: 8px; /* ширина полосы прокрутки */
+  height: 8px; /* для горизонтальной */
+}
+
+/* 🔹 "Поле" под скроллом */
+.scrollableTbody::-webkit-scrollbar-track {
+  background: #f1f1f1; /* светлый фон */
+  border-radius: 10px;
+}
+
+/* 🔹 Сам ползунок */
+.scrollableTbody::-webkit-scrollbar-thumb {
+  background-color: #b0b0b0;
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+/* 🔹 При наведении — тёмнее */
+.scrollableTbody::-webkit-scrollbar-thumb:hover {
+  background-color: #888;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  position: relative;
+}
+
+.table thead th {
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 15px;
+  background: #fca160;
+  color: white;
+  font-size: 15px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-wrap-mode: nowrap;
+}
+
+.scrollableTbody {
+    display: block;
+    height: 700px;
+    overflow-y: auto;
+    max-height: fit-content;
+    min-height: 75px;
+}
+
+@media screen and (max-height: 930px)
+{
+  .scrollableTbody {
+    display: block;
+    height: 650px;
+    overflow-y: auto;
+    max-height: fit-content;
+    min-height: 35px;
+  }
+}
+
+@media screen and (min-height: 1024px)
+{
+  .scrollableTbody {
+    height: 780px;
+  }
+}
+
+
+@media screen and (max-height: 910px)
+{
+  .scrollableTbody {
+    height: 630px;
+  }
+}
+
+@media screen and (max-height: 900px)
+{
+  .scrollableTbody {
+    height: 630px;
+  }
+}
+
+@media screen and (max-height: 870px)
+{
+  .scrollableTbody {
+    height: 600px;
+  }
+}
+
+@media screen and (max-height: 850px)
+{
+  .scrollableTbody {
+    height: 580px;
+  }
+}
+
+
+@media screen and (max-height: 810px)
+{
+  .scrollableTbody {
+    height: 540px;
+  }
+}
+
+@media screen and (max-height: 750px)
+{
+  .scrollableTbody {
+    height: 480px;
+  }
+}
+
+@media screen and (max-height: 667px)
+{
+  .scrollableTbody {
+    height: 405px;
+  }
+}
+
+.table thead,
+.scrollableTbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+  height: 35px;
+}
+
+.scrollableTbody td {
+  word-wrap: break-word;
+  vertical-align: middle;
+}
+
+.table thead tr th:first-child {
+  border-radius: 8px 0 0 0;
+}
+.table thead tr th:last-child {
+  border-radius: 0 8px 0 0;
+}
+.table tbody td {
+  text-align: left;
+  padding: 5px 15px;
+  font-size: 16px;
+}
+
+.table tr:nth-child(even) {
+  background-color: #8080801a;
+}
+
+.table tbody {
+  background: white;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  box-shadow: 0px 4px 5px 0px #0000002e;
+}
+
+.table tbody tr {
+  transition: background-color 0.15s linear;
+}
+
+.table tbody tr:hover {
+  background-color: #ffe9c2;
+  cursor: pointer;
+}
+
+.table .textAlign {
+  text-align: center;
+  height: 75px;
+}
+
+th:has(.sortArrow) {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+}
+
+.table th {
+  transition: background-color 0.15s linear;
+}
+
+.table th:hover {
+  cursor: pointer;
+  background-color: #ff8a37;
+}
+
+.addButton {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  background-color: #84e46c;
+  bottom: 13px;
+  right: 20px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  font-weight: bold;
+  font-size: 34px;
+  padding-bottom: 5px;
+  transition: all 0.15s linear;
+}
+
+.addButton:hover {
+  background-color: #5ce03b;
+  cursor: pointer;
+  box-shadow: 0px 2px 5px 2px #0000002e;
+}

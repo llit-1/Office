@@ -1,46 +1,69 @@
-import './App.css';
-import HamburgerMenuDesktop from '../HamburgerMenuDesktop/HamburgerMenuDesktop';
-import Header from "../Header/Header"
-import useWindowSize from '../Hooks/useWindowSize';
-import { Outlet, useNavigate } from "react-router-dom"
-import {HeaderMobile} from "../HeaderMobile/HeaderMobile"
-import { useEffect } from 'react';
-
+import { useState, useEffect } from "react";
+import { Outlet, useNavigate, useLocation } from "react-router-dom";
+import useWindowSize from "../Hooks/useWindowSize";
+import Header from "../Header/Header";
+import HamburgerMenuDesktop from "../HamburgerMenuDesktop/HamburgerMenuDesktop";
+import { HeaderMobile } from "../HeaderMobile/HeaderMobile";
+import "./App.css";
 
 function App() {
-    // Хук для вычиления размеров экрана, чтобы подкинуть правильное меню
-    const { width } = useWindowSize();
-    const navigate = useNavigate()
+  const { width } = useWindowSize();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    useEffect(() => {
-        navigate("Main")
-    }, [])
+  // состояние меню
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
-    return (
-        <>
-            {/* <Login /> */}
-            <main>
-                {width >= 500 && <HamburgerMenuDesktop />}
-                
-                <div className='containerForMain'>
-                    {width >= 500 ? <Header /> : <HeaderMobile/> }
-                    <div className='main'>
-                        <Outlet />
-                    </div>
-                    <footer className={"main_footer"}> {import.meta.env.VITE_VERSION} </footer>
-                </div>
-            </main>
+  // Redirect to Main only when at the root path.
+  useEffect(() => {
+    const path = location.pathname || "/";
+    if (path === "/" || path === "") {
+      navigate("Main", { replace: true });
+    }
+  }, [location.pathname]);
 
-            {/* <SnackBarCustom
-                isOpen={notification.isOpen}
-                isGood={notification.isGood}
-                message={notification.message}
-                onClose={handleCloseSnackbar}
-            /> */}
-        </>
-    );
+  useEffect(() => {
+    if(width > 500 && width < 1000)
+    {
+      setIsMenuOpen(false)
+      return
+    }
 
-   
+    if(width > 1000)
+    {
+      setIsMenuOpen(true)
+    }
+
+
+  }, [width]);
+
+  return (
+    <>
+      <main>
+        {width >= 750 ? (
+          <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
+        ) : (
+          <HeaderMobile />
+        )}
+
+        <div className="containerForMain">
+          <div className="mainWrapper">
+            {width >= 750 && (
+              <HamburgerMenuDesktop
+                isMenuOpen={isMenuOpen}
+                setIsMenuOpen={setIsMenuOpen}
+              />
+            )}
+            <div className="main">
+              <Outlet />
+            </div>
+          </div>
+
+          <footer className="main_footer">{import.meta.env.VITE_VERSION}</footer>
+        </div>
+      </main>
+    </>
+  );
 }
 
 export default App;

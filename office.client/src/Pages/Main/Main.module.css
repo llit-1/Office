@@ -1,7 +1,7 @@
 @media screen and (min-width: 587px) {
     .wrapper_tiles {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); /* Устанавливаем минимальную ширину плитки */
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
         gap: 10px; /* Зазоры между плитками */
         height: fit-content;
     }

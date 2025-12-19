@@ -1,0 +1,217 @@
+.userEditWrapper {
+    width: 100%;
+    height: 100%;
+    background-color: white;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+        box-shadow: 0px 4px 5px 0px #0000002e;
+}
+
+.userEditForm {
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    overflow: hidden;
+}
+
+.leftBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.userEditForm > form {
+    display: flex;
+    flex-direction: row;
+    padding: 10px;
+    gap: 30px;
+    height: 100%;
+}
+
+.blockLabel {
+    font-weight: 400;
+    border: 1px solid #b2b2b229;
+    padding: 0px 0px 6px 6px;
+    margin-bottom: 15px;
+    font-size: 24px;
+    width: 100%;
+    color: black;
+    background: #EEEEEE;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.userInfoBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.togglesWrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.groups {
+    /* max-width: 600px; */
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    justify-content: end;
+    width: 100%;
+}
+
+.connectWrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.userEditFooter {
+    height: 80px;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 15px;
+    padding: 0px 20px 20px 0px;
+    max-height: 60px;
+    min-height: 60px;
+}
+
+.userEditFooter > button {
+    width: 100px;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.saveButton {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.cancelButton {
+    background-color: #EEEEEE;
+}
+
+.cancelButton:hover {
+    background-color: #d8d8d8;
+}
+
+.saveButton:hover {
+    background-color: var(--color-primary-600);
+}
+
+.loadingSpinner {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    min-height: 50vh;
+}
+
+.modalForConnectPerson {
+    min-height: 50vh;
+    display: flex;
+    justify-content: start;
+    align-items: start;
+    flex-direction: column;
+    height: 100%;
+}
+
+.rec {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.rec > p {
+    font-size: 18px;
+    color: var(--color-text);
+    user-select: none;
+}
+
+.recCard {
+    width: 100%;
+    border: 2px dashed #b2b2b2;
+    border-radius: 8px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    font-size: 18px;
+    color: var(--color-text);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+}
+
+.recCard.Selected {
+    background-color: #e0f7e9;
+    border-color: #4CAF50;
+}
+
+.recCard:hover {
+    background-color: #f5f5f5;
+}
+
+.globalSearch {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 20px;
+}
+
+.globalSearch > p {
+    font-size: 18px;
+    color: var(--color-text);
+}
+
+.searchGlobalInput { 
+    background-color: white; 
+    width: fit-content; 
+    border-radius: 10px; 
+    display: flex; 
+    flex-direction: row; 
+    align-items: center; 
+    justify-content: start; 
+    padding-left: 5px;
+    border: 1px solid #b2b2b2;
+    width: 100%;
+
+} 
+
+.searchGlobalInput > span {
+    width: 24px; 
+    height: 24px; 
+} 
+
+.searchGlobalInput > input { 
+    border: none; 
+    margin-left: 10px; 
+    background-color: transparent; 
+    outline: none; 
+    height: 40px; 
+    padding-right: 5px; 
+    font-size: 16px; 
+    width: 100%;
+}

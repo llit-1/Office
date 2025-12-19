@@ -1,62 +1,49 @@
 // import styles from "./Calculate.module.css"
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import styles from "./Calculate.module.css"
-import { pathSet } from "../../Store/stateForBackButtonSlice";
+import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
+import { titleSet } from "../../Store/stateForPageTitleSlice";
+import { RootState } from "../../Store/index";
 import { useEffect } from "react";
-
 
 const Calculate = () => {
 
   const dispatch = useDispatch();
+  const categoryName = useSelector((state: RootState) => state.calculatorData.categoryName);
 
-    useEffect(() => {
-        dispatch(pathSet({ path: "/Calculator/SelectTT" }));
-  }, [dispatch]);
-
+  useEffect(() => {
+    dispatch(titleSet({ title: categoryName || "Калькулятор" }));
+    dispatch(visibleSet({ visible: true  }));
+    dispatch(pathSet({ path: "/Calculator/SelectTT" }));
+  }, [dispatch, categoryName]);
 
   return (
     <>
-      <div className={styles.calculate_wrapper}>
-        <div className={styles.calculate_about}>
-          <div className={styles.calculate_about}>
-            <span>Калькулятор Хлеба</span>
-            <span>Тестовая ТТ</span>
-            <span>Кургузов Владислав</span>
-            <span>06.02.2025 15:30:00</span>
+      <div className={styles.calculateWrapper}>
+        <div className={styles.calculate_inner}>
+          
+          <div className={`${styles.newRow} ${styles.headerRow}`}>
+            <div style={{justifyContent: "start"}}>Наименование</div>
+            <div>Время дефроста</div>
+            <div>Режим выпечки</div>
+            <div>Осталось</div>
+            <div>План</div>
+            <div>Факт</div>
           </div>
-          <img className={styles.calculate_img} src='img/bread.svg'/>
+
+          <div className={styles.calculate_inner_tbody}>
+            {[1,2,3,4,5,6,7,8, 9, 10, 11,12,13,14,15,16,17,18,19,20].map((index) => (
+            <div className={styles.newRow} key={index}>
+              <label>Пирожное Мусс Шоколадный</label>
+              <div>60</div>
+              <div>P3</div>
+              <input type="text" maxLength={3} tabIndex={2} />
+              <div>0</div>
+              <input type="text" maxLength={3} tabIndex={3} />
+            </div>
+          ))}
+          </div>
         </div>
-        <table className={styles.calculate_table}>
-          <thead>
-              <tr>
-                  <th>№</th>
-                  <th>Наименование</th>
-                  <th>Время дефроста</th>
-                  <th>Режим выпечки</th>
-                  <th>Осталось</th>
-                  <th>План</th>
-                  <th>Факт</th>
-              </tr>
-          </thead>
-          <tbody>
-            { [1,2,3,4,5,6,7,8].map((key, index) => (
-              <tr key={key} className={index % 2 === 0 ? "" : styles.even}>
-                <td>{index + 1}</td>
-                <td>Булка </td>
-                <td>35</td>
-                <td>Р3</td>
-                <td>
-                    <input type='text' maxLength={3} tabIndex={index + 1}/>
-                </td>
-                <td>0</td>                           
-                <td>
-                    <input type="text" maxLength={3} tabIndex={index + 2}/>
-                </td>
-              </tr>
-            )) }
-            
-          </tbody>
-        </table>
       </div>
     </>
     

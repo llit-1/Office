@@ -1,5 +1,4 @@
 .calculator_tile {
-    width: 201px;
     height: 50px;
     color: white;
     background-color: #F47920;
@@ -11,6 +10,7 @@
     justify-content: center;
     text-align: center;
     transition: all 0.2s linear;
+    border-radius: 8px;
 }
 
 .calculator_tile:hover {

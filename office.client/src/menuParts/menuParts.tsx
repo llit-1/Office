@@ -2,29 +2,23 @@ import HomeIcon from '@mui/icons-material/HomeOutlined';
 import CalculateRoundedIcon from '@mui/icons-material/CalculateOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
-import QuestionMarkOutlinedIcon from '@mui/icons-material/QuestionMarkOutlined';
-
-const stylesForIcon = {
-  width: "30px",
-  height: "30px",
-  fill: "#333333",
-  marginLeft: "13px"
-};
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+import type { SvgIconComponent } from "@mui/icons-material";
+import AddShoppingCartOutlinedIcon from '@mui/icons-material/AddShoppingCartOutlined';
 
 export interface MenuPart {
   name: string;
-  component: JSX.Element;
+  Icon: SvgIconComponent;
   path: string;
   img: string;
 };
 
 // Экспортируем массив данных
 export const menuParts : MenuPart[] = [
-  { name: "Главная страница", component: <HomeIcon sx={stylesForIcon} />, path: "/Main", img: "" },
-  { name: "Калькулятор", component: <CalculateRoundedIcon sx={stylesForIcon} />, path: "/Calculator/SelectCategory", img: "public/img/calculator.svg"},
-  { name: "Торговые точки", component: <StorefrontOutlinedIcon sx={stylesForIcon} />, path: "/TT", img: "public/img/shop.svg" },
-  { name: "Пользователи", component: <GroupOutlinedIcon sx={stylesForIcon} />, path: "/Users", img: "public/img/users.svg"},
-  { name: "Настройки", component: <SettingsOutlinedIcon sx={stylesForIcon} />, path: "/Settings", img: "public/img/settings.svg"},
-  { name: "Помощь", component: <QuestionMarkOutlinedIcon sx={stylesForIcon} />, path: "/Help", img: "public/img/help.svg"},
+  { name: "Главная страница", Icon: HomeIcon, path: "/Main", img: "" },
+  { name: "Калькулятор", Icon: CalculateRoundedIcon, path: "/Calculator/SelectCategory", img: "public/img/calculator.svg"},
+  { name: "Торговые точки", Icon: StorefrontOutlinedIcon, path: "/TT", img: "public/img/shop.svg" },
+  { name: "Пользователи", Icon: GroupOutlinedIcon, path: "/Users", img: "public/img/users.svg"},
+  { name: "NX Завод", Icon: CameraAltOutlinedIcon, path: "/FactoryNX", img: "public/img/users.svg"},
+  { name: "Заказы ТТ", Icon: AddShoppingCartOutlinedIcon, path: "/Orders", img: "public/img/users.svg"},
 ];

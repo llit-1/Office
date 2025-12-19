@@ -15,7 +15,14 @@ main {
     width: 100%;
     height: 100%;
     display: flex;
+    flex-direction: column;
+}
+
+.mainWrapper {
+    display: flex;
     flex-direction: row;
+    width: 100%;
+    height: calc(100% - 25px);
 }
 
 .containerForMain{
@@ -32,8 +39,8 @@ main {
     background-color: #EEEEEE;
     width: 100%;
     height: 100%;
-    overflow: auto;
     padding: 10px;
+    overflow: auto;
 }
 
 .main_footer {

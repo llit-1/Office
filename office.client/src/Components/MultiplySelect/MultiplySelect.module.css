@@ -1,0 +1,79 @@
+.multiplySelectWrapper {
+    padding: 10px;
+    border: 1px solid #b2b2b2;
+    border-radius: 8px;
+    display: flex;          /* 🔥 вот этого сейчас не хватает */
+    flex-direction: column; /* инпут сверху, список снизу */
+    flex: 1;                /* если родитель — flex-контейнер */
+    min-height: 0;
+}
+
+.search {
+    width: 100%;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid #b2b2b2;
+    padding-left: 12px;
+    font-size: 16px;
+    transition: all 0.05s ease;
+}
+
+.search:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.optionsWrapper {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2px;
+    align-content: flex-start;
+}
+
+.optionsWrapper::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+}
+
+.optionsWrapper::-webkit-scrollbar-thumb {
+    background: #c5c5c5;
+    border-radius: 10px;
+}
+
+.optionsWrapper::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.optionItem {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f3f4f6;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    max-height: 35px;
+    white-space: nowrap;
+}
+
+.selected {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.optionItem:hover {
+    background-color: #e5e7eb;
+    transition: background-color 0.25s linear;
+}
+
+.selected:hover {
+    background-color: var(--color-primary-600);
+    transition: background-color 0.25s linear;
+}

@@ -1,10 +1,11 @@
 import React, {useState} from 'react'
 import styles from "./Login.module.css"
-import {Button, TextField, CircularProgress} from "@mui/material"
+import {Button, TextField } from "@mui/material"
 import { Auth } from "../Requests";
 import { AuthAnswer } from "../../Interfaces/AuthAnswer"
 import { useNotifications } from '@toolpad/core';
 import { useNavigate } from 'react-router-dom';
+import LoadingSpinner from '../../Components/LoadingSpinner/LoadingSpinner';
 
 const Login = () => {
   const [password, setPassword] = useState<string>("");
@@ -91,7 +92,7 @@ const Login = () => {
             }}
             disabled={isLoading}
           >
-            {isLoading ? <CircularProgress sx={{ color: "orange" }} size={26} /> : buttonText}
+            {isLoading ?  <LoadingSpinner size={24} />  : buttonText}
           </Button>
         </form>
 

@@ -1,33 +1,27 @@
-import {useState, useCallback} from 'react'
-import styles from "./HeaderMobile.module.css"
-import Hamburger from 'hamburger-react';
-import {Drawer} from "@mui/material"
+import { useState } from "react";
+import styles from "./HeaderMobile.module.css";
+import Hamburger from "hamburger-react";
 import { useSelector } from "react-redux";
-import { RootState } from "../Store/index";
-import { useNavigate } from "react-router-dom"
-
+import { RootState } from "../Store";
+import { useNavigate } from "react-router-dom";
+import { HamburgerMenuMobile } from "../HamburgerMenuMobile/HamburgerMenuMobile";
 
 export const HeaderMobile = () => {
+  const navigate = useNavigate();
+  const [isOpen, setIsOpen] = useState(false);
+  const title = useSelector((state: RootState) => state.pageTitle.title);
 
-    const navigate = useNavigate()
+  return (
+    <header className={styles.header}>
+      <div className={styles.hamburger}>
+        <Hamburger toggled={isOpen} toggle={setIsOpen} size={20} color="white" />
+      </div>
 
-    const [isOpen, setIsOpen] = useState(false);
+      <p onClick={() => navigate("/Main")}>{title}</p>
 
-    const title = useSelector((state: RootState) => state.pageTitle.title);
+      <div className={styles.logo}></div>
 
-    const toggleDrawer = useCallback((open: boolean) => () => {
-        setIsOpen(open);
-    }, []);
-
-    return (
-        <header className={styles.header} onClick={() => navigate("/Main")}>
-            <Drawer anchor="left" open={isOpen} onClose={toggleDrawer(false)}>
-                <div className={styles.hamburger}>
-                    <Hamburger size={20} color="white"/>
-                </div>
-            </Drawer>
-            <p>{title}</p>
-            <div className={styles.logo} ></div>
-        </header>
-      )
-}
+      <HamburgerMenuMobile isOpen={isOpen} setIsOpen={setIsOpen} />
+    </header>
+  );
+};

@@ -1,0 +1,30 @@
+.connectField_container {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  width: fit-content;
+  border: 1px solid #b2b2b2;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: transparent;
+  padding: 15px;
+  min-width: 110px;
+  justify-content: center;
+  cursor: pointer;
+  min-height: 65px;
+}
+
+.label {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background-color: white;
+    padding: 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c6c6c;
+    line-height: 1;
+    pointer-events: none;
+    
+}

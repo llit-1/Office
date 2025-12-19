@@ -5,8 +5,9 @@
     display: flex;
     justify-content: space-evenly;
     flex-direction: column;
+    border: 1px solid #d2d2d2;
+    border-radius: 8px;
     align-items: center;
-    border: 1px solid #C0C0C0;
     position: relative;
     transition: box-shadow 0.3s ease, transform 0.3s ease;
     cursor: pointer;

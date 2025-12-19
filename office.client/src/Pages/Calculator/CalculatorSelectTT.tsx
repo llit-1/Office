@@ -1,46 +1,113 @@
 import { useDispatch } from "react-redux";
-import styles from "./CalculatorSelectTT.module.css"
-import CalculatorTile from './CalculatorTile'
-import { pathSet } from "../../Store/stateForBackButtonSlice";
-import { useEffect } from "react";
+import styles from "./CalculatorSelectTT.module.css";
+import CalculatorTile from "./CalculatorTile";
+import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
+import { useEffect, useMemo, useState } from "react";
+import SearchIcon from "@mui/icons-material/Search";
+import { useNavigate } from "react-router-dom";
+import { callApi, get } from "../../Services/api";
+import { titleSet } from "../../Store/stateForPageTitleSlice";
+import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
+
+interface Location {
+  actual: 0 | 1;
+  aggregatorsCode: number;
+  guid: string;
+  name: string;
+  rkCode: number;
+}
 
 const CalculatorSelectTT = () => {
-
   const dispatch = useDispatch();
+  const navigate = useNavigate();
 
-    useEffect(() => {
-        dispatch(pathSet({ path: "/Calculator/SelectCategory" }));
-  }, [dispatch]);
+  const [searchText, setSearchText] = useState("");
+  const [data, setData] = useState<Location[] | null>(null);
+  const [loading, setLoading] = useState(true);
 
 
+  const getTTList = async (): Promise<Location[] | null> => {
+    const result = await callApi(get<Location[]>("/Calculator/ttList"));
 
-  const data: Record<number, string> = {
-    1: "Тестовая ТТ",
-    2: "Восстания 169",
-    3: "Лиговский проспект 33",
-    4: "Невский проспект 88",
-    5: "Сенная площадь 15",
-    6: "Пулковское шоссе 25",
-    7: "Московский проспект 120",
-    8: "Проспект Большевиков 19",
-    9: "Комендантский проспект 25",
-    10: "Выборгское шоссе 12",
-    11: "Дальневосточный 45",
-    12: "Ленинский проспект 50",
-    13: "Проспект Ветеранов 61",
-    14: "Улица Дыбенко 14",
-    15: "Энгельса проспект 21"
+    if (result.ok) return result.data;
+    return null;
   };
+
+
+useEffect(() => {
+  dispatch(pathSet({ path: "/Calculator/SelectCategory" }));
+  dispatch(visibleSet({ visible: true  }));
+  dispatch(titleSet({ title: "Выбор ТТ" }));
+
+  (async () => {
+    const ttList = await getTTList();
+    setLoading(false);
+
+    if (!ttList) {
+      setData(null);
+      return;
+    }
+
+    if (!ttList || ttList.length === 0) {
+      setData(null);
+      return;
+    }
+
+    if (ttList.length === 1) {
+      navigate("/Calculator/Calculate/" + ttList[0].guid);
+      return;
+    }
+
+    setLoading(false);
+    setData(ttList);
+  })();
+}, [dispatch, navigate]);
+
+  const filteredData = useMemo(() => {
+    if (!data) return [];
+    const lower = searchText.toLowerCase();
+    return data.filter((item) =>
+      item.name.toLowerCase().includes(lower)
+    );
+  }, [searchText, data]);
+
+  const showSearch = !!data && data.length > 5;
 
   return (
     <>
-      <div className={styles.calculator_wrapper}>
-        {Object.entries(data).map(([key, value]) => (
-          <CalculatorTile key={key} value={value}/>
-        ))}
-      </div>
-    </>
-  )
-}
+      {loading ? (<LoadingSpinner />) : (
+        <>
+          {showSearch ? (
+            <div className={styles.searchWrapper}>
+              <div className={styles.table_search}>
+                <span>
+                  <SearchIcon />
+                </span>
+                <input
+                  type="text"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  placeholder="Поиск..."
+                />
+              </div>
+            </div>
+          ) : !data ? (
+            <div className={styles.textDataNull}>За вами не закреплена ни одна ТТ, обратитесь к администратору</div>
+          ) : null}
 
-export default CalculatorSelectTT
+          <div className={styles.calculator_wrapper}>
+            {!data ? null : filteredData.length === 0 ? (
+              <p className={styles.badSearch}>По указанным данным ТТ не найдено</p>
+            ) : (
+              filteredData.map((item) => (
+                <CalculatorTile key={item.guid} id={item.guid} value={item.name} />
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </>
+  );
+};
+
+export default CalculatorSelectTT;

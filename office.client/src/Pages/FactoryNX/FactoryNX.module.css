@@ -1,0 +1,330 @@
+.factoryNX_wrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.factoryNX_wrapper_personSelect {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto; /* горизонтальная прокрутка */
+    overflow-y: hidden;
+    flex-direction: row;
+    gap: 10px;
+    min-height: 80px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px 11px;
+    background-color: white;
+    border-radius: 8px;
+
+    -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
+    cursor: grab; /* визуальный hint для drag */
+    user-select: none; /* чтобы текст не выделялся при drag */
+}
+
+/* прячем скроллбар (уже был) */
+.factoryNX_wrapper_personSelect::-webkit-scrollbar {
+    display: none;
+}
+
+/* optional: while grabbing, JS переключает на grabbing; можно добавить класс если нужно */
+.factoryNX_wrapper_personSelect.grabbing { 
+    cursor: grabbing; 
+}
+
+.factoryNX_item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background-color: #ffcca8;
+    padding: 10px;
+    gap: 5px;
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+    min-height: 60px;
+    transition: all 0.18s ease-in-out;
+    touch-action: pan-y; /* разрешаем вертикальный пан при touch, блокируем горизонтальную систему браузера */
+}
+
+.factoryNX_item:hover {
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+    transition: all 0.25s linear;
+}
+
+.factoryNX_item > span {
+    font-weight: 600;
+}
+
+/* Активный элемент */
+.factoryNX_itemActive {
+    background-color: #F47920;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+}
+
+.factoryNX_wrapper_photos {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+    max-height: calc(100% - 90px);
+}
+
+.mainPhoto_wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: space-between;
+    width: 40%;
+    height: 100%;
+    max-width: 540px;
+    min-width: 30%;
+    background-color: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-sizing: border-box;
+}
+
+
+/* Квадратная обёртка под фото — будет ровно width блокa */
+.mainPhoto_box {
+    width: 100%;
+    aspect-ratio: 1 / 1; /* гарантирует квадрат */
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f5f5f5;
+    display: block;
+}
+
+/* Само изображение — занимает весь квадрат и обрезается при необходимости */
+.mainPhoto {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 8px;
+}
+
+/* Плейсхолдер на случай отсутствия фото */
+.mainPhoto_placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 14px;
+}
+
+.photosToSelect_wrapper {
+    width: 100%;
+    background-color: white;
+    border-radius: 8px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* не больше 108px, при необходимости сожмутся до 80px */
+    gap: 10px;
+    align-content: start;
+    justify-content: center;
+    overflow: auto;
+}
+
+.photosToSelect_wrapper > img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+    display: block;
+    max-width: 162px;
+    user-select: none;
+}
+
+.buttonWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.buttonWrapper > button {
+    width: 100%;
+    height: 50px;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.otherControl {
+    background-color: gainsboro;
+}
+
+.otherControl:hover {
+    background-color: #bfbfbf;
+}
+
+.handControl {
+    background-color: #F47920;
+}
+
+.handControl:hover {
+    background-color: #D96A1C;
+}
+
+.photoToSelectRed {
+    border: 3px solid #FF4C4C;
+}
+
+.photoToSelectGreen {
+    border: 3px solid #4CAF50;
+}
+
+.factoryNX_wrapper_personSelect {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto; /* горизонтальная прокрутка */
+    overflow-y: hidden;
+    flex-direction: row;
+    gap: 10px;
+    min-height: 80px;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px 11px;
+    background-color: white;
+    border-radius: 8px;
+
+    -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
+    cursor: grab; /* визуальный hint для drag */
+    background-color: var(--color-surface);
+}
+
+/* прячем скроллбар (уже был) */
+.factoryNX_wrapper_personSelect::-webkit-scrollbar {
+    display: none;
+}
+
+.factoryNX_item:hover {
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.02);
+    transition: all 0.25s linear;
+}
+
+.factoryNX_wrapper_photos {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    width: 100%;
+    height: 100%;
+}
+
+.mainPhoto_wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: space-between;
+        background-color: white;
+    background-color: white;
+    max-width: 540px;
+    min-width: 30%;
+    padding: 10px;
+    border-radius: 8px;
+}
+    
+/* Плейсхолдер на случай отсутствия фото */
+.mainPhoto_placeholder {
+    border: 3px solid #4CAF50;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+    font-size: 14px;
+}
+
+.photosToSelect_wrapper {
+    width: 100%;
+    background-color: white;
+    border-radius: 8px;
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* не больше 108px, при необходимости сожмутся до 80px */
+    gap: 10px;
+    align-content: start;
+    justify-content: center;
+    overflow: auto;
+}
+
+.photosToSelect_wrapper > img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    border-radius: 8px;
+    transition: transform 0.2s ease;
+    display: block;
+    max-width: 162px;
+    user-select: none;
+}
+
+.buttonWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.buttonWrapper > button {
+    width: 100%;
+    height: 50px;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.otherControl {
+    background-color: gainsboro;
+}
+
+.otherControl:hover {
+    background-color: #bfbfbf;
+}
+
+.handControl {
+    background-color: #F47920;
+}
+
+.handControl:hover {
+    background-color: #D96A1C;
+}
+
+.photoToSelectRed {
+    border: 3px solid #FF4C4C;
+}
+
+.photoToSelectGreen {
+    border: 3px solid #4CAF50;
+}

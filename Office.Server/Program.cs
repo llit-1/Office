@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -6,11 +7,19 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-//builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+// ========== SWAGGER (ИСПРАВЛЕНО) ==========
+builder.Services.AddEndpointsApiExplorer(); // ← ДОБАВИТЬ ЭТУ СТРОКУ!
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+    {
+        Title = "Office API",
+        Version = "v1",
+        Description = "API для приложения Office"
+    });
+});
 
 builder.Services.AddAuthentication(options =>
 {
@@ -31,7 +40,6 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = TimeSpan.Zero
     };
 });
-
 
 builder.Services.AddCors(options =>
 {
@@ -55,25 +63,32 @@ builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(o
         });
 });
 
-
 var app = builder.Build();
 
 app.UseCors("AllowAllOrigins");
-app.UseDefaultFiles();
-app.UseStaticFiles();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
+    // Swagger ДО static files и fallback!
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Office API V1");
+        options.RoutePrefix = "swagger"; // доступ по /swagger
+    });
 }
 
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// ========== STATIC FILES ПОСЛЕ SWAGGER! ==========
+app.UseDefaultFiles();
+app.UseStaticFiles();
 
 app.MapFallbackToFile("/index.html");
 

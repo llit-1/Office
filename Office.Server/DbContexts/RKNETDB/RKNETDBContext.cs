@@ -15,6 +15,7 @@ namespace Office.Server.DbContexts.RKNETDB
 
         public DbSet<DbContexts.RKNETDB.Models.Location> Locations { get; set; } // локация
         public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; } //пользователь
-
+        public DbSet<DbContexts.RKNETDB.Models.FactoryNXBuffer> FactoryNXBuffer { get; set; } //Логи NX Завод
+        public DbSet<DbContexts.RKNETDB.Models.FactoryPerson> FactoryPerson { get; set; } //Сотрудники Завод
     }
 }

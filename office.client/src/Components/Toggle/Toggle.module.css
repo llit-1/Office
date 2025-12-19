@@ -1,0 +1,100 @@
+.toggle_container {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  width: fit-content;
+  border: 1px solid #b2b2b2;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  background: transparent;
+  padding: 15px;
+  min-width: 110px;
+  justify-content: center;
+  cursor: pointer;
+  min-height: 65px;
+}
+
+/* visually hidden native checkbox */
+.toggle_input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.toggle_switch {
+  --w: 44px;
+  --h: 26px;
+  --pad: 3px;
+  width: var(--w);
+  height: var(--h);
+  background: var(--color-button-ghost);
+  border-radius: 999px;
+  display: inline-block;
+  position: relative;
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle_handle {
+  position: absolute;
+  top: calc(var(--pad));
+  left: calc(var(--pad));
+  width: calc(var(--h) - var(--pad) * 2);
+  height: calc(var(--h) - var(--pad) * 2);
+  background: white;
+  border-radius: 50%;
+  transition: transform 180ms ease, background-color 120ms ease, box-shadow 120ms ease;
+  box-shadow: 0 2px 6px rgba(16,24,40,0.12);
+}
+
+/* checked state: when the preceding input is checked */
+.toggle_input:checked + .toggle_switch {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-600));
+}
+
+.toggle_input:checked + .toggle_switch .toggle_handle {
+  transform: translateX(calc(var(--w) - var(--h)));
+}
+
+/* focus-visible ring */
+.toggle_input:focus-visible + .toggle_switch {
+  outline: 3px solid rgba(244,121,32,0.18);
+  outline-offset: 3px;
+}
+
+/* disabled state */
+.toggle_disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* small size modifier */
+.small {
+  --w: 34px;
+  --h: 20px;
+}
+
+.label {
+  /* Legend-like label that sits on the container border */
+  position: absolute;
+  top: -10px;
+    left: 12px;
+    background-color: white;
+    padding: 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #6c6c6c;
+  line-height: 1;
+  pointer-events: none; /* label shouldn't capture clicks */
+}
+
+/* small label adjustment when small modifier used on the switch */
+.small + .label,
+.toggle_container.small .label {
+  top: -8px;
+  left: 10px;
+  font-size: 11px;
+}

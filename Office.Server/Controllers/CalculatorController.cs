@@ -22,6 +22,15 @@ namespace Office.Server.Controllers
             _rKNETDBContext = rKNETDBContext;
         }
 
+        [HttpGet("ttList")]
+        public IActionResult TtList()
+        {
+            List<Location> locations = _rKNETDBContext.Locations.Where(x => x.Actual == 1 && x.RKCode != null && x.AggregatorsCode != null).ToList();
+
+            return Ok(locations);
+        }
+
+        [HttpGet("vipechka")]
         public IActionResult Vipechka(string id)
         {
             return Ok();
