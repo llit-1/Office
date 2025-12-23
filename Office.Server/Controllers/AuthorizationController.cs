@@ -1,14 +1,11 @@
-﻿using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
-using Office.Server.DbContexts.RKNETDB.Models;
-using System.IdentityModel.Tokens.Jwt;
-using System;
 using System.DirectoryServices;
-using System.Text;
+using System.DirectoryServices.AccountManagement;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace Office.Server.Controllers
 {
@@ -31,34 +28,48 @@ namespace Office.Server.Controllers
             }
             string password = loginModel.Password;
             string login = loginModel.Login;
-            if (password == null || login == null)
+            if (password == null || login == null || !ValidateAdUser(login, password))
             {
                 return Unauthorized(new { message = "Данные введены некорректно!" });
             }
-            string? displayName = "";
-
-            OfficeUser? user = _rKNETDBContext.OfficeUser.FirstOrDefault(c => c.Login == login);
-            if (ADCheck(login,password,ref displayName))
+            var officeUser = _rKNETDBContext.OfficeUser.FirstOrDefault(x => x.Login == login);
+            if (officeUser == null)
             {
+                var user = GetAdUserInfo(login);
                 if (user == null)
                 {
-                    _rKNETDBContext.OfficeUser.Add(new OfficeUser(login, displayName));
-                    _rKNETDBContext.SaveChanges();
-                    user = _rKNETDBContext.OfficeUser.FirstOrDefault(c => c.Login == login);
-                }                                
-            }            
-            else
-            {
-                if (user == null || (user.Password != Global.Encrypt(password)))
-                {
-                    return Unauthorized(new { message = "Ошибка авторизации" });
+                    return Unauthorized(new { message = "Пользователь не найден в AD" });
                 }
+                officeUser = new();
+                officeUser.Login = login;
+                officeUser.Name = user.FirstName?.Trim();
+                officeUser.Surname = user.LastName?.Trim();
+                officeUser.Patronymic = user.MiddleName?.Trim();
+                officeUser.Position = user.Position?.Trim();
+                _rKNETDBContext.OfficeUser.Add(officeUser);
+                _rKNETDBContext.SaveChanges();
             }
-            if (user != null)
+            if (officeUser.Actual == 0)
             {
                 AuthAnswer answer = new AuthAnswer();
-                answer.id = user.Id;
+                answer.id = officeUser.Id;
+                answer.responseCode = 0;
+                return Ok(answer);
+            }
+            if (officeUser.Actual == 1)
+            {
+                AuthAnswer answer = new AuthAnswer();
+                answer.id = officeUser.Id;
                 answer.token = GetToken(login);
+                answer.responseCode = 1;
+                return Ok(answer);
+            }
+            if (officeUser.Actual == 2)
+            {
+                AuthAnswer answer = new AuthAnswer();
+                answer.id = officeUser.Id;
+                answer.token = GetToken(login);
+                answer.responseCode = 2;
                 return Ok(answer);
             }
             return Unauthorized(new { message = "Ошибка БД" });
@@ -76,6 +87,7 @@ namespace Office.Server.Controllers
         {
             public int id { get; set; }
             public string token { get; set; } = "";
+            public int responseCode { get; set; }
         }
 
 
@@ -99,38 +111,44 @@ namespace Office.Server.Controllers
         }
 
 
-        private bool ADCheck(string login, string password, ref string? displayName)
+        private bool ValidateAdUser(string login, string password)
         {
-            try
+            using (var context = new PrincipalContext(ContextType.Domain))
             {
-                using (DirectoryEntry entry = new DirectoryEntry("LDAP://dc1.shzhleb.ru", login, password))
-                {
-                    // Создаем объект DirectorySearcher для поиска пользователя
-                    using (DirectorySearcher searcher = new DirectorySearcher(entry))
-                    {
-                        // Устанавливаем фильтр поиска по логину пользователя
-                        searcher.Filter = $"(&(objectClass=user)(sAMAccountName={login}))";
-
-                        // Выполняем поиск
-                        SearchResult result = searcher.FindOne();
-
-                        if (result != null)
-                        {
-                            // Получаем объект DirectoryEntry найденного пользователя
-                            DirectoryEntry userEntry = result.GetDirectoryEntry();
-                            // Получаем данные пользователя
-                            displayName = userEntry.Properties["displayName"].Value?.ToString();
-                            return true;
-                        }
-
-                        return false;
-                    }
-                }
+                return context.ValidateCredentials(login, password);
             }
-            catch {
-                return false;
-            }
-           
         }
+
+
+        private AdUserInfo GetAdUserInfo(string login)
+        {
+            using (var ctx = new PrincipalContext(ContextType.Domain))
+            using (var user = UserPrincipal.FindByIdentity(ctx, login))
+            {
+                if (user == null)
+                    return null;
+
+                var de = (DirectoryEntry)user.GetUnderlyingObject();
+
+                return new AdUserInfo
+                {
+                    Login = user.SamAccountName,
+                    FirstName = de.Properties["givenName"]?.Value?.ToString(),
+                    LastName = de.Properties["sn"]?.Value?.ToString(),
+                    MiddleName = de.Properties["middleName"]?.Value?.ToString(),
+                    FullName = de.Properties["displayName"]?.Value?.ToString(),
+                    Position = de.Properties["title"]?.Value?.ToString()
+                };
+            }
+        }
+    }
+    public class AdUserInfo
+    {
+        public string? Login { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? MiddleName { get; set; }
+        public string? FullName { get; set; }
+        public string? Position { get; set; }
     }
 }
