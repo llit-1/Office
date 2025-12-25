@@ -28,16 +28,6 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("PassportDate")]
         public DateTime? PassportDate { get; set; }
 
-        // имена свойств совпадают с именами колонок в БД
-        [Column("FactoryDepartment")]
-        public int FactoryDepartment { get; set; }
-
-        [Column("FactoryWorkshop")]
-        public int FactoryWorkshop { get; set; }
-
-        [Column("FactoryJobTitle")]
-        public int FactoryJobTitle { get; set; }
-
         [Column("FactoryCitizenship")]
         public int FactoryCitizenship { get; set; }
 

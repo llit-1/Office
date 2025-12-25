@@ -25,16 +25,18 @@ namespace Office.Server.Controllers
 
         // 2) Получение пользователя по Id (развёрнуто)
         [HttpGet("users/{id}")]
-        public async Task<ActionResult<OfficeUser>> GetUserById(int id)
+        public async Task<ActionResult<OfficeUserModel>> GetUserById(int id)
         {
             var user = await _context.OfficeUser
+                .Include(u => u.Locations)
                 .Include(u => u.OfficeGroup)
-                    .ThenInclude(g => g.OfficeRole)
                 .FirstOrDefaultAsync(u => u.Id == id);
             if (user == null)
                 return NotFound();
-
-            return user;
+            OfficeUserModel officeUserModel = new(user);
+            officeUserModel.Locations = _context.Locations.Include(x => x.LocationType).ToList();
+            officeUserModel.officeGroups = _context.OfficeGroup.Include(x => x.OfficeRole).ToList();
+            return officeUserModel;
         }
 
         // 3) Изменение пользователя
@@ -146,19 +148,15 @@ namespace Office.Server.Controllers
         public async Task<IActionResult> DeleteGroup(int id)
         {
             var group = await _context.OfficeGroup
-                .Include(g => g.OfficeUser)
-                .Include(g => g.OfficeRole)
                 .FirstOrDefaultAsync(g => g.ID == id);
 
             if (group == null)
                 return NotFound();
-
-            if (group.OfficeUser.Any() || group.OfficeRole.Any())
+            var user = _context.OfficeUser.FirstOrDefault(r => r.OfficeGroup.Any(group => group.ID == id));
+            if (user != null)
                 return BadRequest("Группа имеет связанные записи");
-
             _context.OfficeGroup.Remove(group);
             await _context.SaveChangesAsync();
-
             return Ok();
         }
 
@@ -167,7 +165,6 @@ namespace Office.Server.Controllers
         public async Task<ActionResult<IEnumerable<OfficeRole>>> GetAllRoles()
         {
             return await _context.OfficeRole
-                .Include(r => r.OfficeGroup)
                 .ToListAsync();
         }
 
@@ -176,7 +173,6 @@ namespace Office.Server.Controllers
         public async Task<ActionResult<OfficeRole>> GetRoleById(int id)
         {
             var role = await _context.OfficeRole
-                .Include(r => r.OfficeGroup)
                 .FirstOrDefaultAsync(r => r.ID == id);
 
             if (role == null)
@@ -223,19 +219,32 @@ namespace Office.Server.Controllers
         [HttpDelete("roles/{id}")]
         public async Task<IActionResult> DeleteRole(int id)
         {
-            var role = await _context.OfficeRole
-                .Include(r => r.OfficeGroup)
-                .FirstOrDefaultAsync(r => r.ID == id);
-
+            OfficeRole? role = _context.OfficeRole.FirstOrDefault(r => r.ID == id);
             if (role == null)
                 return NotFound();
-
-            if (role.OfficeGroup.Any())
+            var group = _context.OfficeGroup.FirstOrDefault(r => r.OfficeRole.Any(role=> role.ID == id));           
+            if (group != null)
                 return BadRequest("Роль используется в группах");
-
             _context.OfficeRole.Remove(role);
             await _context.SaveChangesAsync();
             return Ok();
         }
+
+
+        public class OfficeUserModel
+        {
+            public OfficeUser OfficeUser { get; set; }
+            public List<Location> Locations { get; set; } = new();
+            public List<OfficeGroup> officeGroups { get; set; }
+
+            public OfficeUserModel(OfficeUser officeUser)
+            {
+                OfficeUser = officeUser;
+            }
+
+        }
     }
+
+    
+
 }
