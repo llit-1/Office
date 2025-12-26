@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
@@ -41,12 +42,11 @@ namespace Office.Server.Controllers
 
         // 3) Изменение пользователя
         [HttpPut("users")]
-        public async Task<IActionResult> UpdateUser([FromBody] OfficeUser model)
+        public async Task<IActionResult> UpdateUser([FromBody] OfficeUserUpdateModel model)
         {
             var user = await _context.OfficeUser
                 .Include(u => u.OfficeGroup)
                 .FirstOrDefaultAsync(u => u.Id == model.Id);
-
             if (user == null)
                 return NotFound();
 
@@ -56,15 +56,31 @@ namespace Office.Server.Controllers
             user.Patronymic = model.Patronymic;
             user.Position = model.Position;
             user.Actual = model.Actual;
+            user.DefaultLocations = model.DefaultLocations;
             user.OfficeGroup.Clear();
-            if (model.OfficeGroup != null)
+            user.OfficeGroup.Clear();
+
+            if (model.OfficeGroup != null && model.OfficeGroup.Count > 0)
             {
-                foreach (var group in model.OfficeGroup)
-                {
-                    var dbGroup = await _context.OfficeGroup.FindAsync(group.ID);
-                    if (dbGroup != null)
-                        user.OfficeGroup.Add(dbGroup);
-                }
+                var groups = await _context.OfficeGroup
+                    .Where(g => model.OfficeGroup.Contains(g.ID))
+                    .ToListAsync();
+
+                foreach (var g in groups)
+                    user.OfficeGroup.Add(g);
+            }
+
+            // ===== Locations (Guid IDs) =====
+            user.Locations.Clear();
+
+            if (model.Locations != null && model.Locations.Count > 0)
+            {
+                var locations = await _context.Locations
+                    .Where(l => model.Locations.Contains(l.Guid))
+                    .ToListAsync();
+
+                foreach (var l in locations)
+                    user.Locations.Add(l);
             }
 
             await _context.SaveChangesAsync();
@@ -243,8 +259,21 @@ namespace Office.Server.Controllers
             }
 
         }
-    }
 
-    
-
+        public class OfficeUserUpdateModel
+        {
+            public int Id { get; set; }
+            public string Login { get; set; }
+            public string? Name { get; set; }
+            public string? Surname { get; set; }
+            public string? Patronymic { get; set; }
+            public string? Position { get; set; }
+            public int Actual { get; set; }
+            public int? FactoryPerson { get; set; }
+            public int? OfficePerson { get; set; }
+            public List<int> OfficeGroup { get; set; }
+            public List<Guid> Locations { get; set; }
+            public int DefaultLocations { get; set; }
+        }
+    }    
 }

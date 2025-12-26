@@ -33,6 +33,9 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("Actual")]
         public int Actual { get; set; }
 
+        [Column("DefaultLocations")]
+        public int DefaultLocations { get; set; }
+
         // FK → FactoryPerson.Id
         [Column("FactoryPerson")]
         public int? FactoryPersonId { get; set; }

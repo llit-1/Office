@@ -46,6 +46,7 @@ namespace Office.Server.Controllers
                 officeUser.Surname = user.LastName?.Trim();
                 officeUser.Patronymic = user.MiddleName?.Trim();
                 officeUser.Position = user.Position?.Trim();
+                officeUser.DefaultLocations = 0;
                 _rKNETDBContext.OfficeUser.Add(officeUser);
                 _rKNETDBContext.SaveChanges();
             }
@@ -127,9 +128,7 @@ namespace Office.Server.Controllers
             {
                 if (user == null)
                     return null;
-
                 var de = (DirectoryEntry)user.GetUnderlyingObject();
-
                 return new AdUserInfo
                 {
                     Login = user.SamAccountName,
