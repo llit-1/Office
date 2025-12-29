@@ -1,30 +1,125 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./MultiplySelect.module.css";
 
-export const MultiplySelect = () => {
+type Key = string | number;
+
+type MultiplySelectProps<T> = {
+  items: T[];
+  getKey: (item: T) => Key;
+  getLabel: (item: T) => string;
+
+  selectedKeys: Key[];
+  onChange: (nextSelectedKeys: Key[]) => void;
+
+  placeholder?: string;
+};
+
+export function MultiplySelect<T>({
+  items,
+  getKey,
+  getLabel,
+  selectedKeys,
+  onChange,
+  placeholder = "Поиск...",
+}: MultiplySelectProps<T>) {
   const [searchText, setSearchText] = useState("");
-  const [options, setOptions] = useState<Option[]>(initialData.sort((a, b) => {
-        // Сначала выбранные
-        if (a.selected && !b.selected) return -1;
-        if (!a.selected && b.selected) return 1;
-        return 0;
-    }));
 
-  const filteredData = useMemo(() => {
-    const lower = searchText.toLowerCase();
-    return options.filter((item) =>
-      item.name.toLowerCase().includes(lower)
-    )
-  }, [options, searchText]);
+  // Подсветка/выбор — обновляется при каждом клике (это нормально)
+  const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
 
-  const toggleSelect = (name: string) => {
-    setOptions((prev) =>
-      prev.map((item) =>
-        item.name === name
-          ? { ...item, selected: !item.selected }
-          : item
-      )
+  /**
+   * Фиксируем порядок в state, чтобы:
+   * 1) после первичной инициализации отрисовалось
+   * 2) порядок не пересчитывался от кликов
+   */
+  const [orderKeys, setOrderKeys] = useState<Key[]>([]);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!items.length) {
+      setOrderKeys([]);
+      setInitialized(false);
+      return;
+    }
+
+    const keysInItems = new Set(items.map(getKey));
+
+    // 1) Первая инициализация: выбранные сверху + алфавит
+    if (!initialized) {
+      const selectedAtInit = new Set(selectedKeys);
+
+      const sortedOnce = [...items].sort((a, b) => {
+        const aKey = getKey(a);
+        const bKey = getKey(b);
+
+        const aSel = selectedAtInit.has(aKey);
+        const bSel = selectedAtInit.has(bKey);
+
+        if (aSel && !bSel) return -1;
+        if (!aSel && bSel) return 1;
+
+        const la = getLabel(a);
+        const lb = getLabel(b);
+
+        const byLabel = la.localeCompare(lb, "ru");
+        if (byLabel !== 0) return byLabel;
+
+        return String(aKey).localeCompare(String(bKey), "ru");
+      });
+
+      setOrderKeys(sortedOnce.map(getKey));
+      setInitialized(true);
+      return;
+    }
+
+    // 2) После инициализации:
+    //    - удаляем ключи, которых больше нет
+    //    - новые элементы добавляем в конец
+    setOrderKeys((prev) => {
+      const next = prev.filter((k) => keysInItems.has(k));
+
+      for (const it of items) {
+        const k = getKey(it);
+        if (!next.includes(k)) next.push(k);
+      }
+
+      return next;
+    });
+
+    // ВАЖНО: специально НЕ зависим от selectedKeys,
+    // чтобы клики не пересортировывали порядок
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, getKey, getLabel, initialized]);
+
+  // key -> item
+  const itemByKey = useMemo(() => {
+    const map = new Map<Key, T>();
+    for (const it of items) map.set(getKey(it), it);
+    return map;
+  }, [items, getKey]);
+
+  // items в зафиксированном порядке
+  const orderedItems = useMemo(() => {
+    return orderKeys
+      .map((k) => itemByKey.get(k))
+      .filter((x): x is T => Boolean(x));
+  }, [orderKeys, itemByKey]);
+
+  // Фильтрация НЕ меняет порядок
+  const visibleItems = useMemo(() => {
+    const lower = searchText.trim().toLowerCase();
+    if (!lower) return orderedItems;
+
+    return orderedItems.filter((item) =>
+      getLabel(item).toLowerCase().includes(lower)
     );
+  }, [orderedItems, searchText, getLabel]);
+
+  const toggle = (key: Key) => {
+    const next = new Set(selectedSet);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange(Array.from(next));
   };
 
   return (
@@ -33,89 +128,30 @@ export const MultiplySelect = () => {
         className={styles.search}
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
-        placeholder="Поиск..."
+        placeholder={placeholder}
       />
 
       <div className={styles.optionsWrapper}>
-        {filteredData.map((item, index) => (
-          <div
-            key={index}
-            className={`${styles.optionItem} ${
-              item.selected ? styles.selected : ""
-            }`}
-            onClick={() => toggleSelect(item.name)}
-          >
-            {item.name}
-          </div>
-        ))}
+        {visibleItems.map((item) => {
+          const key = getKey(item);
+          const label = getLabel(item);
+          const isSelected = selectedSet.has(key);
+
+          return (
+            <div
+              key={String(key)}
+              className={`${styles.optionItem} ${
+                isSelected ? styles.selected : ""
+              }`}
+              onClick={() => toggle(key)}
+              role="button"
+              tabIndex={0}
+            >
+              {label}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
-};
-
-type Option = {
-  name: string;
-  selected: boolean;
-};
-
-const initialData: Option[] = [
-  { name: "Группа 17", selected: true },
-  { name: "ТМ 42", selected: false },
-  { name: "Розница Доставка 7", selected: true },
-  { name: "Партнерское управление 9", selected: false },
-  { name: "Группа 23", selected: true },
-  { name: "ТМ 14", selected: true },
-  { name: "Розница Франшиза 31", selected: false },
-  { name: "Доставка 56", selected: true },
-  { name: "Группа 48", selected: false },
-  { name: "ТМ 3", selected: true },
-  { name: "Розница Франшиза 11", selected: false },
-  { name: "Партнерское управление 27", selected: true },
-  { name: "Группа 36", selected: true },
-  { name: "ТМ 91", selected: false },
-  { name: "Розница Доставка 62", selected: true },
-  { name: "Группа 5", selected: false },
-  { name: "Доставка 44", selected: true },
-  { name: "ТМ 78", selected: false },
-  { name: "Партнерское управление 19", selected: true },
-  { name: "Группа 8", selected: true },
-  { name: "Розница Франшиза 52", selected: false },
-  { name: "ТМ 67", selected: false },
-  { name: "Группа 29", selected: true },
-  { name: "Розница Доставка 15", selected: false },
-  { name: "Партнерское управление 33", selected: true },
-  { name: "Группа 41", selected: false },
-  { name: "ТМ 85", selected: true },
-  { name: "Розница Франшиза 6", selected: true },
-  { name: "Партнерское управление 48", selected: false },
-  { name: "Группа 57", selected: true },
-  { name: "Доставка 11", selected: false },
-  { name: "ТМ 39", selected: true },
-  { name: "Группа 72", selected: false },
-  { name: "Розница Франшиза 98", selected: true },
-  { name: "Партнерское управление 60", selected: false },
-  { name: "Группа 91", selected: true },
-  { name: "ТМ 25", selected: false },
-  { name: "Розница Доставка 74", selected: true },
-  { name: "Группа 4", selected: false },
-  { name: "Доставка 89", selected: true },
-  { name: "Партнерское управление 43", selected: false },
-  { name: "Группа 66", selected: true },
-  { name: "Розница Франшиза 37", selected: true },
-  { name: "ТМ 52", selected: false },
-  { name: "Партнерское управление 71", selected: true },
-  { name: "Группа 12", selected: false },
-  { name: "Розница Доставка 28", selected: true },
-  { name: "ТМ 94", selected: true },
-  { name: "Группа 33", selected: false },
-  { name: "Доставка 21", selected: true },
-  { name: "Розница Франшиза 63", selected: false },
-  { name: "Партнерское управление 54", selected: true },
-  { name: "Группа 20", selected: false },
-  { name: "ТМ 47", selected: true },
-  { name: "Розница Доставка 82", selected: false },
-  { name: "Группа 73", selected: true },
-  { name: "ТМ 58", selected: false },
-  { name: "Партнерское управление 13", selected: true },
-  { name: "Группа 26", selected: false },
-];
+}

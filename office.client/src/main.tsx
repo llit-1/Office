@@ -1,11 +1,14 @@
 import { createRoot } from 'react-dom/client'
+import { useEffect } from 'react'
 import App from './App/App'
-import store, { persistor } from './Store/index'
+import store, { persistor, RootState } from './Store/index'
 import { Provider } from "react-redux";
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom"
+import { useSelector, useDispatch } from 'react-redux'
+import { login } from './Store/authSlice'
 import { PersistGate } from "redux-persist/integration/react";
 import Login from "./Pages/Login/Login"
-import "../public/Fonts/Akrobat/akrobat.css"
+import RequireAuth from "./App/RequireAuth";
 import TT from "./Pages/TT/TT"
 import NotFound from "./Pages/NotFound/NotFound"
 import Users from "./Pages/Users/Users"
@@ -21,6 +24,35 @@ import FactoryNX from './Pages/FactoryNX/FactoryNX';
 import "./styles/design-tokens.css";
 import UserEdit from './Pages/Users/UserEdit';
 import Orders from './Pages/Orders/Orders';
+import Notifications from './Pages/Notifications/Notifications';
+import GroupEdit from './Pages/Users/GroupEdit';
+import RoleEdit from './Pages/Users/RoleEdit';
+
+function StartupChecker() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const token = useSelector((s: RootState) => s.auth?.token);
+
+  useEffect(() => {
+    if (token) return; // already have token
+
+    try {
+      const lsToken = localStorage.getItem('token') || localStorage.getItem('authToken');
+      const lsId = localStorage.getItem('id') || localStorage.getItem('userId');
+      if (lsToken) {
+        dispatch(login({ id: lsId ? Number(lsId) : undefined, token: lsToken }));
+        return;
+      }
+    } catch {
+      // ignore localStorage errors
+    }
+
+    // No token found anywhere — redirect to login (cannot silently obtain token without credentials)
+    navigate('/Login');
+  }, [token, dispatch, navigate]);
+
+  return null;
+}
 
 createRoot(document.getElementById('root')!).render(
       <Provider store={store}>
@@ -31,9 +63,12 @@ createRoot(document.getElementById('root')!).render(
                 anchorOrigin: { vertical: 'top', horizontal: 'right' },
               },
             }}>
+                {/* StartupChecker runs after PersistGate rehydration and before routes mount */}
+                <StartupChecker />
+
                 <Routes>
 
-                  <Route path='/' element={<App /> }>
+                  <Route path='/' element={<RequireAuth><App /></RequireAuth> }>
                     <Route path="Main" element={<Main />} />
 
                     <Route path="Calculator" element={<Calculator />}>
@@ -44,13 +79,20 @@ createRoot(document.getElementById('root')!).render(
 
                     <Route path="TT" element={<TT />}/>
                     <Route path="Users" element={<Users />} />
-                    <Route path="/Users/Edit/" element={<UserEdit />} />
+                    <Route path="/Users/Edit" element={<UserEdit />} />
+                    <Route path="/Users/Edit/:id" element={<UserEdit />} />
+                    <Route path="/Groups/Edit" element={<GroupEdit />} />
+                    <Route path="/Groups/Edit/:id" element={<GroupEdit />} />
+                    <Route path="/Roles/Edit" element={<RoleEdit />} />
+                    <Route path="/Roles/Edit/:id" element={<RoleEdit />} />
                     <Route path="Settings" element={<Settings />} />
                     <Route path="Help" element={<Help />} /> 
                     <Route path="*" element={<NotFound />} />
 
                     <Route path='FactoryNX' element={<FactoryNX />} />
                     <Route path='Orders' element={<Orders />} />
+                    <Route path='Notifications' element={<Notifications />} />
+                    
                   </Route>
 
                   <Route path='/Login' element={<Login />} />

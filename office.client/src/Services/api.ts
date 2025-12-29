@@ -25,6 +25,7 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+
 // Request interceptor: attach token if present
 api.interceptors.request.use(
   (config) => {
@@ -72,8 +73,20 @@ api.interceptors.response.use(
     if (status === 401) {
       try {
         localStorage.removeItem("token");
+        localStorage.removeItem("id");
       } catch {
         // ignore
+      }
+
+      // чтобы не зациклиться (если мы уже на /Login)
+      const loginPath = "/Login";
+      const currentPath = window.location.pathname;
+
+      if (currentPath !== loginPath) {
+        // Можно также сохранить, куда хотели попасть
+        // localStorage.setItem("afterLoginRedirect", currentPath);
+
+        window.location.replace(loginPath);
       }
     }
 
@@ -146,7 +159,8 @@ export async function callApi<T>(
     return { ok: true, data };
   } catch (err: unknown) {
     const friendly = getFriendlyErrorMessage(err);
-    if (options?.notifications) {
+    const isUnauthorized = err instanceof ApiError && err.status === 401;
+    if (options?.notifications && !isUnauthorized) {
       options.notifications.show(friendly, { severity: "error", autoHideDuration: 5000 });
     }
 

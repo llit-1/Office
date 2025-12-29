@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
@@ -18,6 +18,7 @@ namespace Office.Server.Controllers
         }
 
         // 1) Получение всех пользователей
+        [Authorize]
         [HttpGet("users")]
         public async Task<ActionResult<IEnumerable<OfficeUser>>> GetAllUsers()
         {
@@ -45,6 +46,7 @@ namespace Office.Server.Controllers
         public async Task<IActionResult> UpdateUser([FromBody] OfficeUserUpdateModel model)
         {
             var user = await _context.OfficeUser
+                .Include(u => u.Locations)
                 .Include(u => u.OfficeGroup)
                 .FirstOrDefaultAsync(u => u.Id == model.Id);
             if (user == null)
@@ -57,7 +59,6 @@ namespace Office.Server.Controllers
             user.Position = model.Position;
             user.Actual = model.Actual;
             user.DefaultLocations = model.DefaultLocations;
-            user.OfficeGroup.Clear();
             user.OfficeGroup.Clear();
 
             if (model.OfficeGroup != null && model.OfficeGroup.Count > 0)
@@ -91,7 +92,7 @@ namespace Office.Server.Controllers
         [HttpGet("groups")]
         public async Task<ActionResult<IEnumerable<OfficeGroup>>> GetAllGroups()
         {
-            return await _context.OfficeGroup.ToListAsync();
+            return await _context.OfficeGroup.Include(x => x.OfficeRole).ToListAsync();
         }
 
         // 5) Получение группы по Id
@@ -103,8 +104,12 @@ namespace Office.Server.Controllers
                 .FirstOrDefaultAsync(g => g.ID == id);
             if (group == null)
                 return NotFound();
-            return group;
+            OfficeGroupModel officeGroupModel = new OfficeGroupModel();
+            officeGroupModel.OfficeGroup = group;
+            officeGroupModel.OfficeRoles = _context.OfficeRole.ToList();
+            return Ok(officeGroupModel);
         }
+
 
         // 6) Создание группы
         [HttpPost("groups")]
@@ -194,7 +199,7 @@ namespace Office.Server.Controllers
             if (role == null)
                 return NotFound();
 
-            return role;
+            return Ok(role);
         }
 
         // 11) Создание роли
@@ -246,6 +251,11 @@ namespace Office.Server.Controllers
             return Ok();
         }
 
+        public class OfficeGroupModel
+        {
+            public OfficeGroup OfficeGroup { get; set; }
+            public List<OfficeRole> OfficeRoles { get; set; }
+        }
 
         public class OfficeUserModel
         {
@@ -275,5 +285,7 @@ namespace Office.Server.Controllers
             public List<Guid> Locations { get; set; }
             public int DefaultLocations { get; set; }
         }
-    }    
+
+        // DefaultLocations: 0 - Ничего, 1 - Все ТТ.
+    }
 }

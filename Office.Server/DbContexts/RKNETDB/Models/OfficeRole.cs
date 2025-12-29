@@ -6,15 +6,5 @@
         public string Name { get; set; } = "";
         public string Description { get; set; } = "";
         public string Role { get; set; } = "";
-
-        public static bool operator ==(OfficeRole left, OfficeRole right)
-        {
-            return left.ID == right.ID;
-        }
-        public static bool operator !=(OfficeRole left, OfficeRole right)
-        {
-            return left.ID != right.ID;
-        }
-
     }
 }

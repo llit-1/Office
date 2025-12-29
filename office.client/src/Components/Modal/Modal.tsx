@@ -12,6 +12,7 @@ export interface ModalProps {
   closeOnBackdropClick?: boolean
   showClose?: boolean
   ariaLabel?: string
+  sx?: React.CSSProperties
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -22,6 +23,7 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   showClose = true,
   ariaLabel,
+  sx,
 }) => {
   const backdropRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -67,6 +69,7 @@ export const Modal: React.FC<ModalProps> = ({
         className={`${styles.modal_panel} ${styles[size] ?? ''}`}
         ref={panelRef}
         tabIndex={-1}
+        style={sx}
       >
         <header className={styles.modal_header}>
           <h3 className={styles.modal_title}>{title}</h3>

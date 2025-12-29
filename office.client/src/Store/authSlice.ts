@@ -1,12 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface AuthState {
+  id: number | null;
   token: string | null;
   phone: string | null;
   code: string | null;
 }
 
 const initialState: AuthState = {
+  id: null,
   token: null,
   phone: '',
   code: null,
@@ -16,7 +18,10 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    login(state, action: PayloadAction<{ token?: string; phone?: string; code?: string }>) {
+    login(state, action: PayloadAction<{ id?: number; token?: string; phone?: string; code?: string }>) {
+      if (typeof action.payload.id !== 'undefined') {
+        state.id = action.payload.id ?? null;
+      }
       if (action.payload.token) {
         state.token = action.payload.token;
       }
@@ -28,10 +33,15 @@ const authSlice = createSlice({
       }
     },
     logout: (state) => {
+      state.id = null;
       state.token = null;
       state.phone = '';
       state.code = null;
-      localStorage.removeItem('authToken'); // Удаляем токен из localStorage
+      try {
+        localStorage.removeItem('authToken'); // legacy key
+        localStorage.removeItem('token');
+        localStorage.removeItem('id');
+      } catch {}
     },
   },
 });

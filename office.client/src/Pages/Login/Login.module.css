@@ -58,3 +58,51 @@
     padding-top: 30px;
     font-family: "Akrobat";
 }
+
+.modalText {
+    font-size: 16px;
+    display: flex;
+    justify-content: center;
+    align-content: center;
+    padding: 15px 0px;
+    text-align: center;
+    font-family: "Akrobat";
+}
+
+.modalContent {
+    background-color: white;
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    justify-content: center;
+    align-items: center;
+}
+
+.modalImg {
+    width: 200px;
+    height: 200px;
+}
+
+.modalActions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modalButton {
+    width: 120px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s linear;
+    font-weight: 600;
+}
+
+.modalButton:hover {
+    background-color: #e0e0e0;
+}

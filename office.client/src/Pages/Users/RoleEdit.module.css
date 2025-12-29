@@ -1,0 +1,95 @@
+.loadingSpinner {
+    width: 100%;
+    height: 100%;
+}
+
+.roleEditWrapper {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.userEditFooter {
+    height: 40px;
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    max-height: 40px;
+    min-height: 40px;
+}
+
+.userEditFooter > button {
+    width: 100px;
+    height: 100%;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.saveButton {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.cancelButton {
+    background-color: #EEEEEE;
+}
+
+.cancelButton:hover {
+    background-color: #d8d8d8;
+}
+
+.saveButton:hover {
+    background-color: var(--color-primary-600);
+}
+
+.groups {
+    /* max-width: 600px; */
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    justify-content: start;
+    border: 1px solid #dadce0;
+    padding: 15px;
+    border-radius: 8px;
+    background-color: white;
+    width: 100%;
+}
+
+.blockLabel {
+    font-weight: 400;
+    border: 1px solid #b2b2b229;
+    padding: 0px 0px 6px 6px;
+    margin-bottom: 15px;
+    font-size: 24px;
+    width: 100%;
+    color: black;
+    background: #EEEEEE;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.userInfoBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    border-radius: 8px;
+    background-color: white;
+}
+
+.buttonDelete {
+    background-color: var(--color-danger);
+    color: white;
+    transition: all 0.25s linear;
+}
+
+.buttonDelete:hover {
+    background-color: #d41c1c;
+}
