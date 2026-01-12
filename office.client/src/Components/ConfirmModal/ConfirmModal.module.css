@@ -1,0 +1,58 @@
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+  align-items: center;
+  padding: 8px 4px;
+}
+
+.modalImg {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+}
+
+.modalText {
+  font-size: 18px;
+  text-align: center;
+  color: var(--color-text);
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  justify-content: space-evenly;
+}
+
+.modalButton {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.confirmPrimary {
+  background: var(--color-primary);
+  color: #fff;
+  width: 70px;
+  height: 40px;
+  transition: all 0.25s linear;
+}
+
+.confirmSecondary {
+  background: #eeeeee;
+  color: #111;
+  width: 70px;
+  height: 40px;
+  transition: all 0.25s linear;
+}
+
+.confirmPrimary:hover {
+    background-color: var(--color-primary-600);
+}
+
+.confirmSecondary:hover {
+    background-color: #d8d8d8;
+}

@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import type { UseFormSetError } from "react-hook-form";
 import { useNotifications } from "@toolpad/core";
 import { callApi, get, post, put, del } from "../../Services/api";
+import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import type { OfficeRole } from "../../Interfaces/Users";
 
 const DEFAULTS: OfficeRole = {
@@ -121,12 +122,16 @@ export default function RoleEdit() {
     if (result.ok) navigate("/Users");
   };
 
-  const onDelete = async () => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const onDelete = () => {
     if (isCreate || !id) return;
+    setConfirmOpen(true);
+  };
 
-    const ok = window.confirm("Удалить роль? Это действие необратимо.");
-    if (!ok) return;
-
+  const handleConfirmDelete = async () => {
+    if (isCreate || !id) return;
+    setConfirmOpen(false);
     setSaving(true);
 
     const result = await callApi(del(`/User/roles/${id}`), {
@@ -191,6 +196,14 @@ export default function RoleEdit() {
           )}
         </button>
       </div>
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title={"Подтвердите удаление"}
+        message={"Вы уверены, что хотите удалить роль?"}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        sx={{maxWidth: "420px"}}
+      />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { useForm } from "react-hook-form";
 import type { UseFormSetError } from "react-hook-form";
 import { useNotifications } from "@toolpad/core";
 import { callApi, get, post, put, del } from "../../Services/api";
+import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import type { OfficeGroup, OfficeRole } from "../../Interfaces/Users";
 
 const DEFAULTS: OfficeGroup = {
@@ -163,12 +164,16 @@ export default function GroupEdit() {
     if (result.ok) navigate("/Users");
   };
 
-  const onDelete = async () => {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const onDelete = () => {
     if (isCreate || !id) return;
+    setConfirmOpen(true);
+  };
 
-    const ok = window.confirm("Удалить группу? Это действие необратимо.");
-    if (!ok) return;
-
+  const handleConfirmDelete = async () => {
+    if (isCreate || !id) return;
+    setConfirmOpen(false);
     setSaving(true);
 
     const result = await callApi(del(`/User/groups/${id}`), {
@@ -241,6 +246,14 @@ export default function GroupEdit() {
           )}
         </button>
       </div>
+      <ConfirmModal
+        isOpen={confirmOpen}
+        title={"Подтвердите удаление"}
+        message={"Вы уверены, что хотите удалить группу?"}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={handleConfirmDelete}
+        sx={{maxWidth: "420px"}}
+      />
     </div>
   );
 }
