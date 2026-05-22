@@ -202,7 +202,7 @@ export default function RoleEdit() {
         message={"Вы уверены, что хотите удалить роль?"}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
-        sx={{maxWidth: "420px"}}
+        panelClassName={styles.confirmModalPanel}
       />
     </div>
   );

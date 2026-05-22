@@ -1,4 +1,4 @@
-.backArrow_container {
+﻿.backArrow_container {
     width: 100%;
     height: 50px;
     display: flex;
@@ -19,7 +19,7 @@
 }
 
 .backArrow_wrapper:hover {
-    color: rgb(70, 70, 70);
+    color: var(--color-text);
 }
 
 .backArrow_text {

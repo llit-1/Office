@@ -2,19 +2,12 @@ import styles from "./HamburgerMenuDesktop.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { menuParts } from "../menuParts/menuParts";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Tooltip, tooltipClasses } from "@mui/material";
+import { Tooltip } from "@mui/material";
 
 interface HamburgerMenuProps {
   isMenuOpen: boolean;
   setIsMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
-
-const iconSx = {
-  width: 30,
-  height: 30,
-  fill: "#333333",
-  marginLeft: "13px",
-};
 
 const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
   isMenuOpen,
@@ -56,7 +49,7 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
           >
             {isMenuOpen ? (
               <div>
-                <Icon sx={iconSx} />
+                <Icon className={styles.menuIcon} />
                 <p className={styles.visible_text}>{elem.name}</p>
               </div>
             ) : (
@@ -66,18 +59,11 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
                 title={elem.name}
                 placement="right"
                 slotProps={{
-                  popper: {
-                    sx: {
-                      [`&.${tooltipClasses.popper}[data-popper-placement*="right"] .${tooltipClasses.tooltip}`]:
-                        {
-                          marginLeft: "10px",
-                        },
-                    },
-                  },
+                  tooltip: { className: styles.menuTooltip },
                 }}
               >
                 <div>
-                  <Icon sx={iconSx} />
+                  <Icon className={styles.menuIcon} />
                 </div>
               </Tooltip>
             )}

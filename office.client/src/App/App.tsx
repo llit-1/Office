@@ -37,6 +37,19 @@ function App() {
 
   }, [width]);
 
+  useEffect(() => {
+    try {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark" || savedTheme === "light") {
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        return;
+      }
+    } catch {
+      // ignore localStorage issues
+    }
+    document.documentElement.setAttribute("data-theme", "light");
+  }, []);
+
   return (
     <>
       <main>

@@ -6,7 +6,7 @@
   gap: 8px;
   border-radius: var(--radius-md);
   padding: 10px 14px;
-  background: transparent;
+  background: var(--color-transparent);
   padding: 15px;
   min-width: 110px;
   justify-content: center;
@@ -34,7 +34,7 @@
   display: inline-block;
   position: relative;
   transition: background-color 180ms ease, box-shadow 180ms ease;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--color-primary);
 }
 
 .toggle_handle {
@@ -43,10 +43,10 @@
   left: calc(var(--pad));
   width: calc(var(--h) - var(--pad) * 2);
   height: calc(var(--h) - var(--pad) * 2);
-  background: white;
+  background: var(--color-white);
   border-radius: 50%;
   transition: transform 180ms ease, background-color 120ms ease, box-shadow 120ms ease;
-  box-shadow: 0 2px 6px rgba(16,24,40,0.12);
+  box-shadow: var(--shadow-sm);
 }
 
 /* checked state: when the preceding input is checked */
@@ -60,7 +60,7 @@
 
 /* focus-visible ring */
 .toggle_input:focus-visible + .toggle_switch {
-  outline: 3px solid rgba(244,121,32,0.18);
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-transparent));
   outline-offset: 3px;
 }
 
@@ -80,11 +80,11 @@
   /* Legend-like label that sits on the container border */
   position: absolute;
   top: 0px;
-    background-color: white;
+    background-color: var(--color-surface);
     padding: 0 4px;
     font-size: 14px;
     font-weight: 600;
-    color: #6c6c6c;
+    color: var(--color-text-muted);
   line-height: 1;
   pointer-events: none; /* label shouldn't capture clicks */
 }
@@ -96,3 +96,7 @@
   left: 10px;
   font-size: 11px;
 }
+
+
+
+

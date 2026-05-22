@@ -23,7 +23,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         public DateTime Birthdate { get; set; }
 
         [Required, MaxLength(25), Column("Passport")]
-        public string Passport { get; set; }
+        public string Passport { get; set; } = string.Empty;
 
         [Column("PassportDate")]
         public DateTime? PassportDate { get; set; }
@@ -37,6 +37,15 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("FactoryDocumentType")]
         public int FactoryDocumentType { get; set; }
 
+        [Column("FactoryDepartment")]
+        public int? FactoryDepartment { get; set; }
+
+        [Column("FactoryWorkshop")]
+        public int? FactoryWorkshop { get; set; }
+
+        [Column("FactoryJobTitle")]
+        public int? FactoryJobTitle { get; set; }
+
         [MaxLength(10), Column("Phone")]
         public string? Phone { get; set; }
 
@@ -45,6 +54,18 @@ namespace Office.Server.DbContexts.RKNETDB.Models
 
         [Column("FactoryBanks")]
         public int? FactoryBanks { get; set; }
+
+        [ForeignKey("FactoryBanks")]
+        public FactoryBanks? Bank { get; set; }
+
+        [ForeignKey("FactoryCitizenship")]
+        public FactoryCitizenship? Citizenship { get; set; }
+
+        [ForeignKey("FactoryEntity")]
+        public FactoryEntity? Entity { get; set; }
+
+        [ForeignKey("FactoryDocumentType")]
+        public FactoryDocumentType? DocumentType { get; set; }
 
         [Column("HostelChekin", TypeName = "date")]
         public DateTime? HostelChekin { get; set; }

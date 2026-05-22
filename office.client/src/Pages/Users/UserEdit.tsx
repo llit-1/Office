@@ -24,6 +24,7 @@ import type {
   Personality,
   Location,
 } from "../../Interfaces/Users";
+import Select from "../../Components/Select/Select";
 
 /**
  * Формат ответа с бэка (по Swagger)
@@ -42,6 +43,7 @@ type FormValues = {
   officeUser: OfficeUser;
   locations: Location[];
   officeGroups: OfficeGroup[];
+  ttBinding: string;
   isTT: boolean;
 };
 
@@ -84,6 +86,7 @@ const DEFAULTS: FormValues = {
   },
   locations: [],
   officeGroups: [],
+  ttBinding: "manualTT",
   isTT: false,
 };
 
@@ -110,14 +113,12 @@ function modelToForm(model?: OfficeUserModel | null): FormValues {
     },
     locations: allLocations,
     officeGroups: allGroups,
-    // isTT можно считать по количеству выбранных локаций у пользователя
+    ttBinding: userLocations.length === 0 ? "allTT" : "manualTT",
     isTT: userLocations.length > 0,
   };
 }
 
-/**
- * callApi ожидает setError более "общего" типа, поэтому делаем адаптер
- */
+
 function asApiSetError(setError: UseFormSetError<FormValues>) {
   return setError as unknown as UseFormSetError<Record<string, unknown>>;
 }
@@ -161,6 +162,8 @@ export default function UserEdit() {
 
   const isTt = watch("isTT");
 
+  const ttBinding = watch("ttBinding");
+
   const allGroups = watch("officeGroups");
   const userGroups = watch("officeUser.officeGroup");
 
@@ -202,6 +205,24 @@ export default function UserEdit() {
 
     setValue("officeUser.locations", nextSelectedLocations, { shouldDirty: true });
   };
+
+  // When ttBinding switches to allTT, clear selected locations and block selection
+  useEffect(() => {
+    if (ttBinding === "allTT") {
+      setValue("officeUser.locations", [], { shouldDirty: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttBinding]);
+
+  // Auto-select allTT when there are no user locations
+  useEffect(() => {
+    if (!userLocations || userLocations.length === 0) {
+      setValue("ttBinding", "allTT", { shouldDirty: false });
+    } else {
+      setValue("ttBinding", "manualTT", { shouldDirty: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userLocations]);
 
   /**
    * Настройка заголовка/кнопки "назад" при открытии страницы
@@ -406,6 +427,22 @@ export default function UserEdit() {
                   }
                 />
               </div>
+
+              <Select
+                label="Тип привязки ТТ"
+                options={[
+                  { value: "allTT", label: "Все ТТ" },
+                  { value: "manualTT", label: "Выбрать ТТ" },
+                ]}
+                disabled={!isTt}
+                value={ttBinding}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setValue("ttBinding", String(e.target.value), { shouldDirty: true })
+                }
+              />
+
+              
+
             </div>
 
             <div className={styles.groups}>
@@ -435,6 +472,7 @@ export default function UserEdit() {
                 getLabel={(l) => l.name ?? l.guid}
                 selectedKeys={selectedLocationGuids}
                 onChange={onLocationsChange}
+                disabled={ttBinding === "allTT"}
               />
             </div>
           )}

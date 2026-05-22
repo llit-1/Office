@@ -103,7 +103,7 @@ namespace Office.Server.Controllers
             {
                 new Claim(ClaimTypes.Name, name)
             }),
-                Expires = DateTime.UtcNow.AddHours(1),
+                Expires = DateTime.UtcNow.AddHours(12),
                 SigningCredentials = new(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
             var tok = tokenHandler.CreateToken(tokenDescriptor);

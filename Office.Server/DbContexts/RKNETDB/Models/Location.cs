@@ -8,7 +8,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Key, DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("GUID")]
         public Guid Guid { get; set; }
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         public int? RKCode { get; set; }
         public int? AggregatorsCode { get; set; }
         public int Actual { get; set; }
@@ -30,7 +30,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
 
         [Column("NAME")]
         [MaxLength(50)]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
     }
 }

@@ -23,7 +23,7 @@ const Calculate = () => {
         <div className={styles.calculate_inner}>
           
           <div className={`${styles.newRow} ${styles.headerRow}`}>
-            <div style={{justifyContent: "start"}}>Наименование</div>
+            <div className={styles.leftAlignedCell}>Наименование</div>
             <div>Время дефроста</div>
             <div>Режим выпечки</div>
             <div>Осталось</div>

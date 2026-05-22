@@ -1,0 +1,628 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.pageSubtitle {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+}
+
+.panel,
+.tabsCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 16px 48px var(--color-overlay-soft);
+}
+
+.resultsPanel {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+
+.filtersGrid {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-items: start;
+  flex-wrap: nowrap;
+  gap: 10px;
+}
+
+.filtersActions,
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 15px;
+
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.sectionMeta {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+}
+
+.panelTools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.primaryButton,
+.dangerButton,
+.refreshButton,
+.dropdownItem {
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease, background-color 0.15s ease;
+}
+
+.primaryButton,
+.dangerButton {
+  padding: 12px 18px;
+  font-weight: 600;
+}
+
+.primaryButton {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
+  color: var(--color-white);
+  height: 42px;
+}
+
+.dangerButton {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+.settingsIconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 8px;
+  background: var(--color-surface-muted);
+  color: var(--color-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.primaryButton:hover,
+.dangerButton:hover,
+.refreshButton:hover,
+.dropdownItem:hover {
+  transform: translateY(-1px);
+}
+
+.settingsIconButton:hover {
+  background: var(--color-overlay-soft);
+}
+
+.settingsIconButton:hover :global(svg) {
+  transform: rotate(90deg);
+}
+
+.settingsIconButton :global(svg) {
+  transition: transform 0.2s ease;
+}
+
+.primaryButton:disabled,
+.dangerButton:disabled,
+.settingsIconButton:disabled,
+.refreshButton:disabled {
+  cursor: default;
+  opacity: 0.6;
+  transform: none;
+}
+
+.centerState,
+.emptyState {
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.tableWrap {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.tableScroll {
+  overflow: visible;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table th,
+.table td {
+  padding: 0px 10px;
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: middle;
+  color: var(--color-text);
+  font-size: 14px;
+  height: 42px;
+  line-height: 1.2;
+  box-sizing: border-box;
+}
+
+.table th {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-white);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-primary);
+}
+
+.table th:last-child,
+.table td:last-child {
+  border-right: none;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table th:nth-child(7),
+.table td:nth-child(7),
+.table th:nth-child(8),
+.table td:nth-child(8),
+.table th:nth-child(12),
+.table td:nth-child(12) {
+  text-align: center;
+}
+
+.statusCell {
+  text-align: center !important;
+}
+
+.actionCell {
+  text-align: center;
+}
+
+.positiveIcon,
+.negativeIcon {
+  vertical-align: middle;
+}
+
+.positiveIcon {
+  color: var(--color-success);
+}
+
+.negativeIcon {
+  color: var(--color-danger);
+}
+
+.warningRow {
+  background: var(--color-warning-bg);
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover {
+  background: var(--color-info-bg);
+}
+
+.refreshButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--color-surface-muted);
+  color: var(--color-primary);
+}
+
+.spinningIcon {
+  animation: salary-spin 0.9s linear infinite;
+}
+
+.autocompleteField {
+  position: relative;
+}
+
+.autocompleteFieldMedium {
+  grid-column: span 2;
+  max-width: 300px;
+}
+
+.compactField {
+  height: 42px;
+  min-height: 42px;
+}
+
+.filtersGrid > :first-child {
+  max-width: 270px;
+  min-width: 190px;
+}
+
+.fieldLabel {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  z-index: 1;
+  background: var(--color-surface);
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.autocompleteWrapper {
+  position: relative;
+  height: 42px;
+  min-width: 200px;
+  width: 300px;
+}
+
+.autocompleteInput {
+  width: 100%;
+  height: 42px;
+  padding: 0 44px 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 16px;
+}
+
+.autocompleteInput:focus,
+.autocompleteInput:focus-visible {
+  border: 2px solid var(--color-primary);
+  outline: none;
+}
+
+.autocompleteIcon {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
+  color: var(--color-text-subtle);
+}
+
+.autocompleteDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 18px 48px var(--color-overlay);
+  max-height: 240px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.showButton:hover {
+  transform: none;
+}
+
+.dropdownState,
+.dropdownItem {
+  width: 100%;
+  padding: 12px 14px;
+  text-align: left;
+  background: transparent;
+}
+
+.dropdownState {
+  color: var(--color-text-muted);
+}
+
+.dropdownItem {
+  color: var(--color-text);
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.modalGridSingleColumn {
+  grid-template-columns: 1fr;
+}
+
+.salarySettingsModalPanel {
+  max-width: 640px;
+  max-height: calc(100vh - 32px);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px var(--color-overlay-strong);
+}
+
+.salarySettingsModalHeader {
+  padding: 14px 16px;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.salarySettingsModalTitle {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.salarySettingsModalClose {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.salarySettingsModalClose:hover {
+  background: var(--color-surface-muted);
+}
+
+.salarySettingsModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
+
+.checksBlock {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 0px 10px 0px;
+}
+
+.checkboxItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+@keyframes salary-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1400px) {
+  .salaryHeader {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .filtersGrid {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .filtersGrid > :first-child {
+    max-width: none;
+    min-width: 220px;
+  }
+
+  .autocompleteFieldMedium {
+    max-width: none;
+    min-width: 260px;
+  }
+
+  .compactField {
+    flex: 1 1 170px;
+  }
+
+  .showButton {
+    flex: 0 0 auto;
+  }
+
+  .settingsButtonWrapper {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .sectionHeader,
+  .filtersActions,
+  .modalActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .salaryHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .filtersGrid {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .modalGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .autocompleteFieldMedium {
+    max-width: none;
+    width: 100%;
+  }
+
+  .filtersGrid > :first-child {
+    max-width: none;
+    width: 100%;
+  }
+
+  .compactField {
+    width: 100%;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
+  .autocompleteWrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .showButton {
+    width: 100%;
+  }
+
+  .settingsButtonWrapper {
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+  }
+
+  .checksBlock {
+    padding-top: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .tableWrap {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    overflow: visible;
+  }
+
+  .tableScroll {
+    overflow: visible;
+    max-height: none;
+  }
+
+  .table {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .table colgroup,
+  .table thead {
+    display: none;
+  }
+
+  .table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .table tbody tr {
+    display: block;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  .warningRow {
+    background: var(--color-surface);
+  }
+
+  .warningRow td {
+    background: var(--color-warning-bg);
+  }
+
+  .table tbody td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    height: auto;
+    min-height: 42px;
+    border-right: none;
+    border-bottom: 1px dashed var(--color-border);
+    white-space: normal;
+    padding: 8px 10px;
+  }
+
+  .table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .table tbody td::before {
+    content: attr(data-label);
+    color: var(--color-text-muted);
+    font-weight: 600;
+    flex: 0 0 45%;
+  }
+
+  .table tbody td.statusCell {
+    align-items: center;
+  }
+
+  .table tbody td.actionCell {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .table tbody td.actionCell::before {
+    display: none;
+  }
+
+  .table tbody td.actionCell .refreshButton {
+    margin: 0 auto;
+  }
+}
+
+.salaryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+@media (max-height: 900px) {
+  .resultsPanel {
+    max-height: calc(100vh - 180px);
+  }
+}

@@ -8,6 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddHttpClient();
+builder.Services.AddMemoryCache();
 
 // ========== SWAGGER (ИСПРАВЛЕНО) ==========
 builder.Services.AddEndpointsApiExplorer(); // ← ДОБАВИТЬ ЭТУ СТРОКУ!

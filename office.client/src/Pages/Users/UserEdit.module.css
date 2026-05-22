@@ -14,6 +14,7 @@
 }
 
 .leftBlock {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -30,24 +31,25 @@
 
 .blockLabel {
     font-weight: 400;
-    border: 1px solid #b2b2b229;
+    border: 1px solid var(--color-border);
     padding: 0px 0px 6px 6px;
     margin-bottom: 15px;
     font-size: 24px;
     width: 100%;
-    color: black;
-    background: #EEEEEE;
+    color: var(--color-text);
+    background: var(--color-bg);
     border-radius: 8px;
     text-align: center;
 }
 
 .userInfoBlock {
+    width: 100%;
     display: flex;
     flex-direction: column;
     gap: 15px;
     border-radius: 8px;
-    border: 1px solid #dadce0;
-    background-color: white;
+    border: 1px solid var(--color-border);
+    background-color: var(--color-surface);
     padding: 15px;
 }
 
@@ -65,10 +67,10 @@
     flex-direction: column;
     gap: 5px;
     justify-content: start;
-    border: 1px solid #dadce0;
+    border: 1px solid var(--color-border);
     padding: 15px;
     border-radius: 8px;
-    background-color: white;
+    background-color: var(--color-surface);
     width: 100%;
 }
 
@@ -99,19 +101,20 @@
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.3s ease;
+    color: var(--color-white);
 }
 
 .saveButton {
     background-color: var(--color-primary);
-    color: white;
+    color: var(--color-white);
 }
 
 .cancelButton {
-    background-color: #EEEEEE;
+    background-color: var(--color-border);
 }
 
 .cancelButton:hover {
-    background-color: #d8d8d8;
+    background-color: var(--color-surface);
 }
 
 .saveButton:hover {
@@ -153,7 +156,7 @@
 
 .recCard {
     width: 100%;
-    border: 2px dashed #b2b2b2;
+    border: 2px dashed var(--color-border-strong);
     border-radius: 8px;
     padding: 20px;
     display: flex;
@@ -167,12 +170,12 @@
 }
 
 .recCard.Selected {
-    background-color: #e0f7e9;
-    border-color: #4CAF50;
+    background-color: var(--color-success-bg);
+    border-color: var(--color-success-light);
 }
 
 .recCard:hover {
-    background-color: #f5f5f5;
+    background-color: var(--color-surface-muted);
 }
 
 .globalSearch {
@@ -192,7 +195,7 @@
 }
 
 .searchGlobalInput { 
-    background-color: white; 
+    background-color: var(--color-surface); 
     width: fit-content; 
     border-radius: 10px; 
     display: flex; 
@@ -200,7 +203,7 @@
     align-items: center; 
     justify-content: start; 
     padding-left: 5px;
-    border: 1px solid #b2b2b2;
+    border: 1px solid var(--color-border-strong);
     width: 100%;
 
 } 
@@ -213,7 +216,7 @@
 .searchGlobalInput > input { 
     border: none; 
     margin-left: 10px; 
-    background-color: transparent; 
+    background-color: var(--color-transparent); 
     outline: none; 
     height: 40px; 
     padding-right: 5px; 
@@ -229,3 +232,4 @@
     justify-content: start;
     flex-direction: column;
 }
+

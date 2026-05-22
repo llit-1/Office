@@ -253,15 +253,15 @@ namespace Office.Server.Controllers
 
         public class OfficeGroupModel
         {
-            public OfficeGroup OfficeGroup { get; set; }
-            public List<OfficeRole> OfficeRoles { get; set; }
+            public OfficeGroup OfficeGroup { get; set; } = null!;
+            public List<OfficeRole> OfficeRoles { get; set; } = new List<OfficeRole>();
         }
 
         public class OfficeUserModel
         {
-            public OfficeUser OfficeUser { get; set; }
+            public OfficeUser OfficeUser { get; set; } = null!;
             public List<Location> Locations { get; set; } = new();
-            public List<OfficeGroup> officeGroups { get; set; }
+            public List<OfficeGroup> officeGroups { get; set; } = new();
 
             public OfficeUserModel(OfficeUser officeUser)
             {
@@ -273,7 +273,7 @@ namespace Office.Server.Controllers
         public class OfficeUserUpdateModel
         {
             public int Id { get; set; }
-            public string Login { get; set; }
+            public string Login { get; set; } = string.Empty;
             public string? Name { get; set; }
             public string? Surname { get; set; }
             public string? Patronymic { get; set; }
@@ -281,8 +281,8 @@ namespace Office.Server.Controllers
             public int Actual { get; set; }
             public int? FactoryPerson { get; set; }
             public int? OfficePerson { get; set; }
-            public List<int> OfficeGroup { get; set; }
-            public List<Guid> Locations { get; set; }
+            public List<int> OfficeGroup { get; set; } = new List<int>();
+            public List<Guid> Locations { get; set; } = new List<Guid>();
             public int DefaultLocations { get; set; }
         }
 

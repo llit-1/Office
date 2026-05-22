@@ -252,7 +252,7 @@ export default function GroupEdit() {
         message={"Вы уверены, что хотите удалить группу?"}
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
-        sx={{maxWidth: "420px"}}
+        panelClassName={styles.confirmModalPanel}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-.spinnerOverlay{
+﻿.spinnerOverlay{
     inset: 0;
     display: flex;
     align-items: center;
@@ -8,13 +8,37 @@
     height: 100%;
 }
 .ring{
-  width: 48px;
-  height: 48px;
   border-radius: 50%;
-  border: 8px solid rgba(0,0,0,0.12);
-  border-top-color: var(--color-primary);
+  border: 8px solid var(--color-overlay);
   animation: spin 0.8s linear infinite;
 }
+
+.ringSize24 {
+  width: 24px;
+  height: 24px;
+  border-width: 4px;
+}
+
+.ringSize34 {
+  width: 34px;
+  height: 34px;
+  border-width: 6px;
+}
+
+.ringSize48 {
+  width: 48px;
+  height: 48px;
+}
+
+.ringColorPrimary {
+  border-top-color: var(--color-primary);
+}
+
+.ringColorWhite {
+  border-top-color: var(--color-surface);
+}
+
 @keyframes spin{
   to{ transform: rotate(360deg) }
 }
+

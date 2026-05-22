@@ -19,7 +19,7 @@
     border-radius: 0px;
     border: none;
     background-color: coral;
-    color: white;
+    color: var(--color-white);
     
     transition: all 0.6s ease;
 

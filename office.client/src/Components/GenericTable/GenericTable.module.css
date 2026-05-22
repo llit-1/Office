@@ -1,30 +1,12 @@
 .table_search {
-  background-color: white;
-  width: fit-content;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  padding-left: 5px;
+  composes: searchShell from "../../styles/shared-search-layout.module.css";
   margin-bottom: 10px;
 }
 
-.table_search > span {
-  width: 24px;
-  height: 24px;
-}
-
-.table_search > input {
-  border: none;
-  margin-left: 10px;
-  background-color: transparent;
-  outline: none;
-  height: 40px;
-  padding-right: 5px;
-  font-size: 16px;
-}
-
 .tableWrapper {
-  margin: 0px 8px;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* 🔹 Сам трек скролла */
@@ -35,24 +17,23 @@
 
 /* 🔹 "Поле" под скроллом */
 .scrollableTbody::-webkit-scrollbar-track {
-  background: #f1f1f1; /* светлый фон */
+  background: var(--color-surface-muted); /* светлый фон */
   border-radius: 10px;
 }
 
 /* 🔹 Сам ползунок */
 .scrollableTbody::-webkit-scrollbar-thumb {
-  background-color: #b0b0b0;
+  background-color: var(--color-border-strong);
   border-radius: 10px;
   transition: background-color 0.2s ease;
 }
 
 /* 🔹 При наведении — тёмнее */
 .scrollableTbody::-webkit-scrollbar-thumb:hover {
-  background-color: #888;
+  background-color: var(--color-text-subtle);
 }
 
 .table {
-  width: 100%;
   border-collapse: collapse;
   position: relative;
 }
@@ -61,8 +42,8 @@
   font-weight: 600;
   text-align: left;
   padding: 10px 15px;
-  background: #fca160;
-  color: white;
+  background: var(--color-primary-soft);
+  color: var(--color-white);
   font-size: 15px;
   position: sticky;
   top: 0;
@@ -156,7 +137,10 @@
 }
 
 .scrollableTbody td {
-  word-wrap: break-word;
+  /* prevent wrapping and show ellipsis for long text */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   vertical-align: middle;
 }
 
@@ -170,26 +154,29 @@
   text-align: left;
   padding: 5px 15px;
   font-size: 16px;
+  height: 48px; /* fixed row height */
+  line-height: 38px; /* vertically center text inside the fixed height */
 }
 
 .table tr:nth-child(even) {
-  background-color: #8080801a;
+  background-color: var(--color-overlay-soft);
 }
 
 .table tbody {
-  background: white;
+  background: var(--color-surface);
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
-  box-shadow: 0px 4px 5px 0px #0000002e;
+  box-shadow: 0px 4px 5px 0px var(--color-overlay);
 }
 
 .table tbody tr {
   transition: background-color 0.15s linear;
+  height: 48px; /* ensure rows have consistent height */
 }
 
 .table tbody tr:hover {
-  background-color: #ffe9c2;
   cursor: pointer;
+  background-color: var(--color-surface-muted);
 }
 
 .table .textAlign {
@@ -209,21 +196,21 @@ th:has(.sortArrow) {
 
 .table th:hover {
   cursor: pointer;
-  background-color: #ff8a37;
+  background-color: var(--color-primary-soft);
 }
 
 .addButton {
   position: absolute;
   width: 50px;
   height: 50px;
-  background-color: #84e46c;
+  background-color: var(--color-primary-soft);
   bottom: 13px;
   right: 20px;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
-  color: white;
+  color: var(--color-white);
   font-weight: bold;
   font-size: 34px;
   padding-bottom: 5px;
@@ -231,7 +218,11 @@ th:has(.sortArrow) {
 }
 
 .addButton:hover {
-  background-color: #5ce03b;
+  background-color: var(--color-primary-hover);
   cursor: pointer;
-  box-shadow: 0px 2px 5px 2px #0000002e;
+  box-shadow: 0px 2px 5px 2px var(--color-overlay);
 }
+
+
+
+

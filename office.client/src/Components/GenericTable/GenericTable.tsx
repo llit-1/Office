@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import styles from "./GenericTable.module.css";
 import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
@@ -26,6 +26,8 @@ interface GenericTableProps<T extends WithId> {
   routeTo?: string;
   loading: boolean;
   addOption: boolean;
+  initialVisibleRows?: number;
+  rowsPerBatch?: number;
 }
 
 function isKeyColumn<T>(col: Column<T>): col is Extract<Column<T>, { key: keyof T }> {
@@ -38,12 +40,16 @@ function GenericTable<T extends WithId>({
   routeTo,
   loading,
   addOption,
+  initialVisibleRows = 20,
+  rowsPerBatch = 10,
 }: GenericTableProps<T>) {
   const navigate = useNavigate();
+  const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
 
   const [sortIndex, setSortIndex] = useState<number>(0);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [visibleColumnsCount, setVisibleColumnsCount] = useState(columns.length);
+  const [visibleRowsCount, setVisibleRowsCount] = useState(initialVisibleRows);
 
   useEffect(() => {
     const updateVisibleColumns = () => {
@@ -124,6 +130,52 @@ function GenericTable<T extends WithId>({
 
   }, [data, visibleColumns, sortIndex, sortOrder, loading]);
 
+  useEffect(() => {
+    setVisibleRowsCount(initialVisibleRows);
+    tbodyRef.current?.scrollTo({ top: 0 });
+  }, [initialVisibleRows, data, sortIndex, sortOrder, visibleColumnsCount, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    setVisibleRowsCount((current) => {
+      if (current <= sortedData.length) return current;
+      return Math.max(initialVisibleRows, sortedData.length);
+    });
+  }, [sortedData.length, loading, initialVisibleRows]);
+
+  const visibleData = useMemo(
+    () => sortedData.slice(0, visibleRowsCount),
+    [sortedData, visibleRowsCount],
+  );
+
+  useEffect(() => {
+    if (loading) return;
+
+    const tbody = tbodyRef.current;
+    if (!tbody) return;
+
+    if (visibleRowsCount >= sortedData.length) return;
+
+    if (tbody.scrollHeight <= tbody.clientHeight + 1) {
+      setVisibleRowsCount((current) => Math.min(current + rowsPerBatch, sortedData.length));
+    }
+  }, [loading, visibleRowsCount, sortedData.length, rowsPerBatch]);
+
+  const handleTableScroll = (event: React.UIEvent<HTMLTableSectionElement>) => {
+    if (loading) return;
+
+    const target = event.currentTarget;
+    const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+
+    if (distanceToBottom > 120) return;
+
+    setVisibleRowsCount((current) => {
+      if (current >= sortedData.length) return current;
+      return Math.min(current + rowsPerBatch, sortedData.length);
+    });
+  };
+
   const handleSort = (index: number) => {
     if (sortIndex === index) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -166,18 +218,18 @@ function GenericTable<T extends WithId>({
           </tr>
         </thead>
 
-        <tbody className={styles.scrollableTbody}>
+        <tbody ref={tbodyRef} className={styles.scrollableTbody} onScroll={handleTableScroll}>
           { loading ? (
             <tr>
               <td colSpan={Math.max(visibleColumns.length, 1)} className={styles.textAlign}>
                 <LoadingSpinner />
               </td>
             </tr>
-          ) : sortedData.length > 0 ? (
-            sortedData.map((row) => (
-              <tr key={String(row.id)} onClick={() => onRowClickHandle(row)} style={{ height: sortedData?.length == 1 ? "75px" : "" }}>
+          ) : visibleData.length > 0 ? (
+            visibleData.map((row) => (
+              <tr key={String(row.id)} onClick={() => onRowClickHandle(row)}>
                 {visibleColumns.map((col) => (
-                  <td key={col.label}>{getCellValue(row, col)}</td>
+                  <td key={col.label} title={String(getCellValue(row, col))}>{getCellValue(row, col)}</td>
                 ))}
               </tr>
             ))

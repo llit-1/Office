@@ -1,0 +1,361 @@
+.table_search { 
+    composes: searchShell from "../../styles/shared-search-layout.module.css";
+    position: relative;
+    z-index: 11;
+} 
+
+.searchHighlight {
+    background-color: var(--color-warning-bg);
+    color: var(--color-primary-hover);
+    border-radius: 3px;
+    padding: 0 2px;
+}
+
+.searchDropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px var(--color-overlay-soft);
+    z-index: 12;
+    max-height: 260px;
+    overflow: auto;
+    padding: 6px 0;
+    min-width: 355px;
+    color: var(--color-text);
+}
+
+.searchBackdrop {
+    position: absolute;
+    inset: 0;
+    background: var(--color-overlay);
+    z-index: 5;
+}
+
+.pageWrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.searchItem {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.searchItem:hover {
+    background-color: var(--color-surface-muted);
+}
+
+.searchItemMuted {
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--color-text);
+    height: 100%;
+    min-height: 36px;
+}
+
+.tabAndSearchWrapper {
+    composes: tabAndSearchShell from "../../styles/shared-search-layout.module.css";
+    padding-bottom: 0;
+}
+
+.tt_wrapper {
+    composes: ttWrapperShell from "../../styles/shared-search-layout.module.css";
+}
+
+.structureControls {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    gap: 10px;
+}
+
+.contentWrapper {
+    width: 100%;
+    gap: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        max-height: calc(100% - 102px);
+    overflow: auto;
+    padding-right: 5px;
+}
+
+.card {
+    width: 100%;
+    height: 160px;
+    aspect-ratio: 1 / 1;
+    border-radius: 8px;
+    background-color: var(--color-surface);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid var(--color-border);
+    font-size: 18px;
+    font-weight: 600;
+    font-family: "Akrobat";
+    color: var(--color-text);
+    text-align: center;
+    transition: all 0.2s ease-in-out;
+    user-select: none;
+    position: relative;
+    padding: 10px;
+}
+
+.card:hover {
+    cursor: pointer;
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.addCard {
+    color: var(--color-border-strong);
+    font-size: 48px;
+    justify-content: center;
+}
+
+.activeCard::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    box-sizing: border-box;
+    top: 10px;
+    right: 10px;
+    width: 15px;
+    height: 15px;
+    background-color: var(--color-success);
+}
+
+.nonActiveCard::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    box-sizing: border-box;
+    top: 10px;
+    right: 10px;
+    width: 15px;
+    height: 15px;
+    background-color: var(--color-danger);
+}
+
+.loaderWrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100% - 102px);
+}
+
+.settingsCard {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 5px;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    overflow: hidden;
+    background-color: var(--color-bg);
+    border-radius: 8px;
+    padding: 4px 2px;
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    text-wrap: nowrap;
+    transition: all 0.2s ease-in-out;
+}
+
+.settingsText {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    line-height: 2px;
+}
+
+.card:hover .settingsCard {
+    width: 100px;
+}
+
+.card:hover .settingsText {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.settingsCard:hover {
+    cursor: pointer;
+    background-color: var(--color-border);
+}
+
+.settingsIcon {
+    composes: settingsIcon from "../../styles/shared-stock-modal.module.css";
+}
+
+.modalContent {
+    composes: modalContent from "../../styles/shared-stock-modal.module.css";
+}
+
+.modalInputs {
+    composes: modalInputs from "../../styles/shared-stock-modal.module.css";
+}
+
+.modalButtons {
+    composes: modalButtons from "../../styles/shared-stock-modal.module.css";
+}
+
+.errorMessage {
+    composes: errorMessage from "../../styles/shared-stock-modal.module.css";
+}
+
+.deleteButton {
+    background-color: var(--color-danger);
+}
+
+.saveButton {
+    background-color: var(--color-primary);
+}
+
+.deleteButton, .saveButton {
+    color: var(--color-white);
+    border: none;
+    height: 40px;
+    width: 70px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    padding: 8px 8px;
+    font-weight: 600;
+}
+
+.deleteButton:hover {
+    background-color: var(--color-danger-hover);
+}
+
+.saveButton:hover {
+    background-color: var(--color-primary-600);
+}
+
+.filterToggle {
+    padding: 0;
+    justify-content: end;
+    min-height: 40px;
+}
+
+.filterToggleLabel {
+    left: -55px;
+    top: 11px;
+    background: var(--color-transparent);
+    font-size: 16px;
+}
+
+.modalToggle {
+    composes: modalToggle from "../../styles/shared-stock-modal.module.css";
+}
+
+.confirmModalPanel {
+    composes: confirmModalPanel from "../../styles/shared-stock-modal.module.css";
+}
+
+.transferWrapper {
+    width: 100%;
+    display: grid;
+    grid-template-columns: minmax(320px, 420px) 1fr;
+    gap: 16px;
+}
+
+.transferForm {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.transferButtons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 4px;
+}
+
+.transferList {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 300px;
+}
+
+.transferList > h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.transferDraftCard {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px;
+    background: var(--color-surface-muted);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 15px;
+}
+
+.transferDraftCard span {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.transferEmpty {
+    color: var(--color-text-subtle);
+    font-size: 14px;
+}
+
+.stubState {
+    width: 100%;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+    min-height: 220px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--color-text-subtle);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+@media screen and (max-width: 900px) {
+    .transferWrapper {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media screen and (max-width: 586px) {
+    .structureControls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
+
+
+
+

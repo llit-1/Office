@@ -1,4 +1,3 @@
-import React from "react";
 import Modal from "../Modal/Modal";
 import styles from "./ConfirmModal.module.css";
 
@@ -11,7 +10,7 @@ type ConfirmModalProps = {
   onConfirm: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
-  sx?: React.CSSProperties;
+  panelClassName?: string;
 };
 
 export default function ConfirmModal({
@@ -23,10 +22,10 @@ export default function ConfirmModal({
   onConfirm,
   confirmLabel = "Да",
   cancelLabel = "Нет",
-  sx,
+  panelClassName,
 }: ConfirmModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onCancel} title={isOpen ? title : ""} sx={sx}>
+    <Modal isOpen={isOpen} onClose={onCancel} title={isOpen ? title : ""} panelClassName={panelClassName}>
       <div className={styles.modalContent}>
         {img ? <img className={styles.modalImg} src={isOpen ? img : ""} alt="" /> : null}
         <p className={styles.modalText}>{isOpen ? message : ""}</p>

@@ -12,7 +12,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Required]
         [Column("Login")]
         [MaxLength(50)]
-        public string Login { get; set; }
+        public string Login { get; set; } = string.Empty;
 
         [Column("Name")]
         [MaxLength(50)]

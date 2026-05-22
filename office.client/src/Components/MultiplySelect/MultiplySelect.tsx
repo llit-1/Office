@@ -12,6 +12,7 @@ type MultiplySelectProps<T> = {
   onChange: (nextSelectedKeys: Key[]) => void;
 
   placeholder?: string;
+  disabled?: boolean;
 };
 
 export function MultiplySelect<T>({
@@ -21,6 +22,7 @@ export function MultiplySelect<T>({
   selectedKeys,
   onChange,
   placeholder = "Поиск...",
+  disabled = false,
 }: MultiplySelectProps<T>) {
   const [searchText, setSearchText] = useState("");
 
@@ -116,6 +118,7 @@ export function MultiplySelect<T>({
   }, [orderedItems, searchText, getLabel]);
 
   const toggle = (key: Key) => {
+    if (disabled) return;
     const next = new Set(selectedSet);
     if (next.has(key)) next.delete(key);
     else next.add(key);
@@ -123,12 +126,13 @@ export function MultiplySelect<T>({
   };
 
   return (
-    <div className={styles.multiplySelectWrapper}>
+    <div className={`${styles.multiplySelectWrapper} ${disabled ? styles.disabled : ""}`}>
       <input
         className={styles.search}
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
         placeholder={placeholder}
+        disabled={disabled}
       />
 
       <div className={styles.optionsWrapper}>

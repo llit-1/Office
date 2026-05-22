@@ -1,0 +1,200 @@
+.selectWrapper {
+    position: relative;
+    width: 100%;
+    height: 50px;
+    min-height: 50px;
+}
+
+.sizeMedium {
+    grid-column: span 2;
+}
+
+.sizeSmall {
+    grid-column: span 1;
+}
+
+.label {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    background-color: var(--color-surface);
+    padding: 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.select {
+    width: 100%;
+    height: 100%;
+    padding-left: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    font-size: 16px;
+    transition: all 0.05s ease;
+    background-color: var(--color-surface);
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    padding-right: 36px;
+}
+
+.select:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.select {
+    background-image: linear-gradient(45deg, var(--color-transparent) 50%, var(--color-text-muted) 50%), linear-gradient(135deg, var(--color-text-muted) 50%, var(--color-transparent) 50%);
+    background-position: calc(100% - 18px) calc(50% - 6px), calc(100% - 12px) calc(50% - 6px);
+    background-size: 6px 6px, 6px 6px;
+    background-repeat: no-repeat;
+}
+
+.hiddenNative {
+    position: absolute;
+    inset: 0;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.customControl {
+    width: 100%;
+    height: 100%;
+    padding-left: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    background-color: var(--color-surface);
+    cursor: pointer;
+    padding-right: 36px;
+    transition: all 0.05s ease;
+}
+
+.customControl:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.selectWrapper:focus-within .customControl,
+.customControl.open {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.value {
+    flex: 1;
+}
+
+.icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%) rotate(0deg);
+    transform-origin: center;
+    color: var(--color-text-muted);
+    pointer-events: none;
+    font-size: 22px;
+    transition: transform 180ms ease;
+}
+
+.customControl.open .icon {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.customControl.disabled,
+.customControl[aria-disabled="true"] {
+    background: light-dark(
+        color-mix(in srgb, var(--color-surface-muted) 30%, var(--color-transparent)),
+        color-mix(in srgb, var(--color-surface) 10%, var(--color-transparent))
+    );
+    border-color: var(--color-surface-muted);
+    color: var(--color-text-subtle);
+    cursor: not-allowed;
+}
+
+.customControl.disabled:hover,
+.customControl[aria-disabled="true"]:hover {
+    cursor: not-allowed;
+}
+
+.customControl.disabled .value,
+.customControl[aria-disabled="true"] .value {
+    color: var(--color-text-subtle);
+}
+
+.customControl.disabled .icon,
+.customControl[aria-disabled="true"] .icon {
+    color: var(--color-border-strong);
+}
+
+.optionsList {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px var(--color-overlay);
+    z-index: 40;
+    max-height: 210px;
+    overflow: auto;
+}
+
+.searchBox {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--color-surface);
+    padding: 8px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.searchInput {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    height: 36px;
+    padding: 0 10px;
+    font-size: 14px;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+}
+
+.searchInput:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.option {
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: all 0.25s linear;
+}
+
+.option:hover:not(.optionSelected) {
+    background: var(--color-surface-muted);
+}
+
+.optionSelected {
+    background: var(--color-primary-soft);
+    color: var(--color-white);
+}
+
+.emptyState {
+    padding: 10px 12px;
+    color: var(--color-text);
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .sizeMedium,
+    .sizeSmall {
+        grid-column: span 1;
+    }
+}

@@ -3,6 +3,7 @@ import authReducer from './authSlice';
 import backButtonReducer from './stateForBackButtonSlice';
 import pageTitleReducer from "./stateForPageTitleSlice"
 import calculatorSlice from "./calculatorSlice"
+import usersTabsReducer from './usersTabsSlice';
 import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import {
@@ -18,13 +19,14 @@ const rootReducer = combineReducers({
   auth: authReducer,
   backButton: backButtonReducer,
   pageTitle: pageTitleReducer,
+  usersTabs: usersTabsReducer,
   calculatorData: calculatorSlice,
 });
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["calculatorData", "pageTitle", "backButton", "auth"],
+  whitelist: ["calculatorData", "pageTitle", "backButton", "auth", "usersTabs"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

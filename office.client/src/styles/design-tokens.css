@@ -1,30 +1,24 @@
+@import "./color-inventory.css";
+
 :root{
   /* Typography */
   --font-sans: "Akrobat", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
 
   /* Colors */
-  /* Brand colors (project primary color is orange) */
-  --color-primary:  #F47920; /* project primary orange */
-  --color-primary-600: #d36218;
-  --color-secondary: #06b6d4; /* cyan (optional accent) */
-  --color-success:  #16a34a; /* green */
-  --color-danger:   #ef4444; /* red */
-  --color-warning:  #f59e0b; /* amber */
-  --color-surface:  #ffffff; /* white */
-  --color-muted:    #6d6d6d; /* primary muted/text color provided by design */
-  --color-text:     #6d6d6d; /* default text color */
-  --color-bg:       #f8fafc; /* page background */
+  --color-primary-600: var(--color-primary-hover);
+  --color-secondary: var(--color-info);
+  --color-muted: var(--color-text-muted);
 
   /* Component-specific legacy colors (moved here so components can reference tokens) */
-  --color-item-accent: #ffcca8; /* original .factoryNX_item background */
-  --color-mainphoto-bg: #f5f5f5; /* main photo placeholder bg */
-  --color-placeholder-text: #777777; /* placeholder text */
-  --color-button-ghost: gainsboro; /* neutral button */
-  --color-button-ghost-hover: #bfbfbf;
-  --color-handcontrol-hover: #D96A1C; /* darker orange hover */
-  --color-photo-border-red: #FF4C4C;
-  --color-photo-border-green: #4CAF50;
+  --color-item-accent: var(--color-warning-bg);
+  --color-mainphoto-bg: var(--color-surface-muted);
+  --color-placeholder-text: var(--color-text-muted);
+  --color-button-ghost: var(--color-border-strong);
+  --color-button-ghost-hover: var(--color-border);
+  --color-handcontrol-hover: var(--color-primary-hover);
+  --color-photo-border-red: var(--color-danger);
+  --color-photo-border-green: var(--color-success-light);
 
   /* Radiuses */
   --radius-sm: 4px;
@@ -67,4 +61,28 @@
   padding: var(--space-4);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-sm);
+}
+
+/* 🔹 Сам трек скролла */
+*::-webkit-scrollbar {
+  width: 8px; /* ширина полосы прокрутки */
+  height: 8px; /* для горизонтальной */
+}
+
+/* 🔹 "Поле" под скроллом */
+*::-webkit-scrollbar-track {
+  background: var(--color-surface-muted);
+  border-radius: 10px;
+}
+
+/* 🔹 Сам ползунок */
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-border-strong);
+  border-radius: 10px;
+  transition: background-color 0.2s ease;
+}
+
+/* 🔹 При наведении — тёмнее */
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-subtle);
 }

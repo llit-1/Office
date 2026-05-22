@@ -115,7 +115,7 @@ const Login = () => {
         <form className={styles.login_form} onSubmit={handlerAuth}>
           <TextField
             required
-            className={styles.form_input_text}
+            className={`${styles.form_input_text} ${styles.authInput}`}
             type="text"
             autoComplete="username"
             value={loginState}
@@ -126,15 +126,11 @@ const Login = () => {
             variant="outlined"
             size="medium"
             slotProps={{ inputLabel: { shrink: true } }}
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: 0 },
-              backgroundColor: "white",
-            }}
           />
 
           <TextField
             required
-            className={styles.form_input_text}
+            className={`${styles.form_input_text} ${styles.authInput}`}
             type="password"
             autoComplete="current-password"
             value={password}
@@ -145,22 +141,13 @@ const Login = () => {
             }
             variant="outlined"
             size="medium"
-            sx={{
-              "& .MuiOutlinedInput-root": { borderRadius: 0 },
-              backgroundColor: "white",
-            }}
           />
 
           <Button
-            className={styles.form_input_button}
+            className={`${styles.form_input_button} ${styles.submitButton}`}
             size="medium"
             variant="contained"
             type="submit"
-            sx={{
-              backgroundColor: "#F47920",
-              fontFamily: "Akrobat",
-              fontSize: "14px",
-            }}
             disabled={isLoading}
           >
             {isLoading ? <LoadingSpinner size={24} /> : buttonText}
@@ -170,7 +157,7 @@ const Login = () => {
         <p className={styles.form_p}>{import.meta.env.VITE_VERSION}</p>
       </div>
 
-      <Modal isOpen={modal.open} onClose={closeModal} title={modal.open ? modal.title : ""} sx={{ maxWidth: '450px', aspectRatio: '1/1' }}>
+      <Modal isOpen={modal.open} onClose={closeModal} title={modal.open ? modal.title : ""} panelClassName={styles.authModalPanel}>
         <div className={styles.modalContent}>
           
           <img className={styles.modalImg} src={modal.open ? modal?.img : ""} alt="clock" />

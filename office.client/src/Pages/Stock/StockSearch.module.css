@@ -1,0 +1,358 @@
+.wrapper {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: calc(100% - 50px);
+}
+
+.loaderWrapper {
+    width: 100%;
+    min-height: 320px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.filtersCard,
+.resultsCard {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.filtersCard {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.statusSwitch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.statusButton {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.statusButtonActive {
+    background: color-mix(in srgb, var(--color-success) 15%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+    color: var(--color-text);
+}
+
+.statusButtonDisposed {
+    background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+    color: var(--color-text);
+}
+
+.filterGrid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.actionButton {
+    min-width: 110px;
+    border-radius: 8px;
+    border: none;
+    padding: 10px 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.searchButton {
+    background: var(--color-primary);
+    color: var(--color-white);
+}
+
+.searchButton:hover {
+    background: var(--color-primary-600);
+}
+
+.clearButton {
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+}
+
+.clearButton:hover {
+    background: var(--color-bg);
+}
+
+.actionButton:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.resultsCard {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: fit-content;
+    overflow: hidden;
+    height: fit-content;
+
+}
+
+.tableHeader,
+.groupRow,
+.itemRow {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(160px, 1fr) minmax(140px, 1.15fr) minmax(140px, 1.15fr) minmax(140px, 0.9fr);
+    gap: 8px;
+    align-items: center;
+}
+
+.tableHeader {
+    border-radius: 8px;
+    background: var(--color-primary-soft);
+    color: var(--color-white);
+    padding: 10px;
+}
+
+.tableHeader p,
+.groupRow p,
+.itemRow p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+    color: var(--color-text);
+}
+
+.tableBody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow: auto;
+    max-height: 510px;
+    padding-right: 4px;
+}
+
+.groupRow,
+.itemRow {
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.groupRow {
+    background: var(--color-surface-muted);
+}
+
+.groupRow:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-muted));
+}
+
+.itemRow {
+    border-style: dashed;
+    width: calc(100% - 20px);
+    margin-left: 20px;
+}
+
+.itemRow:hover {
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-muted));
+}
+
+.itemRowFree {
+    background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
+}
+
+.itemRowDisposed {
+    background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+}
+
+.emptyState {
+    width: 100%;
+    text-align: center;
+    color: var(--color-text-subtle);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 14px 0;
+}
+
+.loaderInline {
+    width: 100%;
+    min-height: 140px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.historyTitle {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.historyTitle span {
+    color: var(--color-text-muted);
+    font-weight: 600;
+}
+
+.historyTitle b {
+    color: var(--color-text);
+    font-size: 18px;
+}
+
+.historyContent {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.historySection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.historySectionHeader {
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.acceptanceHeader {
+    background: var(--color-success-light);
+    color: var(--color-text-muted);
+}
+
+.transferHeader {
+    background: var(--color-warning-light);
+    color: var(--color-text-muted);
+}
+
+.writeOffHeader {
+    background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface));
+}
+
+.historyRow {
+    display: grid;
+    grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(145px, 1fr) minmax(180px, 1.2fr) minmax(130px, 1fr);
+    gap: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface-muted);
+    padding: 8px 10px;
+}
+
+.historyRow p {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1360px) {
+    .filterGrid {
+        grid-template-columns: repeat(3, minmax(170px, 1fr));
+    }
+
+    .tableHeader,
+    .groupRow,
+    .itemRow {
+        grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(180px, 1.2fr) minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 0.9fr);
+    }
+}
+
+@media (max-width: 980px) {
+    .filterGrid {
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
+    }
+
+    .tableHeader,
+    .groupRow,
+    .itemRow {
+        grid-template-columns: minmax(90px, 1fr) minmax(90px, 1fr) minmax(190px, 1.5fr) minmax(120px, 0.9fr);
+    }
+
+    .mobileHidden {
+        display: none;
+    }
+
+    .historyRow {
+        grid-template-columns: minmax(85px, 1fr) minmax(85px, 1fr) minmax(130px, 1fr) minmax(140px, 1fr);
+    }
+
+    .historyRow p:last-child {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .statusSwitch {
+        flex-wrap: wrap;
+    }
+
+    .filterGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        flex-direction: column;
+    }
+
+    .actionButton {
+        width: 100%;
+    }
+
+    .tableHeader,
+    .groupRow,
+    .itemRow {
+        grid-template-columns: minmax(80px, 1fr) minmax(160px, 1.7fr) minmax(110px, 0.9fr);
+    }
+
+    .tableHeader p:nth-child(2),
+    .groupRow p:nth-child(2),
+    .itemRow p:nth-child(2) {
+        display: none;
+    }
+
+    .historyRow {
+        grid-template-columns: minmax(95px, 1fr) minmax(115px, 1fr) minmax(130px, 1fr);
+    }
+
+    .historyRow p:nth-child(2) {
+        display: none;
+    }
+}
+
+
+.groupWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}

@@ -1,0 +1,69 @@
+.checkboxLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 16px;
+    cursor: pointer;
+    user-select: none;
+    margin: 0;
+    color: var(--color-text);
+}
+
+.checkboxInput {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    border: 2px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-surface) 45%);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface) 90%);
+    display: inline-grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex: 0 0 24px;
+}
+
+.checkboxInput::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    transform: scale(0);
+    transition: transform 0.15s ease-in-out;
+    box-shadow: inset 1em 1em var(--color-primary);
+    clip-path: polygon(14% 44%, 0 59%, 43% 100%, 100% 21%, 84% 6%, 41% 70%);
+}
+
+.checkboxInput:checked {
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+}
+
+.checkboxInput:checked::before {
+    transform: scale(1);
+}
+
+.checkboxInput:hover {
+    border-color: var(--color-primary-hover);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface) 92%);
+}
+
+.checkboxInput:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--color-primary) 25%, var(--color-transparent) 75%);
+    outline-offset: 2px;
+}
+
+.checkboxInput:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.checkboxLabelDisabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.labelText {
+    line-height: 1.2;
+}

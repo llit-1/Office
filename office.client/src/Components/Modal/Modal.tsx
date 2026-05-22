@@ -12,7 +12,11 @@ export interface ModalProps {
   closeOnBackdropClick?: boolean
   showClose?: boolean
   ariaLabel?: string
-  sx?: React.CSSProperties
+  panelClassName?: string
+  headerClassName?: string
+  bodyClassName?: string
+  titleClassName?: string
+  closeButtonClassName?: string
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -23,11 +27,20 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
   showClose = true,
   ariaLabel,
-  sx,
+  panelClassName,
+  headerClassName,
+  bodyClassName,
+  titleClassName,
+  closeButtonClassName,
 }) => {
   const backdropRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const previouslyFocused = useRef<HTMLElement | null>(null)
+  const onCloseRef = useRef(onClose)
+
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
 
   useEffect(() => {
     if (!isOpen) return
@@ -43,7 +56,7 @@ export const Modal: React.FC<ModalProps> = ({
     })
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', onKey)
 
@@ -53,7 +66,7 @@ export const Modal: React.FC<ModalProps> = ({
       // restore focus
       previouslyFocused.current?.focus()
     }
-  }, [isOpen, onClose])
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -66,26 +79,25 @@ export const Modal: React.FC<ModalProps> = ({
       ref={backdropRef}
     >
       <div
-        className={`${styles.modal_panel} ${styles[size] ?? ''}`}
+        className={`${styles.modal_panel} ${styles[size] ?? ''} ${panelClassName ?? ''}`}
         ref={panelRef}
         tabIndex={-1}
-        style={sx}
       >
-        <header className={styles.modal_header}>
-          <h3 className={styles.modal_title}>{title}</h3>
+        <header className={`${styles.modal_header} ${headerClassName ?? ''}`}>
+          <h3 className={`${styles.modal_title} ${titleClassName ?? ''}`}>{title}</h3>
           {showClose ? (
             <button
               type="button"
               aria-label="Close"
-              className={styles.modal_close}
+              className={`${styles.modal_close} ${closeButtonClassName ?? ''}`}
               onClick={onClose}
             >
-              <CloseOutlinedIcon sx={{ fill: "gainsboro", width: "24px", height: "24px" }} />
+              <CloseOutlinedIcon className={styles.closeIcon} />
             </button>
           ) : null}
         </header>
 
-        <div className={styles.modal_body}>{children}</div>
+        <div className={`${styles.modal_body} ${bodyClassName ?? ''}`}>{children}</div>
 
       </div>
     </div>,

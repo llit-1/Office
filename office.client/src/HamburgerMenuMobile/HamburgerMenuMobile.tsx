@@ -9,13 +9,6 @@ interface HamburgerMenuMobileProps {
   setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const iconSx = {
-  width: 30,
-  height: 30,
-  fill: "#333333",
-  marginLeft: "13px",
-};
-
 export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
   isOpen,
   setIsOpen,
@@ -43,12 +36,7 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
       open={isOpen}
       onClose={() => setIsOpen(false)}
       PaperProps={{
-        sx: {
-          width: "80%",
-          maxWidth: 300,
-          backgroundColor: "white",
-          borderRight: "1px solid #E5E5E5",
-        },
+        className: styles.drawerPaper,
       }}
     >
       <ul className={styles.menu}>
@@ -62,7 +50,7 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
               onClick={() => activeHandler(index, elem.path)}
             >
               <div>
-                <Icon sx={iconSx} />
+                <Icon className={styles.menuIcon} />
                 <p>{elem.name}</p>
               </div>
             </li>

@@ -1,4 +1,4 @@
-.selectorTable {
+﻿.selectorTable {
     height: 40px;
     display: flex;
     flex-direction: row;
@@ -16,25 +16,25 @@
     justify-content: center;
     height: 100%;
     border-radius: 8px;
-    background-color: white;
+    background-color: var(--color-surface);
     cursor: pointer;
     margin-bottom: 5px;
-    color: #777;
+    color: var(--color-text);
     text-transform: uppercase;
     transition: background-color 0.25s linear;
     transition: color 0.25s linear;
 }
 
 .selectorTable_text_active {
-    background-color: #DFDFDF;
-    color: black;
-    border-bottom: 2px solid #F47920;
+    background-color: var(--color-bg-strong);
+    color: var(--color-text-muted);
+    border-bottom: 2px solid var(--color-primary);
     height: 40px;
 }
 
 .selectorTable_text:hover {
-    background-color: #DFDFDF;
-    color: black;
+    background-color: var(--color-bg-strong);
+    color: var(--color-text-muted);
 }
 
 @media screen and (max-width: 920px)

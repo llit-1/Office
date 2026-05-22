@@ -68,6 +68,12 @@ export interface FactoryPerson {
   factoryEntity: number;
   factoryDocumentType: number;
 
+  factoryDepartment?: number | null;
+  factoryWorkshop?: number | null;
+  factoryJobTitle?: number | null;
+
+  factoryCitizenshipType?: number | null;
+
   phone: string | null;
   cardNumber: string | null;
 
@@ -84,6 +90,38 @@ export interface FactoryPerson {
 
   skudGroupId: number | null;
   fake: boolean | null;
+}
+
+export interface FactoryBanks {
+  id: number;
+  name: string;
+}
+
+export interface FactoryCitizenship {
+  id: number;
+  name: string;
+  citizenshipTypeId?: number | null;
+}
+
+export interface FactoryEntity {
+  id: number;
+  name: string;
+}
+
+export interface FactoryDocumentType {
+  id: number;
+  name: string;
+}
+
+// extend FactoryPerson with optional navigation properties returned by API
+export interface FactoryPersonWithNav extends FactoryPerson {
+  bank?: FactoryBanks | null;
+  citizenship?: FactoryCitizenship | null;
+  entity?: FactoryEntity | null;
+  documentType?: FactoryDocumentType | null;
+  factoryDepartmentName?: string | null;
+  factoryWorkshopName?: string | null;
+  factoryJobTitleName?: string | null;
 }
 
 export interface Personality {

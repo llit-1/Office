@@ -1,15 +1,13 @@
 import React, { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector } from "react-redux";
 import { RootState } from "../Store/index";
 import { Navigate, useLocation } from "react-router-dom";
-import { logout } from "../Store/authSlice";
 
 interface RequireAuthProps {
   children: React.ReactElement;
 }
 
 const RequireAuth = ({ children }: RequireAuthProps) => {
-  const dispatch = useDispatch();
   const tokenFromStore = useSelector((s: RootState) => s.auth.token);
   const location = useLocation();
 

@@ -1,7 +1,7 @@
 .modal_backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65);
+  background: var(--color-overlay-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -30,8 +30,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(0,0,0,0.06);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-overlay-soft);
 }
 
 .modal_title {
@@ -42,7 +42,7 @@
 }
 
 .modal_close {
-  background: transparent;
+  background: var(--color-transparent);
   border: none;
   color: var(--color-muted);
   cursor: pointer;
@@ -53,18 +53,25 @@
     align-items: center;
 }
 
-.modal_close > svg:hover {
+.closeIcon {
+  fill: var(--color-border-strong);
+  width: 24px;
+  height: 24px;
+  transition: fill 0.2s ease;
+}
+
+.modal_close:hover .closeIcon {
   fill: var(--color-primary);
 }
 
 .modal_body {
-  padding: 16px 18px;
+  padding: 14px;
   overflow: auto;
   height: 100%;
 }
 
 .modal_footer {
-  border-top: 1px solid rgba(0,0,0,0.06);
+  border-top: 1px solid var(--color-overlay-soft);
   padding: 12px 18px;
   display: flex;
   justify-content: flex-end;
@@ -75,3 +82,6 @@
 .sm { max-width: 420px; }
 .md { max-width: 720px; }
 .lg { max-width: 1024px; }
+
+
+

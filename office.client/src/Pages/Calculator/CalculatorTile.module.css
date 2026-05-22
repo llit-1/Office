@@ -1,7 +1,7 @@
 .calculator_tile {
     height: 50px;
-    color: white;
-    background-color: #F47920;
+    color: var(--color-white);
+    background-color: var(--color-primary);
     padding: 10px;
     font-family: "Akrobat";
     font-weight: 600;
@@ -15,5 +15,6 @@
 
 .calculator_tile:hover {
     cursor: pointer;
-    background-color: #f47820c5;
+    background-color: var(--color-primary-hover);
 }
+

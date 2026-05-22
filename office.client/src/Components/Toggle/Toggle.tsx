@@ -10,6 +10,8 @@ export interface ToggleProps {
   id?: string
   label?: React.ReactNode
   ariaLabel?: string
+  containerClassName?: string
+  labelClassName?: string
 }
 
 export const Toggle: React.FC<ToggleProps> = ({
@@ -21,6 +23,8 @@ export const Toggle: React.FC<ToggleProps> = ({
   id,
   label,
   ariaLabel,
+  containerClassName,
+  labelClassName,
 }) => {
   const autoId = useId()
   const inputId = id ?? `toggle-${autoId}`
@@ -40,7 +44,7 @@ export const Toggle: React.FC<ToggleProps> = ({
 
   return (
     <label
-      className={`${styles.toggle_container} ${disabled ? styles.toggle_disabled : ''}`}
+      className={`${styles.toggle_container} ${containerClassName ?? ''} ${disabled ? styles.toggle_disabled : ''}`}
       htmlFor={inputId}
     >
       <input
@@ -58,7 +62,7 @@ export const Toggle: React.FC<ToggleProps> = ({
         <span className={styles.toggle_handle} />
       </span>
 
-      {label ? <span className={styles.label}>{label}</span> : null}
+      {label ? <span className={`${styles.label} ${labelClassName ?? ''}`}>{label}</span> : null}
     </label>
   )
 }

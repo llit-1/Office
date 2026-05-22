@@ -19,6 +19,15 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const navigate = useNavigate();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark" || savedTheme === "light") return savedTheme;
+    } catch {
+      // ignore localStorage issues
+    }
+    return "light";
+  });
 
   // ref на контейнер (лого + меню), чтобы понимать “кликнули вне”
   const profileRef = useRef<HTMLDivElement | null>(null);
@@ -62,11 +71,26 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
     };
   }, [isProfileMenuOpen]);
 
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {
+      // ignore localStorage issues
+    }
+  }, [theme]);
+
   return (
     <header className={styles.header}>
       <div className={styles.hamburgerWrapper}>
         {isMenuOpen ? (
-          <div className={styles.hamburger_logo}></div>
+          <div className={styles.hamburger_logo}>
+            <div className={styles.hamburger_logo_img}></div>
+            <div className={styles.hamburger_logo_text}>
+              <div>Корпоративный</div>
+              <div>Портал</div>
+            </div>
+          </div>
         ) : (
           <div className={styles.hamburger_logo_hidden_text}></div>
         )}
@@ -103,11 +127,22 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
           <div className={styles.profileMenu} onClick={(e) => e.stopPropagation()}>
             <p>Кургузов Владислав Сергеевич</p>
             <p className={styles.profileMenuTextJob}>Программист-разработчик</p>
+            <div className={styles.themeSwitchRow}>
+              <span>Тёмная тема</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={theme === "dark"}
+                className={`${styles.themeSwitch} ${theme === "dark" ? styles.themeSwitchActive : ""}`}
+                onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+              >
+                <span className={styles.themeSwitchThumb}></span>
+              </button>
+            </div>
 
             <button
               onClick={() => {
                 closeProfileMenu();
-                // тут твоя логика выхода (dispatch logout / navigate)
                 navigate("/Login");
               }}
             >

@@ -3,12 +3,14 @@ import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import styles from "./Users.module.css";
 import SearchIcon from "@mui/icons-material/Search";
 import { useState, useMemo, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { OfficeUser, OfficeGroup, OfficeRole } from "../../Interfaces/Users";
 import { get } from "../../Services/api";
 import { callApi } from "../../Services/api";
+import { RootState } from "../../Store";
+import { activeIndexSet } from "../../Store/usersTabsSlice";
 
 type Column<T> =
   | { label: string; key: keyof T }  // обычная колонка
@@ -32,13 +34,14 @@ const roleColumns: Column<OfficeRole>[] = [
 
 
 export default function Users() {
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  const dispatch = useDispatch();
+  const activeIndex = useSelector((s: RootState) => s.usersTabs.activeIndex);
+  const setActiveIndexLocal = (index: number) => dispatch(activeIndexSet({ activeIndex: index }));
   const [searchText, setSearchText] = useState("");
   const [users, setUsers] = useState<OfficeUser[]>([]);
   const [groups, setGroups] = useState<OfficeGroup[]>([]);
   const [roles, setRoles] = useState<OfficeRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const dispatch = useDispatch();
 
   const getUsers = async (): Promise<OfficeUser[] | null> => {
     setLoading(true);
@@ -83,8 +86,6 @@ export default function Users() {
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
     dispatch(visibleSet({ visible: true }));
-
-    loadByIndex(activeIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
@@ -93,7 +94,7 @@ export default function Users() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
 
-  const handleClick = (index: number) => setActiveIndex(index);
+  const handleClick = (index: number) => setActiveIndexLocal(index);
 
   const filteredData = useMemo(() => {
   const lower = searchText.toLowerCase();

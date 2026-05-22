@@ -19,9 +19,9 @@ const ConnectField : React.FC<ConnectFieldProps> = ({
         {label ? <span className={styles.label}>{label}</span> : null}
 
         { checked ? (
-            <CheckOutlinedIcon sx={{ fill: "#F47920", width: "30px", height: "30px" }} />
+            <CheckOutlinedIcon className={styles.iconChecked} />
         ) : (
-            <CloseOutlinedIcon sx={{ fill: "gainsboro", width: "30px", height: "30px" }} />
+            <CloseOutlinedIcon className={styles.iconUnchecked} />
         )}
 
     </label>

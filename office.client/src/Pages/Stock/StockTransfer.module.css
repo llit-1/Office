@@ -1,0 +1,362 @@
+.mainFields {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    background: var(--color-surface);
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+    border: 1px solid var(--color-border);
+}
+
+.holderSelectWrapper {
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+}
+
+.transferWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    height: calc(100% - 50px);
+}
+
+.loaderWrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 320px;
+}
+
+.addHolder {
+    padding: 0 12px;
+    border-radius: 8px;
+    border: none;
+    background-color: var(--color-primary);
+    color: var(--color-white);
+    transition: all 0.25s linear;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.addHolder:hover {
+    background-color: var(--color-primary-600);
+    cursor: pointer;
+}
+
+.mainFieldsWrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.commentSection {
+    height: fit-content;
+}
+
+.commentInput {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px;
+    width: 100%;
+    min-height: 100px;
+    resize: none;
+    font-size: 16px;
+    transition: all 0.05s ease;
+    background-color: var(--color-surface);
+    color: var(--color-text);
+}
+
+.commentInput:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.commentInput:focus-visible {
+    outline: none;
+}
+
+.scanBtn {
+    width: 100%;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    background: var(--color-surface-muted);
+    color: var(--color-text);
+    padding: 10px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.scanBtn:hover {
+    cursor: pointer;
+    background: var(--color-surface-muted);
+}
+
+.scanBtnActive {
+    border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-transparent));
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 35%, var(--color-transparent));
+    animation: scanPulse 1.6s ease-out infinite;
+}
+
+.scanState {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-primary);
+    white-space: nowrap;
+}
+
+.scanStateDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 55%, var(--color-transparent));
+    animation: scanDotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes scanPulse {
+    0% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 32%, var(--color-transparent));
+    }
+    70% {
+        box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
+    }
+    100% {
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
+    }
+}
+
+@keyframes scanDotPulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.95;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 0.95;
+    }
+}
+
+.buttonsWrapper {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.submitButton {
+    border-radius: 8px;
+    border: none;
+    padding: 10px 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.25s linear;
+    color: var(--color-white);
+    background-color: var(--color-bg-strong);
+}
+
+.submitButton:hover {
+    background: var(--color-border);
+}
+
+.btnSend {
+    background-color: var(--color-primary);
+    
+}
+
+.btnSend:hover {
+    background-color: var(--color-primary-600);
+}
+
+.btnSend:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.headerDrafts,
+.rowDrafts {
+    display: grid;
+    grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(170px, 1.35fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(110px, 1fr) minmax(170px, 1.35fr);
+    gap: 8px;
+    align-items: center;
+}
+
+.headerDrafts {
+    background: var(--color-primary-soft);
+    padding: 10px;
+    border-radius: 8px;
+    width: 100%;
+    color: var(--color-white);
+}
+
+.headerDrafts p,
+.rowDrafts p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.bodyDrafts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 335px;
+    overflow: auto;
+    padding-right: 5px;
+}
+
+.rowDrafts {
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 8px 10px;
+}
+
+.commentRowInput {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 14px;
+    color: var(--color-text);
+    background-color: var(--color-surface);
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.commentRowInput:focus {
+    border: 2px solid var(--color-primary);
+    outline: none;
+}
+
+.emptyDrafts {
+    color: var(--color-text-subtle);
+    font-size: 14px;
+    padding: 8px 0;
+}
+
+.addHolderModalFields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.addHolderModalButtons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+@media (max-width: 1400px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(190px, 1.45fr) minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(110px, 1fr) minmax(170px, 1.35fr);
+    }
+
+    .colStartLocation {
+        display: none;
+    }
+}
+
+@media (max-width: 1240px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(200px, 1.55fr) minmax(120px, 1fr) minmax(140px, 1.25fr) minmax(170px, 1.35fr);
+    }
+
+    .colFilledBy {
+        display: none;
+    }
+}
+
+@media (max-width: 1120px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(120px, 1fr) minmax(220px, 1.7fr) minmax(140px, 1.25fr) minmax(150px, 1.35fr);
+    }
+
+    .colComment {
+        display: none;
+    }
+}
+
+@media (max-width: 980px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1.9fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
+    }
+
+    .colCategory {
+        display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: 76px minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
+    }
+
+    .colSubCategory {
+        display: none;
+    }
+}
+
+@media (max-width: 760px) {
+    .mainFieldsWrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: 74px minmax(0, 1fr) minmax(0, 0.8fr);
+    }
+
+    .colNewHolder {
+        display: none;
+    }
+}
+
+@media (max-width: 620px) {
+    .headerDrafts,
+    .rowDrafts {
+        grid-template-columns: 72px minmax(0, 1fr);
+    }
+
+    .colEndLocation {
+        display: none;
+    }
+
+    .headerDrafts p,
+    .rowDrafts p,
+    .commentRowInput {
+        font-size: 13px;
+    }
+
+    .rowDrafts {
+        padding: 8px;
+    }
+}
+
+.codeInputSection {
+    display: flex;
+    justify-content: space-between;
+}

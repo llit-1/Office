@@ -1,0 +1,253 @@
+.wrapper {
+    width: 100%;
+    height: 100%;
+}
+
+.stockTable {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.stockTableSubCategories, .stockTableItems {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--color-surface);
+    border-radius: 8px;
+    padding: 10px;
+    gap: 10px;
+    height: 100%;
+}
+
+.itemsScroll {
+    height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 6px;
+}
+
+.stockTableSubCategoriesItem {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 10px;
+    background-color: var(--color-bg);
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+}
+
+.name {
+    font-weight: 600;
+}
+
+.settingsCard {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 5px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    overflow: hidden;
+    background-color: var(--color-surface-muted);
+    border-radius: 8px;
+    padding: 4px 2px;
+    width: 28px;
+    height: 28px;
+    box-sizing: border-box;
+    text-wrap: nowrap;
+    transition: all 0.2s ease-in-out;
+}
+
+.settingsText {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    line-height: 2px;
+}
+
+.stockTableSubCategoriesItem:hover .settingsCard {
+    width: 100px;
+}
+
+.addCategory {
+    color: var(--color-border-strong);
+    justify-content: center;
+    font-size: 32px;
+    align-items: center;
+    line-height: 19px;
+    transition: all 0.2s ease-in-out;
+}
+
+.addCategory:hover {
+    color: var(--color-primary);
+}
+
+.stockTableSubCategoriesItem:hover:not(.addCategory) {
+    transform: translateX(-2px);
+}
+
+.settingsText {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.settingsCard:hover {
+    cursor: pointer;
+    background-color: var(--color-surface-muted);
+}
+
+.active {
+    background-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.active .settingsCard {
+    background-color: var(--color-primary-hover);
+    color: var(--color-white);
+}
+
+.active .settingsCard:hover {
+    background-color: var(--color-primary-hover);
+}
+
+.active .settingsText {
+    color: var(--color-white);
+}
+
+.stockTableItemsHeader {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 15px 10px;
+    background-color: var(--color-bg);
+    border-radius: 8px;
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+    justify-content: center;
+    gap: 10px;
+}
+
+.stockTableItemsBody {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.item {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 10px;
+    background-color: var(--color-bg);
+    font-size: 16px;
+    cursor: pointer;
+    font-weight: 600;
+    position: relative;
+    transition: all 0.2s ease-in-out;
+    border-radius: 8px;
+}
+
+.gettingStarted {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    gap: 25px;
+}
+
+.gettingStarted > p {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.loading {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--color-surface);
+}
+
+.modalContent {
+    composes: modalContent from "../../styles/shared-stock-modal.module.css";
+}
+
+.modalInputs {
+    composes: modalInputs from "../../styles/shared-stock-modal.module.css";
+}
+
+.modalButtons {
+    composes: modalButtons from "../../styles/shared-stock-modal.module.css";
+}
+
+.deleteButton {
+    background-color: var(--color-danger);
+}
+
+.saveButton {
+    background-color: var(--color-primary);
+}
+
+.deleteButton, .saveButton {
+    color: var(--color-white);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.deleteButton:hover {
+    background-color: var(--color-danger-hover);
+}
+
+.saveButton:hover {
+    background-color: var(--color-primary-600);
+}
+
+.errorMessage {
+    composes: errorMessage from "../../styles/shared-stock-modal.module.css";
+}
+
+.settingsIcon {
+    composes: settingsIcon from "../../styles/shared-stock-modal.module.css";
+}
+
+.getStartedIcon {
+    width: 90px;
+    height: 90px;
+    transform: rotate(55deg);
+    color: var(--color-primary);
+}
+
+.modalToggle {
+    composes: modalToggle from "../../styles/shared-stock-modal.module.css";
+}
+
+.confirmModalPanel {
+    composes: confirmModalPanel from "../../styles/shared-stock-modal.module.css";
+}
+
+

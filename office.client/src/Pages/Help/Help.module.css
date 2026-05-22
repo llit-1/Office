@@ -11,7 +11,7 @@
 .ul {
     width: fit-content;
     height: fit-content;
-    background: transparent;
+    background: var(--color-transparent);
 }
 
 .ul > li {
@@ -20,3 +20,5 @@
     padding: 5px;
     text-align: center;
 }
+
+

@@ -1,51 +1,13 @@
 .table_search {
-    background-color: white;
-    width: fit-content;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-evenly;
-    padding-left: 5px;
-}
-
-.table_search > span {
-    width: 24px;
-    height: 24px;
-}
-
-.table_search > input {
-    border: none;
-    margin-left: 10px;
-    background-color: transparent;
-    outline: none;
-    height: 40px;
-    padding-right: 5px;
-    font-size: 16px;
+    composes: searchShell from "../../styles/shared-search-layout.module.css";
 }
 
 .tabAndSearchWrapper {
-    display: flex;
-    align-items: center;
-    margin-bottom: 15px;
-    padding: 0 10px;
-    padding-top: 10px;
-    gap: 10px;
-    justify-content: start;
+    composes: tabAndSearchShell from "../../styles/shared-search-layout.module.css";
+    padding-bottom: 10px;
 }
-
-@media screen and (max-width: 586px) {
-    .tabAndSearchWrapper {
-        flex-direction: column-reverse;
-    }
-
-    .table_search {
-        width: 100%;
-        justify-content: start;
-    }
-}
-
 
 .tt_wrapper {
-    width: 100%;
+    composes: ttWrapperShell from "../../styles/shared-search-layout.module.css";
 }
+

@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: flex-start;
     padding: 10px 11px;
-    background-color: white;
+    background-color: var(--color-surface);
     border-radius: 8px;
 
     -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
@@ -42,7 +42,7 @@
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    background-color: #ffcca8;
+    background-color: var(--color-surface-muted);
     padding: 10px;
     gap: 5px;
     width: 60px;
@@ -55,7 +55,7 @@
 
 .factoryNX_item:hover {
     cursor: pointer;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 10px var(--color-overlay);
     transform: scale(1.02);
     transition: all 0.25s linear;
 }
@@ -66,9 +66,9 @@
 
 /* Активный элемент */
 .factoryNX_itemActive {
-    background-color: #F47920;
-    color: white;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    background-color: var(--color-primary);
+    color: var(--color-surface);
+    box-shadow: 0 4px 6px var(--color-overlay);
     transform: scale(1.02);
 }
 
@@ -90,7 +90,7 @@
     height: 100%;
     max-width: 540px;
     min-width: 30%;
-    background-color: white;
+    background-color: var(--color-surface);
     padding: 10px;
     border-radius: 8px;
     box-sizing: border-box;
@@ -103,7 +103,7 @@
     aspect-ratio: 1 / 1; /* гарантирует квадрат */
     overflow: hidden;
     border-radius: 8px;
-    background: #f5f5f5;
+    background: var(--color-surface-muted);
     display: block;
 }
 
@@ -123,13 +123,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #777;
+    color: var(--color-text-muted);
     font-size: 14px;
 }
 
 .photosToSelect_wrapper {
     width: 100%;
-    background-color: white;
+    background-color: var(--color-surface);
     border-radius: 8px;
     padding: 10px;
     display: grid;
@@ -163,7 +163,7 @@
 .buttonWrapper > button {
     width: 100%;
     height: 50px;
-    color: white;
+    color: var(--color-white);
     border: none;
     border-radius: 8px;
     font-size: 16px;
@@ -173,27 +173,27 @@
 }
 
 .otherControl {
-    background-color: gainsboro;
+    background-color: var(--color-border-strong);
 }
 
 .otherControl:hover {
-    background-color: #bfbfbf;
+    background-color: var(--color-border-strong);
 }
 
 .handControl {
-    background-color: #F47920;
+    background-color: var(--color-primary);
 }
 
 .handControl:hover {
-    background-color: #D96A1C;
+    background-color: var(--color-primary-hover);
 }
 
 .photoToSelectRed {
-    border: 3px solid #FF4C4C;
+    border: 3px solid var(--color-danger);
 }
 
 .photoToSelectGreen {
-    border: 3px solid #4CAF50;
+    border: 3px solid var(--color-success-light);
 }
 
 .factoryNX_wrapper_personSelect {
@@ -208,7 +208,7 @@
     align-items: center;
     justify-content: flex-start;
     padding: 10px 11px;
-    background-color: white;
+    background-color: var(--color-surface);
     border-radius: 8px;
 
     -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
@@ -223,7 +223,7 @@
 
 .factoryNX_item:hover {
     cursor: pointer;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 10px var(--color-overlay);
     transform: scale(1.02);
     transition: all 0.25s linear;
 }
@@ -241,8 +241,8 @@
     flex-direction: column;
     align-items: start;
     justify-content: space-between;
-        background-color: white;
-    background-color: white;
+        background-color: var(--color-surface);
+    background-color: var(--color-surface);
     max-width: 540px;
     min-width: 30%;
     padding: 10px;
@@ -251,18 +251,18 @@
     
 /* Плейсхолдер на случай отсутствия фото */
 .mainPhoto_placeholder {
-    border: 3px solid #4CAF50;
+    border: 3px solid var(--color-success-light);
     height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #777;
+    color: var(--color-text-muted);
     font-size: 14px;
 }
 
 .photosToSelect_wrapper {
     width: 100%;
-    background-color: white;
+    background-color: var(--color-surface);
     border-radius: 8px;
     padding: 10px;
     display: grid;
@@ -296,7 +296,7 @@
 .buttonWrapper > button {
     width: 100%;
     height: 50px;
-    color: white;
+    color: var(--color-white);
     border: none;
     border-radius: 8px;
     font-size: 16px;
@@ -306,25 +306,26 @@
 }
 
 .otherControl {
-    background-color: gainsboro;
+    background-color: var(--color-border-strong);
 }
 
 .otherControl:hover {
-    background-color: #bfbfbf;
+    background-color: var(--color-border-strong);
 }
 
 .handControl {
-    background-color: #F47920;
+    background-color: var(--color-primary);
 }
 
 .handControl:hover {
-    background-color: #D96A1C;
+    background-color: var(--color-primary-hover);
 }
 
 .photoToSelectRed {
-    border: 3px solid #FF4C4C;
+    border: 3px solid var(--color-danger);
 }
 
 .photoToSelectGreen {
-    border: 3px solid #4CAF50;
+    border: 3px solid var(--color-success-light);
 }
+

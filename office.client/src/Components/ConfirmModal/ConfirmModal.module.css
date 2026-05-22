@@ -3,7 +3,6 @@
   flex-direction: column;
   gap: 26px;
   align-items: center;
-  padding: 8px 4px;
 }
 
 .modalImg {
@@ -22,7 +21,7 @@
   display: flex;
   gap: 8px;
   width: 100%;
-  justify-content: space-evenly;
+  justify-content: space-between;
 }
 
 .modalButton {
@@ -35,15 +34,15 @@
 
 .confirmPrimary {
   background: var(--color-primary);
-  color: #fff;
+  color:var(--color-text-muted);
   width: 70px;
   height: 40px;
   transition: all 0.25s linear;
 }
 
 .confirmSecondary {
-  background: #eeeeee;
-  color: #111;
+  background: var(--color-bg);
+  color: var(--color-text);
   width: 70px;
   height: 40px;
   transition: all 0.25s linear;
@@ -54,5 +53,7 @@
 }
 
 .confirmSecondary:hover {
-    background-color: #d8d8d8;
+    background-color: var(--color-border-strong);
 }
+
+

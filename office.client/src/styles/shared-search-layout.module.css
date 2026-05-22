@@ -1,0 +1,61 @@
+.searchShell {
+  background-color: var(--color-surface);
+  width: var(--search-shell-width, fit-content);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: var(--search-shell-justify, space-evenly);
+  padding-left: 5px;
+  border: 1px solid var(--color-border);
+}
+
+.searchShell > span {
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-subtle);
+}
+
+.searchShell > input {
+  border: none;
+  margin-left: 10px;
+  background-color: var(--color-transparent);
+  outline: none;
+  height: 40px;
+  padding-right: 5px;
+  font-size: 16px;
+  color: var(--color-text);
+}
+
+.searchShell > input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.tabAndSearchShell {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  padding-bottom: 10px;
+  gap: 10px;
+  justify-content: start;
+}
+
+.ttWrapperShell {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  align-items: center;
+  padding-bottom: 10px;
+}
+
+@media screen and (max-width: 586px) {
+  .tabAndSearchShell {
+    flex-direction: column-reverse;
+  }
+
+  .searchShell {
+    width: var(--search-shell-mobile-width, 100%);
+    justify-content: var(--search-shell-mobile-justify, start);
+  }
+}

@@ -1,6 +1,6 @@
 .calculator_wrapper {
   width: 100%;
-  background-color: white;
+  background-color: var(--color-surface);
   border-radius: 8px;
   padding: 10px;
   display: grid;
@@ -9,8 +9,8 @@
   align-content: start;
   justify-content: center;
   overflow: auto;
-  height: calc(100% - 50px);
-  box-shadow: 0px 4px 5px 0px #0000002e;
+  height: calc(100% - 52px);
+  box-shadow: 0px 4px 5px 0px var(--color-overlay);
   padding-right: 8px;
   margin-right: -12px; 
 }
@@ -21,18 +21,18 @@
 }
 
 .calculator_wrapper::-webkit-scrollbar-track {
-  background: #f1f1f1; /* светлый фон */
+  background: var(--color-surface-muted); /* светлый фон */
   border-radius: 8px;
 }
 
 .calculator_wrapper::-webkit-scrollbar-thumb {
-  background-color: #b0b0b0;
+  background-color: var(--color-border-strong);
   border-radius: 8px;
   transition: background-color 0.2s ease;
 }
 
 .calculator_wrapper::-webkit-scrollbar-thumb:hover {
-  background-color: #888;
+  background-color: var(--color-text-subtle);
 }
 
 .searchWrapper {
@@ -43,29 +43,12 @@
 }
 
 .table_search {
-  background-color: white;
-  width: fit-content;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  padding-left: 5px;
+  composes: searchShell from "../../styles/shared-search-layout.module.css";
   margin-bottom: 10px;
-  width: 100%;
-}
-
-.table_search > span {
-  width: 24px;
-  height: 24px;
+  --search-shell-width: 100%;
 }
 
 .table_search > input {
-  border: none;
-  margin-left: 10px;
-  background-color: transparent;
-  outline: none;
-  height: 40px;
-  padding-right: 5px;
-  font-size: 16px;
   width: 100%;
 }
 
@@ -83,3 +66,6 @@
   font-weight: 400;
   padding-top: 10px;
 }
+
+
+

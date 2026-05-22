@@ -27,6 +27,23 @@ import Orders from './Pages/Orders/Orders';
 import Notifications from './Pages/Notifications/Notifications';
 import GroupEdit from './Pages/Users/GroupEdit';
 import RoleEdit from './Pages/Users/RoleEdit';
+import FactoryPerson from './Pages/FactoryPerson/FactoryPerson'
+import FactoryPersonEdit from './Pages/FactoryPerson/FactoryPersonEdit'
+import Stock from './Pages/Stock/Stock'
+import StockTable from './Pages/Stock/StockTable';
+import SalaryPage from './Pages/Salary/SalaryPage';
+import SalarySettingsPage from './Pages/Salary/SalarySettingsPage';
+
+try {
+  const savedTheme = localStorage.getItem("theme");
+  if (savedTheme === "dark" || savedTheme === "light") {
+    document.documentElement.setAttribute("data-theme", savedTheme);
+  } else {
+    document.documentElement.setAttribute("data-theme", "light");
+  }
+} catch {
+  document.documentElement.setAttribute("data-theme", "light");
+}
 
 function StartupChecker() {
   const dispatch = useDispatch();
@@ -91,6 +108,14 @@ createRoot(document.getElementById('root')!).render(
 
                     <Route path='FactoryNX' element={<FactoryNX />} />
                     <Route path='Orders' element={<Orders />} />
+                    <Route path='FactoryPerson' element={<FactoryPerson />} />
+                    <Route path='/FactoryPerson/Edit' element={<FactoryPersonEdit />} />
+                    <Route path='/FactoryPerson/Edit/:id' element={<FactoryPersonEdit />} />
+                    <Route path='/Stock' element={<Stock />} />
+                    <Route path='/Stock/:tab' element={<Stock />} />
+                    <Route path='/StockTable' element={<StockTable />} />
+                    <Route path='/Salary' element={<SalaryPage />} />
+                    <Route path='/Salary/Settings' element={<SalarySettingsPage />} />
                     <Route path='Notifications' element={<Notifications />} />
                     
                   </Route>
