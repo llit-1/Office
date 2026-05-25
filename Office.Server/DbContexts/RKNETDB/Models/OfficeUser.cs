@@ -54,7 +54,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         public Personality? Personality { get; set; }
         public virtual List<OfficeGroup> OfficeGroup { get; set; }
         public virtual List<Location> Locations { get; set; }
-
+        public virtual ICollection<OfficeNotification> OfficeNotifications { get; set; } = new List<OfficeNotification>();
         public OfficeUser()
         {
             OfficeGroup = new List<OfficeGroup>();

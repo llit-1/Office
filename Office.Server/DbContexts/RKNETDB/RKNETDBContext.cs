@@ -104,7 +104,7 @@ namespace Office.Server.DbContexts.RKNETDB
 
             base.OnModelCreating(modelBuilder);
         }
-        public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; } //пользователь
+        public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; }//пользователь
         public DbSet<DbContexts.RKNETDB.Models.FactoryNXBuffer> FactoryNXBuffer { get; set; } //Логи NX Завод
         public DbSet<DbContexts.RKNETDB.Models.FactoryPerson> FactoryPerson { get; set; } //Сотрудники Завод
         public DbSet<DbContexts.RKNETDB.Models.Personality> Personalities { get; set; } //Сотрудники Завод
@@ -114,6 +114,9 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<DbContexts.RKNETDB.Models.JobTitle> JobTitles { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.PersonalityVersion> PersonalityVersions { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.TimeSheet> TimeSheets { get; set; }
+        public DbSet<DbContexts.RKNETDB.Models.OfficeNotification> OfficeNotifications { get; set; }
+        public DbSet<DbContexts.RKNETDB.Models.OfficeNotificationType> OfficeNotificationTypes { get; set; }
+
 
         // Factory-related DbSets added for PersonalityFactoryController
         public DbSet<FactoryBank> FactoryBank { get; set; }

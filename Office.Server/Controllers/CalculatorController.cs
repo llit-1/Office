@@ -1,19 +1,21 @@
 ﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
-using System.IdentityModel.Tokens.Jwt;
 using System;
 using System.DirectoryServices;
-using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 
 namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class CalculatorController : ControllerBase
     {
         private readonly RKNETDBContext _rKNETDBContext;
