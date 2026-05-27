@@ -28,7 +28,7 @@
 }
 
 .button_notifications::after {
-    content: '13';
+    content: attr(data-count);
     position: absolute;
     top: 2px;
     left: 2px;
@@ -44,6 +44,10 @@
     border-radius: 50%;
     line-height: 0px;
     transition: all 0.25s linear;
+}
+
+.button_notifications[data-has-notifications="false"]::after {
+    display: none;
 }
 
 .button_notifications:hover::after {

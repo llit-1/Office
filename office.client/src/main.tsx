@@ -49,15 +49,20 @@ function StartupChecker() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const token = useSelector((s: RootState) => s.auth?.token);
+  const id = useSelector((s: RootState) => s.auth?.id);
 
   useEffect(() => {
-    if (token) return; // already have token
-
     try {
       const lsToken = localStorage.getItem('token') || localStorage.getItem('authToken');
       const lsId = localStorage.getItem('id') || localStorage.getItem('userId');
+      const parsedId = lsId ? Number(lsId) : undefined;
+
+      if (token && (id !== null && typeof id !== "undefined")) {
+        return;
+      }
+
       if (lsToken) {
-        dispatch(login({ id: lsId ? Number(lsId) : undefined, token: lsToken }));
+        dispatch(login({ id: parsedId, token: token || lsToken }));
         return;
       }
     } catch {
@@ -66,7 +71,7 @@ function StartupChecker() {
 
     // No token found anywhere — redirect to login (cannot silently obtain token without credentials)
     navigate('/Login');
-  }, [token, dispatch, navigate]);
+  }, [token, id, dispatch, navigate]);
 
   return null;
 }

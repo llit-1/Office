@@ -16,6 +16,9 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const title = useSelector((state: RootState) => state.pageTitle.title);
   const visible = useSelector((state: RootState) => state.backButton.visible);
   const path = useSelector((state: RootState) => state.backButton.path);
+  const notificationsCount = useSelector(
+    (state: RootState) => state.userData.newNotifications.length + state.userData.activeNotifications.length
+  );
   const navigate = useNavigate();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -115,7 +118,12 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
         {title}
       </div>
 
-      <div className={styles.button_notifications} onClick={() => navigate("/Notifications")}>
+      <div
+        className={styles.button_notifications}
+        data-count={notificationsCount > 99 ? "99+" : String(notificationsCount)}
+        data-has-notifications={notificationsCount > 0}
+        onClick={() => navigate("/Notifications")}
+      >
           <NotificationsNoneIcon />
       </div>
 

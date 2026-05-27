@@ -21,30 +21,67 @@ namespace Office.Server.Controllers
         [HttpGet("getdata")]
         public async Task<ActionResult> GetData(int userId)
         {
-            Data data = new();
-            OfficeUser user = _rKNETDBContext.OfficeUser.Include(x=> x.OfficeNotifications)
-                                                        .Include(x=> x.OfficeGroup)
-                                                        .ThenInclude(y => y.OfficeRole)
-                                                        .FirstOrDefault(x => x.Id == userId);
-            if (user == null)
+            Data? data = await _rKNETDBContext.OfficeUser
+                .AsNoTracking()
+                .Where(x => x.Id == userId)
+                .Select(user => new Data
+                {
+                    NewNotifications = user.OfficeNotifications
+                        .Where(x => x.Status == 0)
+                        .OrderByDescending(x => x.DateTime)
+                        .Select(x => new DataNotification
+                        {
+                            Id = x.Id,
+                            DateTime = x.DateTime,
+                            TypeId = x.TypeId,
+                            OfficeUserId = x.OfficeUserId,
+                            RelatedEntity = x.RelatedEntity,
+                            Status = x.Status,
+                        })
+                        .ToList(),
+                    ActiveNotifications = user.OfficeNotifications
+                        .Where(x => x.Status == 1)
+                        .OrderByDescending(x => x.DateTime)
+                        .Select(x => new DataNotification
+                        {
+                            Id = x.Id,
+                            DateTime = x.DateTime,
+                            TypeId = x.TypeId,
+                            OfficeUserId = x.OfficeUserId,
+                            RelatedEntity = x.RelatedEntity,
+                            Status = x.Status,
+                        })
+                        .ToList(),
+                    Roles = user.OfficeGroup
+                        .SelectMany(group => group.OfficeRole.Select(role => role.Role))
+                        .Distinct()
+                        .ToList(),
+                })
+                .FirstOrDefaultAsync();
+
+            if (data == null)
             {
                 return NotFound(new { message = "Пользователь не найден" });
-            }          
-            data.NewNotifications = user.OfficeNotifications.Where(x => x.Status == 0).ToList();
-            data.ActiveNotifications = user.OfficeNotifications.Where(x => x.Status == 1).ToList();
-            foreach (var item in user.OfficeGroup)
-            {
-                data.Roles.AddRange(item.OfficeRole.Select(x => x.Name));
             }
-            data.Roles = data.Roles.Distinct().ToList();
+
             return Ok(data);
         }
     }
 
     public class Data()
     {
-        public List<OfficeNotification> NewNotifications { get; set; } = new();
-        public List<OfficeNotification> ActiveNotifications { get; set; } = new();
+        public List<DataNotification> NewNotifications { get; set; } = new();
+        public List<DataNotification> ActiveNotifications { get; set; } = new();
         public List<string> Roles { get; set; } = new();
+    }
+
+    public class DataNotification
+    {
+        public int Id { get; set; }
+        public DateTime DateTime { get; set; }
+        public int TypeId { get; set; }
+        public int OfficeUserId { get; set; }
+        public int RelatedEntity { get; set; }
+        public int Status { get; set; }
     }
 }
