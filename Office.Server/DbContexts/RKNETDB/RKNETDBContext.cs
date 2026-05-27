@@ -136,5 +136,6 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<FactorySKUDGroup> FactorySKUDGroup { get; set; }
         public DbSet<WarehouseCategories> WarehouseCategories { get; set; }
         public DbSet<WarehouseHolder> WarehouseHolders { get; set; }
+        public DbSet<OfficeBid> OfficeBids { get; set; }
     }
 }
