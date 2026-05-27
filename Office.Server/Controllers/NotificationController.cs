@@ -21,58 +21,30 @@ namespace Office.Server.Controllers
         [HttpGet("getactivenotifications")]
         public async Task<ActionResult> GetActiveNotifications(int userId)
         {
-            List<NotificationDto>? officeNotifications = await _rKNETDBContext.OfficeUser
-                .AsNoTracking()
-                .Where(x => x.Id == userId)
-                .Select(user => user.OfficeNotifications
-                    .Where(x => x.Status == 0 || x.Status == 1)
-                    .OrderByDescending(x => x.DateTime)
-                    .Select(x => new NotificationDto
-                    {
-                        Id = x.Id,
-                        DateTime = x.DateTime,
-                        TypeId = x.TypeId,
-                        OfficeUserId = x.OfficeUserId,
-                        RelatedEntity = x.RelatedEntity,
-                        Status = x.Status,
-                    })
-                    .ToList())
-                .FirstOrDefaultAsync();
-
+            List<OfficeNotification> officeNotifications = _rKNETDBContext.OfficeNotifications
+                 .Include(x => x.OfficeNotificationType)
+                 .Where(x => x.OfficeUserId == userId)
+                 .Where(x => x.Status == 0 || x.Status == 1)
+                 .OrderByDescending(x => x.DateTime).ToList();
             if (officeNotifications == null)
             {
                 return NotFound(new { message = "Пользователь не найден" });
             }
-
             return Ok(officeNotifications);
         }
 
         [HttpGet("getinactivenotifications")]
         public async Task<ActionResult> GetInactiveNotifications(int userId)
         {
-            List<NotificationDto>? officeNotifications = await _rKNETDBContext.OfficeUser
-                .AsNoTracking()
-                .Where(x => x.Id == userId)
-                .Select(user => user.OfficeNotifications
-                    .Where(x => x.Status == 2)
-                    .OrderByDescending(x => x.DateTime)
-                    .Select(x => new NotificationDto
-                    {
-                        Id = x.Id,
-                        DateTime = x.DateTime,
-                        TypeId = x.TypeId,
-                        OfficeUserId = x.OfficeUserId,
-                        RelatedEntity = x.RelatedEntity,
-                        Status = x.Status,
-                    })
-                    .ToList())
-                .FirstOrDefaultAsync();
-
+            List<OfficeNotification> officeNotifications = _rKNETDBContext.OfficeNotifications
+                .Include(x => x.OfficeNotificationType)
+                .Where(x => x.OfficeUserId == userId)
+                .Where(x => x.Status == 2)
+                .OrderByDescending(x => x.DateTime).ToList();
             if (officeNotifications == null)
             {
                 return NotFound(new { message = "Пользователь не найден" });
             }
-
             return Ok(officeNotifications);
         }
 
@@ -101,15 +73,5 @@ namespace Office.Server.Controllers
             return Ok();
         }
 
-    }
-
-    public class NotificationDto
-    {
-        public int Id { get; set; }
-        public DateTime DateTime { get; set; }
-        public int TypeId { get; set; }
-        public int OfficeUserId { get; set; }
-        public int RelatedEntity { get; set; }
-        public int Status { get; set; }
     }
 }

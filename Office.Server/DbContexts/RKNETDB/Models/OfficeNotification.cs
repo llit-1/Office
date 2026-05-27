@@ -30,7 +30,4 @@ public class OfficeNotification
 
     [ForeignKey(nameof(TypeId))]
     public virtual OfficeNotificationType OfficeNotificationType { get; set; } = null!;
-
-    [ForeignKey(nameof(OfficeUserId))]
-    public virtual OfficeUser OfficeUser { get; set; } = null!;
 }
