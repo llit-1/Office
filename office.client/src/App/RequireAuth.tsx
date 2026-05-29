@@ -27,7 +27,15 @@ const RequireAuth = ({ children }: RequireAuthProps) => {
     }
   }, []);
 
-  const token = tokenFromStore || (() => { try { return localStorage.getItem("token"); } catch { return null; } })();
+  const token =
+    tokenFromStore ||
+    (() => {
+      try {
+        return localStorage.getItem("token") || localStorage.getItem("authToken");
+      } catch {
+        return null;
+      }
+    })();
 
   if (!token) {
     // if user is already on Login, don't redirect loop (Login route is outside RequireAuth)

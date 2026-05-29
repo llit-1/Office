@@ -1,29 +1,62 @@
 .login_header {
-    height: 25%;
+    min-height: 120px;
+    padding: 46px 20px;
+    padding-bottom: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
     background-color: var(--color-surface);
+    padding-right: 70px;
     border-bottom: 1px solid var(--color-border);
 }
 
-.login_p {
+.login_brand {
     display: flex;
-    justify-content: center;
-    align-content: center;
-    color: var(--color-text-muted);
-    padding-top: 30px;
-    font-family: "Akrobat";
-    font-size: 16px;
-    cursor: pointer;
+    align-items: center;
+    user-select: none;
+    color: #111111;
 }
 
-.login_img {
-    width: 330px;
+.login_brandMark {
+    width: 166px;
+    min-width: 166px;
+    height: 166px;
+    background-color: var(--color-primary);
+    -webkit-mask: url("/img/label.svg") center / contain no-repeat;
+    mask: url("/img/label.svg") center / contain no-repeat;
+    display: block;
+    flex: 0 0 auto;
+}
+
+.login_brandText {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    color: #111111;
+    font-family: "Akrobat";
+    text-transform: none;
+}
+
+.login_brandTitle {
+    font-size: 56px;
+    line-height: 1;
+    font-weight: 600;
+    color: var(--color-text-muted);
+}
+
+.login_brandSubtitle {
+    margin-top: 6px;
+    font-size: 15px;
+    line-height: 1;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: lowercase;
+    color: var(--color-text-muted);
 }
 
 .login_formWrapper {
-    height: 75%;
+    min-height: calc(100vh - 253px);
     width: 100%;
     background-color: var(--color-bg);
     padding: 20px;
@@ -160,6 +193,34 @@
 
 .authModalPanel {
     max-width: 450px;
-    aspect-ratio: 1 / 1;
+    width: min(450px, calc(100vw - 32px));
+}
+
+@media (max-width: 640px) {
+    .login_header {
+        min-height: 104px;
+        padding: 20px 24px 20px 0px;
+    }
+
+    .login_brandMark {
+        width: 140px;
+        min-width: 140px;
+        height: 140px;
+    }
+
+    .login_brandTitle {
+        font-size: 42px;
+        color: var(--color-text-muted);
+    }
+
+    .login_brandSubtitle {
+        margin-top: 5px;
+        font-size: 12px;
+        letter-spacing: 0.22em;
+    }
+
+    .login_formWrapper {
+        min-height: calc(100vh - 182px);
+    }
 }
 

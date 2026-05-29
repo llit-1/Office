@@ -6,57 +6,111 @@ import Header from "../Header/Header";
 import HamburgerMenuDesktop from "../HamburgerMenuDesktop/HamburgerMenuDesktop";
 import { HeaderMobile } from "../HeaderMobile/HeaderMobile";
 import type { RootState } from "../Store";
-import { get, post } from "../Services/api";
-import type { OfficeNotification, UserDataApiNotification, UserDataApiResponse, UserDataResponse } from "../Interfaces/UserData";
+import { post } from "../Services/api";
 import { clearUserData, setUserData } from "../Store/userDataSlice";
+import { getUserData } from "../Services/userData";
 import "./App.css";
 
-function normalizeNotification(item: UserDataApiNotification): OfficeNotification {
-  return {
-    id: item.id,
-    dateTime: item.dateTime,
-    typeId: item.typeId,
-    officeUserId: item.officeUserId,
-    relatedEntity: item.relatedEntity,
-    status: item.status,
-  };
+let notificationAudioContext: AudioContext | null = null;
+let notificationAudioBuffer: AudioBuffer | null = null;
+let notificationAudioBufferPromise: Promise<AudioBuffer | null> | null = null;
+let notificationHtmlAudio: HTMLAudioElement | null = null;
+
+const notificationSoundPath = "/songs/notification.mp3";
+const notificationSoundVolume = 0.2;
+
+function getHtmlAudio() {
+  if (!notificationHtmlAudio) {
+    notificationHtmlAudio = new Audio(notificationSoundPath);
+    notificationHtmlAudio.preload = "auto";
+    notificationHtmlAudio.volume = notificationSoundVolume;
+  }
+
+  return notificationHtmlAudio;
 }
 
-function normalizeUserData(data: UserDataApiResponse): UserDataResponse {
-  return {
-    newNotifications: (data.newNotifications ?? []).map(normalizeNotification),
-    activeNotifications: (data.activeNotifications ?? []).map(normalizeNotification),
-    roles: Array.from(new Set(data.roles ?? [])),
-  };
+function getAudioContext() {
+  if (notificationAudioContext) {
+    return notificationAudioContext;
+  }
+
+  const AudioContextCtor =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+  if (!AudioContextCtor) {
+    return null;
+  }
+
+  notificationAudioContext = new AudioContextCtor();
+  return notificationAudioContext;
+}
+
+async function loadNotificationAudioBuffer() {
+  if (notificationAudioBuffer) {
+    return notificationAudioBuffer;
+  }
+
+  if (notificationAudioBufferPromise) {
+    return notificationAudioBufferPromise;
+  }
+
+  notificationAudioBufferPromise = (async () => {
+    try {
+      const audioContext = getAudioContext();
+      if (!audioContext) {
+        return null;
+      }
+
+      const response = await fetch(notificationSoundPath);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer.slice(0));
+      notificationAudioBuffer = audioBuffer;
+      return audioBuffer;
+    } catch {
+      return null;
+    } finally {
+      notificationAudioBufferPromise = null;
+    }
+  })();
+
+  return notificationAudioBufferPromise;
 }
 
 async function playNotificationBeep() {
   try {
-    const AudioContextCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) {
+    const audioContext = getAudioContext();
+    if (!audioContext) {
+      const htmlAudio = getHtmlAudio();
+      htmlAudio.currentTime = 0;
+      await htmlAudio.play();
       return;
     }
 
-    const audioContext = new AudioContextCtor();
-    const oscillator = audioContext.createOscillator();
+    if (audioContext.state === "suspended") {
+      await audioContext.resume();
+    }
+
+    const audioBuffer = await loadNotificationAudioBuffer();
+    if (!audioBuffer) {
+      return;
+    }
+
+    const source = audioContext.createBufferSource();
     const gainNode = audioContext.createGain();
-
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.28, audioContext.currentTime + 0.01);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.28);
-
-    oscillator.connect(gainNode);
+    source.buffer = audioBuffer;
+    gainNode.gain.value = notificationSoundVolume;
+    source.connect(gainNode);
     gainNode.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.2);
-
-    oscillator.onended = () => {
-      void audioContext.close();
-    };
+    source.start(0);
   } catch {
-    // Browser can block audio until user interaction; keep polling working silently.
+    try {
+      const htmlAudio = getHtmlAudio();
+      htmlAudio.currentTime = 0;
+      await htmlAudio.play();
+    } catch {
+      // Keep polling working silently if the browser blocks sound.
+    }
   }
 }
 
@@ -67,6 +121,10 @@ function App() {
   const dispatch = useDispatch();
   const userId = useSelector((state: RootState) => state.auth.id);
   const token = useSelector((state: RootState) => state.auth.token);
+  const notificationSoundEnabled = useSelector(
+    (state: RootState) => state.preferences.notificationSoundEnabled
+  );
+
   const effectiveUserId = (() => {
     if (typeof userId === "number" && !Number.isNaN(userId)) {
       return userId;
@@ -85,30 +143,24 @@ function App() {
     }
   })();
 
-  // состояние меню
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
-  // Redirect to Main only when at the root path.
   useEffect(() => {
     const path = location.pathname || "/";
     if (path === "/" || path === "") {
       navigate("Main", { replace: true });
     }
-  }, [location.pathname]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
-    if(width > 500 && width < 1000)
-    {
-      setIsMenuOpen(false)
-      return
+    if (width > 500 && width < 1000) {
+      setIsMenuOpen(false);
+      return;
     }
 
-    if(width > 1000)
-    {
-      setIsMenuOpen(true)
+    if (width > 1000) {
+      setIsMenuOpen(true);
     }
-
-
   }, [width]);
 
   useEffect(() => {
@@ -121,7 +173,31 @@ function App() {
     } catch {
       // ignore localStorage issues
     }
+
     document.documentElement.setAttribute("data-theme", "light");
+  }, []);
+
+  useEffect(() => {
+    const unlockAudio = async () => {
+      try {
+        const audioContext = getAudioContext();
+        if (audioContext && audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
+
+        void loadNotificationAudioBuffer();
+      } catch {
+        // ignore audio unlock issues
+      }
+    };
+
+    document.addEventListener("pointerdown", unlockAudio, { once: true });
+    document.addEventListener("keydown", unlockAudio, { once: true });
+
+    return () => {
+      document.removeEventListener("pointerdown", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
+    };
   }, []);
 
   useEffect(() => {
@@ -134,22 +210,23 @@ function App() {
 
     const loadUserData = async () => {
       try {
-        const data = await get<UserDataApiResponse>("/DataUpdate/getdata", {
-          params: { userId: effectiveUserId },
-        });
-
-        const normalizedData = normalizeUserData(data);
+        const normalizedData = await getUserData(effectiveUserId);
         const newNotificationIds = normalizedData.newNotifications.map((item) => item.id);
 
         if (newNotificationIds.length > 0) {
-          await playNotificationBeep();
+          if (notificationSoundEnabled) {
+            await playNotificationBeep();
+          }
 
           try {
             await post("/Notification/setnotificationsstatusone", newNotificationIds);
             normalizedData.activeNotifications = [
               ...normalizedData.newNotifications.map((item) => ({ ...item, status: 1 })),
               ...normalizedData.activeNotifications,
-            ].sort((left, right) => new Date(right.dateTime).getTime() - new Date(left.dateTime).getTime());
+            ].sort(
+              (left, right) =>
+                new Date(right.dateTime).getTime() - new Date(left.dateTime).getTime()
+            );
             normalizedData.newNotifications = [];
           } catch (statusUpdateError) {
             console.error("Failed to update notification statuses", statusUpdateError);
@@ -174,7 +251,7 @@ function App() {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [dispatch, token, effectiveUserId]);
+  }, [dispatch, token, effectiveUserId, notificationSoundEnabled]);
 
   return (
     <>

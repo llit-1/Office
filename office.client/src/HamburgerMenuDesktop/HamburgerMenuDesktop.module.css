@@ -2,9 +2,10 @@
     width: 250px;
     background-color: var(--color-surface);
     height: 100%;
-    transition: 0.15s all linear;
+    transition: width 0.26s ease, min-width 0.26s ease, box-shadow 0.26s ease;
     overflow: hidden;
     border-right: 1px solid var(--color-border);
+    will-change: width;
 }
 
 .menuDesc > li {
@@ -13,7 +14,7 @@
     min-width: 60px;
     width: 100%;
     border-bottom: 1px solid var(--color-border);
-    transition: 0.2s all ease-in-out;
+    transition: background-color 0.2s ease, color 0.2s ease;
     position: relative;
     user-select: none;
     color: var(--color-text);
@@ -31,33 +32,38 @@
 
 
 .menuDesc > li:hover {
-    font-weight: 800;
-    font-size: 22px;
     cursor: pointer;
     background-color: var(--color-surface-muted);
 }
 
-.menuDesc > li > div {
+.menuItemInner {
     display: flex;
     justify-content: start;
     align-items: center;
     height: 100%;
     flex-direction: row;
-    gap: 10px;
+    min-width: 0;
+    position: relative;
 }
 
-.menuDesc > li > div > p {
+.menuDesc > li > .menuItemInner > p {
     font-size: 16px;
     font-family: "Akrobat";
     color: var(--color-text);
-    padding-left: 20px;
     height: 100%;
-    overflow: hidden;
-    transition: max-height 0.25s ease, visibility 0.25s ease;
     white-space: nowrap;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
+    opacity: 1;
+    max-width: 150px;
+    transform: translateX(0);
+    transition: opacity 0.18s ease, transform 0.24s ease, visibility 0.24s ease;
+    position: absolute;
+    left: 63px;
+    top: 0;
+    overflow: hidden;
+    visibility: visible;
 }
 
 .collapsed {
@@ -67,17 +73,24 @@
     min-width: 60px;
 }
 
+.menuDesc.collapsed .menuItemInner {
+    justify-content: start;
+}
+
 .expanded {
     width: 250px;
     min-width: 250px;
 }
 
-.hidden_text {
-    display: none;
+.menuDesc.collapsed > li > .menuItemInner > .visible_text {
+    opacity: 0;
+    transform: translateX(-6px);
+    visibility: hidden;
 }
 
-.visible_text {
-    max-height: 60px;
+.menuDesc.expanded > li > .menuItemInner > .visible_text {
+    opacity: 1;
+    transform: translateX(0);
     visibility: visible;
 }
 
@@ -86,10 +99,7 @@
     height: 30px !important;
     fill: var(--color-text) !important;
     margin-left: 13px;
-}
-
-.menuTooltip {
-    margin-left: 10px !important;
+    flex: 0 0 auto;
 }
 
 

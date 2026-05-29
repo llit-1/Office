@@ -16,7 +16,7 @@
 
 .notification_item {
     display: grid;
-    grid-template-columns: 0.5fr 1.25fr 1.75fr 1fr 1fr 1fr;
+    grid-template-columns: 1fr 1.25fr 1.75fr 0.9fr;
     align-items: center;
     padding: 8px;
     gap: 10px;
@@ -44,27 +44,87 @@
     min-height: 34px;
     font-size: 14px;
     transition: all .25s linear;
+    width: 100%;
 }
 
 .action_button:hover {
     background-color: var(--color-primary-600);
 }
 
-.report {
-    border: none;
-    padding: 5px 10px;
-    text-align: center;
-    line-height: 0px;
-    min-height: 34px;
+.actions {
     display: flex;
-    justify-content: center;
+    flex-direction: row;
+    gap: 8px;
     align-items: center;
-    font-size: 16px;
-    color: var(--color-primary);
 }
 
-.notification_item:has(.report) {
-    grid-template-columns: 0.5fr 1.25fr 1.75fr 1fr 1fr 1fr;    
+.secondary_button {
+    border-radius: 8px;
+    cursor: pointer;
+    background-color: color-mix(in srgb, var(--color-surface) 78%, var(--color-primary) 22%);
+    color: var(--color-primary);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-border));
+    padding: 5px 10px;
+    min-height: 34px;
+    font-size: 14px;
+    transition: all .25s linear;
+    width: 100%;
+}
+
+.secondary_button:hover {
+    background-color: color-mix(in srgb, var(--color-surface) 65%, var(--color-primary) 35%);
+}
+
+@media screen and (max-width: 900px) {
+    .notification_item {
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 12px;
+        padding: 14px;
+    }
+
+    .notification_item span {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        line-height: 1.35;
+    }
+
+    .actions {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .action_button,
+    .secondary_button {
+        width: auto;
+        min-width: 148px;
+        flex: 1 1 180px;
+    }
+}
+
+@media screen and (max-width: 520px) {
+    .notifications_wrapper {
+        gap: 10px;
+    }
+
+    .notification_item {
+        padding: 12px;
+        border-left-width: 3px;
+    }
+
+    .actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .action_button,
+    .secondary_button {
+        width: 100%;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
 }
 
 

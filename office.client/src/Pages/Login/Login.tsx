@@ -1,29 +1,37 @@
-import React, { useState, useEffect } from "react";
-import styles from "./Login.module.css";
+import React, { useEffect, useState } from "react";
 import { Button, TextField } from "@mui/material";
-import { Auth } from "../Requests";
-import { AuthAnswer } from "../../Interfaces/AuthAnswer";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { useNotifications } from "@toolpad/core";
+import styles from "./Login.module.css";
+import { Auth } from "../Requests";
+import type { AuthAnswer } from "../../Interfaces/AuthAnswer";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import { Modal } from "../../Components/Modal/Modal";
-import { useDispatch } from "react-redux";
-import { logout, login } from "../../Store/authSlice";
-import { useNotifications } from "@toolpad/core";
+import { login, logout } from "../../Store/authSlice";
+import { setUserData } from "../../Store/userDataSlice";
+import { getUserData } from "../../Services/userData";
 
 type ModalKind = "warning" | "error";
 
 type ModalState =
   | { open: false }
-  | { open: true; kind: ModalKind; title: string; message: string; img?: string };
+  | {
+      open: true;
+      kind: ModalKind;
+      title: string;
+      message: string;
+      img?: string;
+    };
 
 const Login = () => {
-  const [password, setPassword] = useState<string>("");
-  const [loginState, setLoginState] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [buttonText, setButtonText] = useState<string>("Войти");
-  const notifications = useNotifications();
+  const [password, setPassword] = useState("");
+  const [loginState, setLoginState] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [buttonText, setButtonText] = useState("Войти");
   const [modal, setModal] = useState<ModalState>({ open: false });
 
+  const notifications = useNotifications();
   const navigator = useNavigate();
   const dispatch = useDispatch();
 
@@ -38,7 +46,7 @@ const Login = () => {
     } catch (error) {
       console.error(error);
     }
-  }, []);
+  }, [dispatch]);
 
   const closeModal = () => setModal({ open: false });
 
@@ -51,9 +59,11 @@ const Login = () => {
     try {
       const authToken: AuthAnswer | string = await Auth(loginState, password);
 
-      // Если Auth вернул строку — считаем это ошибкой
       if (typeof authToken === "string") {
-        notifications.show("Не удалось выполнить авторизацию.", { severity: "error", autoHideDuration: 3000 });
+        notifications.show("Не удалось выполнить авторизацию.", {
+          severity: "error",
+          autoHideDuration: 3000,
+        });
         return;
       }
 
@@ -64,20 +74,31 @@ const Login = () => {
           title: "Аккаунт ещё не активирован",
           message:
             "Ваш аккаунт создан, но ещё не активирован. Пожалуйста, дождитесь активации администратором.",
-          img: "/img/clock.svg"
+          img: "/img/clock.svg",
         });
         return;
       }
 
       if (authToken.responseCode === 1) {
         try {
-          // persist token/id and update redux state
           localStorage.setItem("token", authToken.token);
           localStorage.setItem("id", String(authToken.id));
-        } catch {}
+        } catch {
+          // ignore storage errors
+        }
+
         try {
           dispatch(login({ id: authToken.id, token: authToken.token }));
-        } catch {}
+        } catch {
+          // ignore redux sync issues
+        }
+
+        try {
+          const userData = await getUserData(authToken.id);
+          dispatch(setUserData(userData));
+        } catch (userDataError) {
+          console.error("Failed to preload user data after login", userDataError);
+        }
 
         navigator("/Main");
         return;
@@ -90,13 +111,15 @@ const Login = () => {
           title: "Доступ запрещён",
           message:
             "Вход запрещён. Если вы считаете это ошибкой — обратитесь к администратору.",
-          img: "/img/stop.svg"
+          img: "/img/stop.svg",
         });
         return;
       }
-
     } catch (error) {
-      notifications.show("Не удалось выполнить авторизацию.", { severity: "error", autoHideDuration: 3000 });
+      notifications.show("Не удалось выполнить авторизацию.", {
+        severity: "error",
+        autoHideDuration: 3000,
+      });
     } finally {
       setIsLoading(false);
       setButtonText("Войти");
@@ -106,9 +129,15 @@ const Login = () => {
   return (
     <>
       <header className={styles.login_header}>
-        <p className={styles.login_p}>
-          <img className={styles.login_img} src="/img/logo-big.svg" alt="Logo" />
-        </p>
+        <div className={styles.login_brand}>
+          <div className={styles.login_brandMark} aria-hidden="true"></div>
+          <div className={styles.login_brandText}>
+            <div className={styles.login_brandTitle}>Люди Любят</div>
+            <div className={styles.login_brandSubtitle}>
+              корпоративный портал
+            </div>
+          </div>
+        </div>
       </header>
 
       <div className={styles.login_formWrapper}>
@@ -157,15 +186,22 @@ const Login = () => {
         <p className={styles.form_p}>{import.meta.env.VITE_VERSION}</p>
       </div>
 
-      <Modal isOpen={modal.open} onClose={closeModal} title={modal.open ? modal.title : ""} panelClassName={styles.authModalPanel}>
+      <Modal
+        isOpen={modal.open}
+        onClose={closeModal}
+        title={modal.open ? modal.title : ""}
+        panelClassName={styles.authModalPanel}
+      >
         <div className={styles.modalContent}>
-          
-          <img className={styles.modalImg} src={modal.open ? modal?.img : ""} alt="clock" />
+          <img
+            className={styles.modalImg}
+            src={modal.open ? modal.img : ""}
+            alt="modal"
+          />
 
           <p className={styles.modalText}>{modal.open ? modal.message : ""}</p>
 
           <div className={styles.modalActions}>
-
             <button onClick={closeModal} className={styles.modalButton}>
               ОК
             </button>

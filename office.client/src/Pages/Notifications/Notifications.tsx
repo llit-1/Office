@@ -2,53 +2,31 @@ import styles from "./Notifications.module.css";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNotifications } from "@toolpad/core";
+import { useNavigate } from "react-router-dom";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import type { RootState } from "../../Store";
 import { callApi, get, post } from "../../Services/api";
-import type { OfficeNotification, UserDataApiNotification } from "../../Interfaces/UserData";
+import type {
+  OfficeNotification,
+  UserDataApiNotification,
+} from "../../Interfaces/UserData";
 import { setUserData } from "../../Store/userDataSlice";
-
-const formatDate = (value: string) => {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
-};
-
-const normalizeNotification = (item: UserDataApiNotification): OfficeNotification => ({
-  id: item.id,
-  dateTime: item.dateTime,
-  typeId: item.typeId,
-  officeUserId: item.officeUserId,
-  relatedEntity: item.relatedEntity,
-  status: item.status,
-});
-
-const resolveUserId = (userIdFromStore: number | null) => {
-  if (typeof userIdFromStore === "number" && !Number.isNaN(userIdFromStore)) {
-    return userIdFromStore;
-  }
-
-  const persistedUserId = localStorage.getItem("id") || localStorage.getItem("userId");
-  if (!persistedUserId) {
-    return null;
-  }
-
-  const parsedUserId = Number(persistedUserId);
-  return Number.isNaN(parsedUserId) ? null : parsedUserId;
-};
+import {
+  formatNotificationDate,
+  getNotificationEntityPreview,
+  isAccessRequestData,
+  markNotificationsAsViewed,
+  normalizeNotification,
+  removeNotificationById,
+  resolveNotificationUserId,
+  sortNotificationsByDateDesc,
+  toUserDataPayload,
+} from "./notifications.helpers";
 
 const Notifications = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const pageNotifications = useNotifications();
   const userIdFromStore = useSelector((state: RootState) => state.auth.id);
   const roles = useSelector((state: RootState) => state.userData.roles);
@@ -61,11 +39,11 @@ const Notifications = () => {
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
     dispatch(visibleSet({ visible: true }));
-    dispatch(titleSet({ title: "Запросы" }));
+    dispatch(titleSet({ title: "Уведомления" }));
   }, [dispatch]);
 
   useEffect(() => {
-    const userId = resolveUserId(userIdFromStore);
+    const userId = resolveNotificationUserId(userIdFromStore);
     if (userId === null) {
       return;
     }
@@ -96,8 +74,9 @@ const Notifications = () => {
         );
 
         if (markViewedResult.ok) {
-          normalizedNotifications = normalizedNotifications.map((item) =>
-            newNotificationIds.includes(item.id) ? { ...item, status: 1 } : item
+          normalizedNotifications = markNotificationsAsViewed(
+            normalizedNotifications,
+            newNotificationIds
           );
         }
       }
@@ -107,13 +86,7 @@ const Notifications = () => {
       }
 
       setNotifications(normalizedNotifications);
-      dispatch(
-        setUserData({
-          newNotifications: normalizedNotifications.filter((item) => item.status === 0),
-          activeNotifications: normalizedNotifications.filter((item) => item.status === 1),
-          roles,
-        })
-      );
+      dispatch(setUserData(toUserDataPayload(normalizedNotifications, roles)));
     };
 
     void loadNotifications();
@@ -123,8 +96,32 @@ const Notifications = () => {
     };
   }, [dispatch, pageNotifications, roles, userIdFromStore]);
 
-  const displayedNotifications = (notifications.length > 0 ? notifications : fallbackNotifications).sort(
-    (left, right) => new Date(right.dateTime).getTime() - new Date(left.dateTime).getTime()
+  const updateNotificationsState = (nextNotifications: OfficeNotification[]) => {
+    setNotifications(nextNotifications);
+    dispatch(setUserData(toUserDataPayload(nextNotifications, roles)));
+  };
+
+  const handleAcknowledge = async (notificationId: number) => {
+    const result = await callApi(
+      post("/Notification/setnotificationsstatustwo", notificationId),
+      { notifications: pageNotifications }
+    );
+
+    if (!result.ok) {
+      return;
+    }
+
+    const sourceNotifications =
+      notifications.length > 0 ? notifications : fallbackNotifications;
+    const nextNotifications = removeNotificationById(
+      sourceNotifications,
+      notificationId
+    );
+    updateNotificationsState(nextNotifications);
+  };
+
+  const displayedNotifications = sortNotificationsByDateDesc(
+    notifications.length > 0 ? notifications : fallbackNotifications
   );
 
   return (
@@ -132,16 +129,40 @@ const Notifications = () => {
       {displayedNotifications.length === 0 ? (
         <div className={styles.empty_state}>Новых уведомлений нет.</div>
       ) : (
-        displayedNotifications.map((item) => (
-          <div className={styles.notification_item} key={item.id}>
-            <span>{formatDate(item.dateTime)}</span>
-            <span>Уведомление #{item.id}</span>
-            <span>Тип: {item.typeId}</span>
-            <span>Связанная сущность: {item.relatedEntity}</span>
-            <span>Пользователь: {item.officeUserId}</span>
-            <span className={styles.report}>{item.status === 0 ? "Новое" : "Активное"}</span>
-          </div>
-        ))
+        displayedNotifications.map((item) => {
+          const accessRequestData = isAccessRequestData(item.relatedEntityData)
+            ? item.relatedEntityData
+            : null;
+
+          return (
+            <div className={styles.notification_item} key={item.id}>
+              <span>{formatNotificationDate(item.dateTime)}</span>
+              <span>{item.officeNotificationType.name}</span>
+              <span>{getNotificationEntityPreview(item)}</span>
+              <div className={styles.actions}>
+                <button
+                  type="button"
+                  className={styles.secondary_button}
+                  onClick={() => void handleAcknowledge(item.id)}
+                >
+                  Ознакомлен
+                </button>
+
+                {accessRequestData && item.typeId === 1 ? (
+                  <button
+                    type="button"
+                    className={styles.action_button}
+                    onClick={() =>
+                      navigate(`/Users/Edit/${accessRequestData.officeUserId}`)
+                    }
+                  >
+                    Перейти
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          );
+        })
       )}
     </div>
   );

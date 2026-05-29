@@ -9,6 +9,7 @@ import { login } from './Store/authSlice'
 import { PersistGate } from "redux-persist/integration/react";
 import Login from "./Pages/Login/Login"
 import RequireAuth from "./App/RequireAuth";
+import RequireRole from "./App/RequireRole";
 import TT from "./Pages/TT/TT"
 import NotFound from "./Pages/NotFound/NotFound"
 import Users from "./Pages/Users/Users"
@@ -93,7 +94,7 @@ createRoot(document.getElementById('root')!).render(
                   <Route path='/' element={<RequireAuth><App /></RequireAuth> }>
                     <Route path="Main" element={<Main />} />
 
-                    <Route path="Calculator" element={<Calculator />}>
+                    <Route path="Calculator" element={<RequireRole requiredRole="Calculator"><Calculator /></RequireRole>}>
                       <Route path="SelectCategory" element={<CalculatorCategories />}/>
                       <Route path="SelectTT" element={<CalculatorSelectTT />}/>
                       <Route path="Calculate/:Location" element={<Calculate />}/>

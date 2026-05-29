@@ -5,6 +5,7 @@ import pageTitleReducer from "./stateForPageTitleSlice"
 import calculatorSlice from "./calculatorSlice"
 import usersTabsReducer from './usersTabsSlice';
 import userDataReducer from './userDataSlice';
+import preferencesReducer from './preferencesSlice';
 import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import {
@@ -23,12 +24,13 @@ const rootReducer = combineReducers({
   usersTabs: usersTabsReducer,
   calculatorData: calculatorSlice,
   userData: userDataReducer,
+  preferences: preferencesReducer,
 });
 
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["calculatorData", "pageTitle", "backButton", "auth", "usersTabs"],
+  whitelist: ["calculatorData", "pageTitle", "backButton", "auth", "usersTabs", "preferences", "userData"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

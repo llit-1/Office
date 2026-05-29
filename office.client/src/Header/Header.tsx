@@ -1,11 +1,12 @@
 import styles from "./Header.module.css";
-import { useSelector } from "react-redux";
-import { RootState } from "../Store";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "../Store";
 import { useNavigate } from "react-router-dom";
 import Hamburger from "hamburger-react";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useEffect, useRef, useState } from "react";
-import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
+import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
 
 interface HeaderProps {
   isMenuOpen: boolean;
@@ -17,22 +18,30 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const visible = useSelector((state: RootState) => state.backButton.visible);
   const path = useSelector((state: RootState) => state.backButton.path);
   const notificationsCount = useSelector(
-    (state: RootState) => state.userData.newNotifications.length + state.userData.activeNotifications.length
+    (state: RootState) =>
+      state.userData.newNotifications.length +
+      state.userData.activeNotifications.length
+  );
+  const notificationSoundEnabled = useSelector(
+    (state: RootState) => state.preferences.notificationSoundEnabled
   );
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const savedTheme = localStorage.getItem("theme");
-      if (savedTheme === "dark" || savedTheme === "light") return savedTheme;
+      if (savedTheme === "dark" || savedTheme === "light") {
+        return savedTheme;
+      }
     } catch {
       // ignore localStorage issues
     }
+
     return "light";
   });
 
-  // ref на контейнер (лого + меню), чтобы понимать “кликнули вне”
   const profileRef = useRef<HTMLDivElement | null>(null);
 
   const toggleProfileMenu = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -43,26 +52,28 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
 
   const closeProfileMenu = () => setIsProfileMenuOpen(false);
 
-  // Закрывать профиль-меню при открытии hamburger-меню (если нужно)
   useEffect(() => {
-    if (isMenuOpen) closeProfileMenu();
+    if (isMenuOpen) {
+      closeProfileMenu();
+    }
   }, [isMenuOpen]);
 
-  // Закрытие по клику вне + по Escape
   useEffect(() => {
-    if (!isProfileMenuOpen) return;
+    if (!isProfileMenuOpen) {
+      return;
+    }
 
     const onClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (!profileRef.current) return;
-
-      if (!profileRef.current.contains(target)) {
+      if (profileRef.current && !profileRef.current.contains(target)) {
         closeProfileMenu();
       }
     };
 
     const onEsc = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeProfileMenu();
+      if (event.key === "Escape") {
+        closeProfileMenu();
+      }
     };
 
     document.addEventListener("mousedown", onClickOutside);
@@ -76,6 +87,7 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
+
     try {
       localStorage.setItem("theme", theme);
     } catch {
@@ -85,18 +97,22 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
 
   return (
     <header className={styles.header}>
-      <div className={styles.hamburgerWrapper}>
-        {isMenuOpen ? (
-          <div className={styles.hamburger_logo}>
-            <div className={styles.hamburger_logo_img}></div>
-            <div className={styles.hamburger_logo_text}>
-              <div>Корпоративный</div>
-              <div>Портал</div>
-            </div>
+      <div
+        className={`${styles.hamburgerWrapper} ${
+          isMenuOpen ? styles.hamburgerWrapperExpanded : styles.hamburgerWrapperCollapsed
+        }`}
+      >
+        <div
+          className={`${styles.hamburger_logo} ${
+            isMenuOpen ? styles.hamburgerLogoExpanded : styles.hamburgerLogoCollapsed
+          }`}
+        >
+          <div className={styles.hamburger_logo_img}></div>
+          <div className={styles.hamburger_logo_text}>
+            <div>Корпоративный</div>
+            <div>Портал</div>
           </div>
-        ) : (
-          <div className={styles.hamburger_logo_hidden_text}></div>
-        )}
+        </div>
 
         <div className={styles.hamburger}>
           <Hamburger
@@ -124,10 +140,9 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
         data-has-notifications={notificationsCount > 0}
         onClick={() => navigate("/Notifications")}
       >
-          <NotificationsNoneIcon />
+        <NotificationsNoneIcon />
       </div>
 
-      {/* Важно: ref на общий контейнер */}
       <div ref={profileRef} className={styles.profileWrapper}>
         <div className={styles.header_logo} onClick={toggleProfileMenu} />
 
@@ -135,6 +150,7 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
           <div className={styles.profileMenu} onClick={(e) => e.stopPropagation()}>
             <p>Кургузов Владислав Сергеевич</p>
             <p className={styles.profileMenuTextJob}>Программист-разработчик</p>
+
             <div className={styles.themeSwitchRow}>
               <span>Тёмная тема</span>
               <button
@@ -143,6 +159,21 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
                 aria-checked={theme === "dark"}
                 className={`${styles.themeSwitch} ${theme === "dark" ? styles.themeSwitchActive : ""}`}
                 onClick={() => setTheme((prev) => (prev === "dark" ? "light" : "dark"))}
+              >
+                <span className={styles.themeSwitchThumb}></span>
+              </button>
+            </div>
+
+            <div className={styles.themeSwitchRow}>
+              <span>Звук уведомлений</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={notificationSoundEnabled}
+                className={`${styles.themeSwitch} ${notificationSoundEnabled ? styles.themeSwitchActive : ""}`}
+                onClick={() =>
+                  dispatch(setNotificationSoundEnabled(!notificationSoundEnabled))
+                }
               >
                 <span className={styles.themeSwitchThumb}></span>
               </button>

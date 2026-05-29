@@ -1,8 +1,10 @@
 import styles from "./HamburgerMenuDesktop.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { menuParts } from "../menuParts/menuParts";
+import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Tooltip } from "@mui/material";
+import type { RootState } from "../Store";
+import { getAvailableMenuParts } from "../App/access";
 
 interface HamburgerMenuProps {
   isMenuOpen: boolean;
@@ -16,13 +18,15 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const roles = useSelector((state: RootState) => state.userData.roles);
+  const availableMenuParts = useMemo(() => getAvailableMenuParts(menuParts, roles), [roles]);
 
   useEffect(() => {
-    const currentPart = menuParts.findIndex((part) =>
+    const currentPart = availableMenuParts.findIndex((part) =>
       location.pathname.startsWith(part.path)
     );
     if (currentPart !== -1) setActiveIndex(currentPart);
-  }, [location.pathname]);
+  }, [availableMenuParts, location.pathname]);
 
   const activeHandler = (index: number, path: string) => {
     setActiveIndex(index);
@@ -38,7 +42,7 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
 
   return (
     <ul className={menuClassName}>
-      {menuParts.map((elem, index) => {
+      {availableMenuParts.map((elem, index) => {
         const Icon = elem.Icon;
 
         return (
@@ -46,27 +50,12 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
             key={elem.path}
             className={index === activeIndex ? styles.active : ""}
             onClick={() => activeHandler(index, elem.path)}
+            title={!isMenuOpen ? elem.name : undefined}
           >
-            {isMenuOpen ? (
-              <div>
-                <Icon className={styles.menuIcon} />
-                <p className={styles.visible_text}>{elem.name}</p>
-              </div>
-            ) : (
-              <Tooltip
-                enterDelay={500}
-                leaveDelay={200}
-                title={elem.name}
-                placement="right"
-                slotProps={{
-                  tooltip: { className: styles.menuTooltip },
-                }}
-              >
-                <div>
-                  <Icon className={styles.menuIcon} />
-                </div>
-              </Tooltip>
-            )}
+            <div className={styles.menuItemInner}>
+              <Icon className={styles.menuIcon} />
+              <p className={styles.visible_text}>{elem.name}</p>
+            </div>
           </li>
         );
       })}

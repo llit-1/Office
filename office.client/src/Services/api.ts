@@ -17,8 +17,23 @@ export class ApiError extends Error {
   }
 }
 
+function resolveApiBaseUrl() {
+  const overrideUrl = import.meta.env.VITE_API_URL?.trim();
+  if (overrideUrl) {
+    return overrideUrl;
+  }
+
+  if (import.meta.env.VITE_DEV === "1") {
+    const devHost = import.meta.env.VITE_DEV_HOST?.trim().replace(/\/+$/, "");
+    return devHost ? `${devHost}/api` : "/api";
+  }
+
+  const prodApiUrl = import.meta.env.VITE_PROD_API_URL?.trim();
+  return prodApiUrl || "/api";
+}
+
 const api: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "",
+  baseURL: resolveApiBaseUrl(),
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
