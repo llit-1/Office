@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
+using Office.Server.DbContexts.RKNETDB.Models;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 using System.IdentityModel.Tokens.Jwt;
@@ -48,6 +50,27 @@ namespace Office.Server.Controllers
                 officeUser.Position = user.Position?.Trim();
                 officeUser.DefaultLocations = 0;
                 _rKNETDBContext.OfficeUser.Add(officeUser);
+                OfficeBid officeBid = new OfficeBid();
+                officeBid.OfficeUser = officeUser;
+                officeBid.Status = 0;
+                officeBid.DateTime = DateTime.Now;
+                officeBid.Comment = $"Требуется Активация учетной записи {officeUser.Surname} {officeUser.Name} {officeUser.Patronymic}";
+                _rKNETDBContext.OfficeBids.Add(officeBid);
+                List<OfficeUser> gods = _rKNETDBContext.OfficeUser
+                                .Where(x => x.OfficeGroup
+                                .Any(g => g.OfficeRole
+                                .Any(r => r.Role == "Users")))
+                                .ToList();
+                foreach (var god in gods)
+                {
+                    OfficeNotification officeNotification = new();
+                    officeNotification.OfficeUserId = god.Id;
+                    officeNotification.Status = 0;
+                    officeNotification.DateTime = DateTime.Now;
+                    officeNotification.RelatedEntity = officeBid.Id;
+                    officeNotification.TypeId = 1;
+                    _rKNETDBContext.OfficeNotifications.Add(officeNotification);
+                }
                 _rKNETDBContext.SaveChanges();
             }
             if (officeUser.Actual == 0)
