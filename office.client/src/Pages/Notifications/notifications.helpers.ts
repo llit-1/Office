@@ -105,6 +105,14 @@ export const removeNotificationById = (
   notificationId: number
 ) => notifications.filter((item) => item.id !== notificationId);
 
+export const markNotificationAsArchived = (
+  notifications: OfficeNotification[],
+  notificationId: number
+) =>
+  notifications.map((item) =>
+    item.id === notificationId ? { ...item, status: 2 } : item
+  );
+
 export const toUserDataPayload = (
   notifications: OfficeNotification[],
   roles: string[]

@@ -34,20 +34,20 @@ namespace Office.Server.Controllers
             {
                 return Unauthorized(new { message = "Данные введены некорректно!" });
             }
+            var adUser = GetAdUserInfo(login);
             var officeUser = _rKNETDBContext.OfficeUser.FirstOrDefault(x => x.Login == login);
             if (officeUser == null)
             {
-                var user = GetAdUserInfo(login);
-                if (user == null)
+                if (adUser == null)
                 {
                     return Unauthorized(new { message = "Пользователь не найден в AD" });
                 }
                 officeUser = new();
                 officeUser.Login = login;
-                officeUser.Name = user.FirstName?.Trim();
-                officeUser.Surname = user.LastName?.Trim();
-                officeUser.Patronymic = user.MiddleName?.Trim();
-                officeUser.Position = user.Position?.Trim();
+                officeUser.Name = adUser.FirstName?.Trim();
+                officeUser.Surname = adUser.LastName?.Trim();
+                officeUser.Patronymic = adUser.MiddleName?.Trim();
+                officeUser.Position = adUser.Position?.Trim();
                 officeUser.DefaultLocations = 0;
                 _rKNETDBContext.OfficeUser.Add(officeUser);
                 OfficeBid officeBid = new OfficeBid();
@@ -56,11 +56,14 @@ namespace Office.Server.Controllers
                 officeBid.DateTime = DateTime.Now;
                 officeBid.Comment = $"Требуется Активация учетной записи {officeUser.Surname} {officeUser.Name} {officeUser.Patronymic}";
                 _rKNETDBContext.OfficeBids.Add(officeBid);
+                _rKNETDBContext.SaveChanges();
+
                 List<OfficeUser> gods = _rKNETDBContext.OfficeUser
                                 .Where(x => x.OfficeGroup
                                 .Any(g => g.OfficeRole
                                 .Any(r => r.Role == "Users")))
                                 .ToList();
+
                 foreach (var god in gods)
                 {
                     OfficeNotification officeNotification = new();
@@ -73,11 +76,21 @@ namespace Office.Server.Controllers
                 }
                 _rKNETDBContext.SaveChanges();
             }
+            else if (adUser != null)
+            {
+                officeUser.Name = adUser.FirstName?.Trim();
+                officeUser.Surname = adUser.LastName?.Trim();
+                officeUser.Patronymic = adUser.MiddleName?.Trim();
+                officeUser.Position = adUser.Position?.Trim();
+                _rKNETDBContext.SaveChanges();
+            }
             if (officeUser.Actual == 0)
             {
                 AuthAnswer answer = new AuthAnswer();
                 answer.id = officeUser.Id;
                 answer.responseCode = 0;
+                answer.fullName = GetDisplayName(officeUser, adUser);
+                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
                 return Ok(answer);
             }
             if (officeUser.Actual == 1)
@@ -86,6 +99,8 @@ namespace Office.Server.Controllers
                 answer.id = officeUser.Id;
                 answer.token = GetToken(login);
                 answer.responseCode = 1;
+                answer.fullName = GetDisplayName(officeUser, adUser);
+                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
                 return Ok(answer);
             }
             if (officeUser.Actual == 2)
@@ -94,6 +109,8 @@ namespace Office.Server.Controllers
                 answer.id = officeUser.Id;
                 answer.token = GetToken(login);
                 answer.responseCode = 2;
+                answer.fullName = GetDisplayName(officeUser, adUser);
+                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
                 return Ok(answer);
             }
             return Unauthorized(new { message = "Ошибка БД" });
@@ -112,6 +129,8 @@ namespace Office.Server.Controllers
             public int id { get; set; }
             public string token { get; set; } = "";
             public int responseCode { get; set; }
+            public string? fullName { get; set; }
+            public string? position { get; set; }
         }
 
 
@@ -126,7 +145,7 @@ namespace Office.Server.Controllers
             {
                 new Claim(ClaimTypes.Name, name)
             }),
-                Expires = DateTime.UtcNow.AddHours(12),
+                Expires = DateTime.UtcNow.AddDays(30),
                 SigningCredentials = new(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
             var tok = tokenHandler.CreateToken(tokenDescriptor);
@@ -162,6 +181,25 @@ namespace Office.Server.Controllers
                     Position = de.Properties["title"]?.Value?.ToString()
                 };
             }
+        }
+
+        private static string? GetDisplayName(OfficeUser officeUser, AdUserInfo? adUser)
+        {
+            if (!string.IsNullOrWhiteSpace(adUser?.FullName))
+            {
+                return adUser.FullName.Trim();
+            }
+
+            var parts = new[]
+            {
+                officeUser.Surname?.Trim(),
+                officeUser.Name?.Trim(),
+                officeUser.Patronymic?.Trim()
+            }
+            .Where(x => !string.IsNullOrWhiteSpace(x));
+
+            var fullName = string.Join(" ", parts);
+            return string.IsNullOrWhiteSpace(fullName) ? null : fullName;
         }
     }
     public class AdUserInfo

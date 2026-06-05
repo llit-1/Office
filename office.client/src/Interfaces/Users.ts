@@ -13,6 +13,20 @@ export interface OfficeGroup {
   officeUser: string[];
 }
 
+export interface OfficeBid {
+  id: number;
+  officeUserId?: number;
+  officeUser?: number;
+  dateTime?: string;
+  status?: number;
+  comment?: string | null;
+  OfficeUser?: number;
+  OfficeUserId?: number;
+  DateTime?: string;
+  Status?: number;
+  Comment?: string | null;
+}
+
 export interface OfficeUser {
   id: number;
   login: string;

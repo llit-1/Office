@@ -11,6 +11,9 @@ import { get } from "../../Services/api";
 import { callApi } from "../../Services/api";
 import { RootState } from "../../Store";
 import { activeIndexSet } from "../../Store/usersTabsSlice";
+import useDebouncedValue from "../../Hooks/useDebouncedValue";
+import usePersistedSearchText from "../../Hooks/usePersistedSearchText";
+import { includesNormalized } from "../../Components/GenericTable/searchUtils";
 
 type Column<T> =
   | { label: string; key: keyof T }  // обычная колонка
@@ -36,8 +39,10 @@ const roleColumns: Column<OfficeRole>[] = [
 export default function Users() {
   const dispatch = useDispatch();
   const activeIndex = useSelector((s: RootState) => s.usersTabs.activeIndex);
+  const tableStateKey = activeIndex === 0 ? "users-list" : activeIndex === 1 ? "groups-list" : "roles-list";
   const setActiveIndexLocal = (index: number) => dispatch(activeIndexSet({ activeIndex: index }));
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
+  const debouncedSearchText = useDebouncedValue(searchText);
   const [users, setUsers] = useState<OfficeUser[]>([]);
   const [groups, setGroups] = useState<OfficeGroup[]>([]);
   const [roles, setRoles] = useState<OfficeRole[]>([]);
@@ -97,24 +102,18 @@ export default function Users() {
   const handleClick = (index: number) => setActiveIndexLocal(index);
 
   const filteredData = useMemo(() => {
-  const lower = searchText.toLowerCase();
+    if (activeIndex === 0) {
+      return users.filter((u) =>
+        includesNormalized(`${u.surname ?? ""} ${u.name ?? ""}`, debouncedSearchText),
+      );
+    }
 
-  if (activeIndex === 0) {
-    return users.filter((u) =>
-      `${u.surname ?? ""} ${u.name ?? ""}`.toLowerCase().includes(lower)
-    );
-  }
+    if (activeIndex === 1) {
+      return groups.filter((g) => includesNormalized(g.name ?? "", debouncedSearchText));
+    }
 
-  if (activeIndex === 1) {
-    return groups.filter((g) =>
-      (g.name ?? "").toLowerCase().includes(lower)
-    );
-  }
-
-  return roles.filter((r) =>
-    (r.name ?? "").toLowerCase().includes(lower)
-  );
-}, [searchText, users, groups, roles, activeIndex]);
+    return roles.filter((r) => includesNormalized(r.name ?? "", debouncedSearchText));
+  }, [debouncedSearchText, users, groups, roles, activeIndex]);
 
 
   return (
@@ -148,6 +147,8 @@ export default function Users() {
           routeTo="/Users/Edit"
           loading={loading}
           addOption={false}
+          tableStateKey="users-list"
+          highlightQuery={debouncedSearchText}
         />
       )}
 
@@ -158,6 +159,8 @@ export default function Users() {
           routeTo="/Groups/Edit"
           loading={loading}
           addOption={true}
+          tableStateKey="groups-list"
+          highlightQuery={debouncedSearchText}
         />
       )}
 
@@ -168,6 +171,8 @@ export default function Users() {
           routeTo="/Roles/Edit"
           loading={loading}
           addOption={true}
+          tableStateKey="roles-list"
+          highlightQuery={debouncedSearchText}
         />
       )}
     </>

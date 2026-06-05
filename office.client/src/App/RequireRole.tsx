@@ -6,7 +6,7 @@ import { hasRequiredRole } from "./access";
 
 interface RequireRoleProps {
   children: ReactElement;
-  requiredRole: string;
+  requiredRole: string | string[];
 }
 
 const RequireRole = ({ children, requiredRole }: RequireRoleProps) => {

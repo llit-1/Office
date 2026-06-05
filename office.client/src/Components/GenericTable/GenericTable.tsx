@@ -1,8 +1,15 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import styles from "./GenericTable.module.css";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
+import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
+import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
+import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import { createPortal } from "react-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import Checkbox from "../Checkbox/Checkbox";
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
-import React from "react";
+import { highlightMatches, includesNormalized, normalizeSearchText } from "./searchUtils";
+import styles from "./GenericTable.module.css";
 
 export interface WithId {
   id: string | number;
@@ -12,12 +19,16 @@ export type Column<T> =
   | {
       label: string;
       key: keyof T;
-      sortValue?: (row: T) => string | number; // опционально (если key — массив/объект)
+      sortValue?: (row: T) => string | number;
+      filterValue?: (row: T) => string | number | null | undefined;
+      defaultVisible?: boolean;
     }
   | {
       label: string;
       render: (row: T) => React.ReactNode;
-      sortValue?: (row: T) => string | number; // обязательно для сортировки render-колонки
+      sortValue?: (row: T) => string | number;
+      filterValue?: (row: T) => string | number | null | undefined;
+      defaultVisible?: boolean;
     };
 
 interface GenericTableProps<T extends WithId> {
@@ -28,10 +39,119 @@ interface GenericTableProps<T extends WithId> {
   addOption: boolean;
   initialVisibleRows?: number;
   rowsPerBatch?: number;
+  tableStateKey?: string;
+  highlightQuery?: string;
 }
 
-function isKeyColumn<T>(col: Column<T>): col is Extract<Column<T>, { key: keyof T }> {
-  return "key" in col;
+type RowDensity = "compact" | "normal" | "comfortable";
+
+interface PersistedTableState {
+  sortColumnId: string | null;
+  sortOrder: "asc" | "desc";
+  orderedColumnIds?: string[];
+  visibleColumnIds?: string[];
+  rowDensity?: RowDensity;
+  filters: Record<string, string[]>;
+}
+
+interface PopupPosition {
+  left: number;
+  top: number;
+  maxHeight: number;
+}
+
+const EMPTY_FILTER_VALUE = "__generic_table_empty__";
+const DEFAULT_ROW_DENSITY: RowDensity = "normal";
+const ROW_DENSITY_OPTIONS: Array<{ value: RowDensity; label: string }> = [
+  { value: "compact", label: "Компактно" },
+  { value: "normal", label: "Обычно" },
+  { value: "comfortable", label: "Компактно+" },
+];
+
+const RUSSIAN_COLLATOR = new Intl.Collator("ru", {
+  sensitivity: "base",
+  numeric: true,
+});
+
+function isKeyColumn<T>(column: Column<T>): column is Extract<Column<T>, { key: keyof T }> {
+  return "key" in column;
+}
+
+function readPersistedState(storageKey: string): PersistedTableState | null {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw) as Partial<PersistedTableState>;
+    return {
+      sortColumnId: typeof parsed.sortColumnId === "string" ? parsed.sortColumnId : null,
+      sortOrder: parsed.sortOrder === "desc" ? "desc" : "asc",
+      orderedColumnIds: Array.isArray(parsed.orderedColumnIds) ? parsed.orderedColumnIds : undefined,
+      visibleColumnIds: Array.isArray(parsed.visibleColumnIds) ? parsed.visibleColumnIds : undefined,
+      rowDensity:
+        parsed.rowDensity === "compact" || parsed.rowDensity === "comfortable" || parsed.rowDensity === "normal"
+          ? parsed.rowDensity
+          : DEFAULT_ROW_DENSITY,
+      filters: parsed.filters && typeof parsed.filters === "object" ? parsed.filters : {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function normalizeFilterValue(value: string | number | null | undefined): string {
+  if (value === null || value === undefined || value === "") return EMPTY_FILTER_VALUE;
+  return String(value);
+}
+
+function displayFilterValue(value: string): string {
+  return value === EMPTY_FILTER_VALUE ? "(Пустые)" : value;
+}
+
+function hasColumnFilter(filters: Record<string, string[]>, columnId: string): boolean {
+  return Object.prototype.hasOwnProperty.call(filters, columnId);
+}
+
+function areStringArraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function computePopupPosition(
+  anchorRect: DOMRect,
+  popupWidth: number,
+  popupHeight: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  preferAbove = false,
+): PopupPosition {
+  const margin = 8;
+  const preferredRightSpace = viewportWidth - anchorRect.left - margin;
+  const preferredLeftSpace = anchorRect.right - margin;
+
+  let left =
+    preferredRightSpace >= popupWidth || preferredRightSpace >= preferredLeftSpace
+      ? anchorRect.left
+      : anchorRect.right - popupWidth;
+  left = Math.max(margin, Math.min(left, viewportWidth - popupWidth - margin));
+
+  const availableBelow = viewportHeight - anchorRect.bottom - margin;
+  const availableAbove = anchorRect.top - margin;
+
+  const shouldOpenBelow = preferAbove
+    ? availableBelow > availableAbove && availableBelow >= popupHeight
+    : availableBelow >= popupHeight || availableBelow >= availableAbove;
+
+  let top = shouldOpenBelow ? anchorRect.bottom + 8 : anchorRect.top - popupHeight - 8;
+
+  const maxHeight = Math.max(180, viewportHeight - margin * 2);
+  top = Math.max(margin, Math.min(top, viewportHeight - Math.min(popupHeight, maxHeight) - margin));
+
+  return {
+    left,
+    top,
+    maxHeight: Math.max(180, viewportHeight - top - margin),
+  };
 }
 
 function GenericTable<T extends WithId>({
@@ -42,98 +162,365 @@ function GenericTable<T extends WithId>({
   addOption,
   initialVisibleRows = 20,
   rowsPerBatch = 10,
+  tableStateKey,
+  highlightQuery = "",
 }: GenericTableProps<T>) {
   const navigate = useNavigate();
+  const location = useLocation();
   const tbodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const filterMenuRef = useRef<HTMLDivElement | null>(null);
+  const settingsMenuRef = useRef<HTMLDivElement | null>(null);
+  const filterButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const filterSearchRef = useRef<Record<string, string>>({});
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const persistedStateKey = `genericTable:${tableStateKey ?? location.pathname}`;
+  const persistedState = useMemo(() => readPersistedState(persistedStateKey), [persistedStateKey]);
 
-  const [sortIndex, setSortIndex] = useState<number>(0);
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
-  const [visibleColumnsCount, setVisibleColumnsCount] = useState(columns.length);
-  const [visibleRowsCount, setVisibleRowsCount] = useState(initialVisibleRows);
+  const columnsWithId = useMemo(
+    () =>
+      columns.map((column, index) => ({
+        id: isKeyColumn(column) ? String(column.key) : `${column.label}_${index}`,
+        column,
+      })),
+    [columns],
+  );
+  const columnsById = useMemo(
+    () => Object.fromEntries(columnsWithId.map((entry) => [entry.id, entry])) as Record<string, (typeof columnsWithId)[number]>,
+    [columnsWithId],
+  );
+  const defaultOrderedColumnIds = useMemo(
+    () => columnsWithId.map(({ id }) => id),
+    [columnsWithId],
+  );
 
-  useEffect(() => {
-    const updateVisibleColumns = () => {
-      const tableWrapper = document.querySelector(`.${styles.tableWrapper}`) as HTMLElement | null;
-      if (!tableWrapper) return;
+  const defaultVisibleColumnIds = useMemo(
+    () =>
+      columnsWithId
+        .filter(({ column }) => column.defaultVisible !== false)
+        .map(({ id }) => id),
+    [columnsWithId],
+  );
 
-      const availableWidth = tableWrapper.clientWidth;
-      const approxColumnWidth = 150;
-      const maxColumns = Math.max(1, Math.floor(availableWidth / approxColumnWidth));
-
-      setVisibleColumnsCount(Math.max(Math.min(columns.length, maxColumns), 1));
-    };
-
-    updateVisibleColumns();
-    window.addEventListener("resize", updateVisibleColumns);
-    return () => window.removeEventListener("resize", updateVisibleColumns);
-  }, [columns]);
-
-  // если сменились видимые колонки — сбрасываем сортировку в начало
-  useEffect(() => {
-    setSortIndex(0);
-    setSortOrder("asc");
-  }, [/* reset when total columns or visible count changes */ columns.length, visibleColumnsCount]);
-
-  const visibleColumns = useMemo(() => columns.slice(0, visibleColumnsCount), [columns, visibleColumnsCount]);
-
-  // Clamp sortIndex if visible columns become fewer
-  useEffect(() => {
-    if (sortIndex >= visibleColumns.length) {
-      setSortIndex(0);
-      setSortOrder("asc");
+  const deriveOrderedColumnIds = (persistedOrderedColumnIds?: string[]) => {
+    if (!persistedOrderedColumnIds || persistedOrderedColumnIds.length === 0) {
+      return defaultOrderedColumnIds;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleColumns.length]);
 
-  const getCellValue = (row: T, col: Column<T>): React.ReactNode => {
-    if (isKeyColumn(col)) return String(row[col.key] ?? "");
-    return col.render(row);
+    const existing = persistedOrderedColumnIds.filter((id) => defaultOrderedColumnIds.includes(id));
+    const missing = defaultOrderedColumnIds.filter((id) => !existing.includes(id));
+    return [...existing, ...missing];
   };
 
-  const getSortValue = (row: T, col: Column<T>): string | number => {
-    if (col.sortValue) return col.sortValue(row);
+  const deriveVisibleColumnIds = (persistedVisibleColumnIds?: string[]) => {
+    const fallback = defaultVisibleColumnIds.length > 0 ? defaultVisibleColumnIds : defaultOrderedColumnIds.slice(0, 1);
 
-    if (isKeyColumn(col)) {
-      const v = row[col.key];
-      // если массив/объект и нет sortValue — сортируем по строке (лучше все же задавать sortValue)
-      if (Array.isArray(v)) return v.length;
-      if (typeof v === "number") return v;
-      return String(v ?? "").toLowerCase();
+    if (!persistedVisibleColumnIds || persistedVisibleColumnIds.length === 0) {
+      return fallback;
     }
 
-    // render без sortValue сортировать нельзя — возвращаем пустое
+    const persistedExisting = persistedVisibleColumnIds.filter((id) => defaultOrderedColumnIds.includes(id));
+    return persistedExisting.length > 0 ? persistedExisting : fallback;
+  };
+
+  const [sortColumnId, setSortColumnId] = useState<string | null>(persistedState?.sortColumnId ?? null);
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(persistedState?.sortOrder ?? "asc");
+  const [orderedColumnIds, setOrderedColumnIds] = useState<string[]>(() =>
+    deriveOrderedColumnIds(persistedState?.orderedColumnIds),
+  );
+  const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(() =>
+    deriveVisibleColumnIds(persistedState?.visibleColumnIds),
+  );
+  const [rowDensity, setRowDensity] = useState<RowDensity>(persistedState?.rowDensity ?? DEFAULT_ROW_DENSITY);
+  const [visibleRowsCount, setVisibleRowsCount] = useState(initialVisibleRows);
+  const [filters, setFilters] = useState<Record<string, string[]>>(persistedState?.filters ?? {});
+  const [openFilterColumnId, setOpenFilterColumnId] = useState<string | null>(null);
+  const [filterSearchText, setFilterSearchText] = useState("");
+  const [filterMenuPosition, setFilterMenuPosition] = useState<PopupPosition | null>(null);
+  const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
+  const [columnsMenuPosition, setColumnsMenuPosition] = useState<PopupPosition | null>(null);
+  const normalizedHighlightQuery = useMemo(() => normalizeSearchText(highlightQuery), [highlightQuery]);
+
+  useEffect(() => {
+    setOrderedColumnIds((current) => {
+      const next = deriveOrderedColumnIds(current);
+      return areStringArraysEqual(current, next) ? current : next;
+    });
+  }, [defaultOrderedColumnIds]);
+
+  useEffect(() => {
+    setVisibleColumnIds((current) => {
+      const next = deriveVisibleColumnIds(current);
+      return areStringArraysEqual(current, next) ? current : next;
+    });
+  }, [defaultOrderedColumnIds, defaultVisibleColumnIds]);
+
+  useEffect(() => {
+    if (columnsWithId.length === 0) {
+      setSortColumnId(null);
+      return;
+    }
+
+    if (!columnsWithId.some(({ id }) => id === sortColumnId)) {
+      setSortColumnId(deriveVisibleColumnIds()[0] ?? columnsWithId[0].id);
+      setSortOrder("asc");
+    }
+  }, [columnsWithId, sortColumnId]);
+
+  const visibleColumns = useMemo(() => {
+    const visibleSet = new Set(visibleColumnIds);
+    return orderedColumnIds
+      .map((id) => columnsById[id])
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry) && visibleSet.has(entry.id));
+  }, [columnsById, orderedColumnIds, visibleColumnIds]);
+
+  useEffect(() => {
+    if (visibleColumns.length === 0) {
+      setVisibleColumnIds(defaultVisibleColumnIds.length > 0 ? defaultVisibleColumnIds : columnsWithId.slice(0, 1).map(({ id }) => id));
+      return;
+    }
+
+    if (!visibleColumns.some(({ id }) => id === sortColumnId)) {
+      setSortColumnId(visibleColumns[0].id);
+      setSortOrder("asc");
+    }
+  }, [columnsWithId, defaultVisibleColumnIds, sortColumnId, visibleColumns]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const targetNode = event.target as Node;
+
+      if (openFilterColumnId) {
+        if (filterMenuRef.current?.contains(targetNode)) return;
+        if (filterButtonRefs.current[openFilterColumnId]?.contains(targetNode)) return;
+        setOpenFilterColumnId(null);
+      }
+
+      if (columnsMenuOpen) {
+        if (settingsMenuRef.current?.contains(targetNode)) return;
+        if (settingsButtonRef.current?.contains(targetNode)) return;
+        setColumnsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [columnsMenuOpen, openFilterColumnId]);
+
+  useEffect(() => {
+    const searchText = openFilterColumnId ? filterSearchRef.current[openFilterColumnId] ?? "" : "";
+    setFilterSearchText(searchText);
+  }, [openFilterColumnId]);
+
+  useEffect(() => {
+    if (!openFilterColumnId) {
+      setFilterMenuPosition(null);
+      return;
+    }
+
+    const updateFilterMenuPosition = () => {
+      const button = filterButtonRefs.current[openFilterColumnId];
+      if (!button) return;
+
+      const popupPosition = computePopupPosition(
+        button.getBoundingClientRect(),
+        filterMenuRef.current?.offsetWidth ?? 280,
+        filterMenuRef.current?.offsetHeight ?? 360,
+        window.innerWidth,
+        window.innerHeight,
+      );
+
+      setFilterMenuPosition(popupPosition);
+    };
+
+    updateFilterMenuPosition();
+    window.addEventListener("resize", updateFilterMenuPosition);
+    const handleFilterMenuScroll = (event: Event) => {
+      const targetNode = event.target as Node | null;
+      if (targetNode && filterMenuRef.current?.contains(targetNode)) return;
+      updateFilterMenuPosition();
+    };
+    window.addEventListener("scroll", handleFilterMenuScroll, true);
+
+    return () => {
+      window.removeEventListener("resize", updateFilterMenuPosition);
+      window.removeEventListener("scroll", handleFilterMenuScroll, true);
+    };
+  }, [openFilterColumnId, visibleColumnIds]);
+
+  useEffect(() => {
+    if (!columnsMenuOpen) {
+      setColumnsMenuPosition(null);
+      return;
+    }
+
+    const updateColumnsMenuPosition = () => {
+      if (!settingsButtonRef.current) return;
+
+      const popupPosition = computePopupPosition(
+        settingsButtonRef.current.getBoundingClientRect(),
+        settingsMenuRef.current?.offsetWidth ?? 280,
+        settingsMenuRef.current?.offsetHeight ?? 320,
+        window.innerWidth,
+        window.innerHeight,
+        true,
+      );
+
+      setColumnsMenuPosition(popupPosition);
+    };
+
+    updateColumnsMenuPosition();
+    window.addEventListener("resize", updateColumnsMenuPosition);
+    const handleColumnsMenuScroll = (event: Event) => {
+      const targetNode = event.target as Node | null;
+      if (targetNode && settingsMenuRef.current?.contains(targetNode)) return;
+      updateColumnsMenuPosition();
+    };
+    window.addEventListener("scroll", handleColumnsMenuScroll, true);
+
+    return () => {
+      window.removeEventListener("resize", updateColumnsMenuPosition);
+      window.removeEventListener("scroll", handleColumnsMenuScroll, true);
+    };
+  }, [columnsMenuOpen]);
+
+  const getCellValue = (row: T, column: Column<T>): React.ReactNode => {
+    if (isKeyColumn(column)) return String(row[column.key] ?? "");
+    return column.render(row);
+  };
+
+  const getSortValue = (row: T, column: Column<T>): string | number => {
+    if (column.sortValue) return column.sortValue(row);
+
+    if (isKeyColumn(column)) {
+      const value = row[column.key];
+      if (Array.isArray(value)) return value.length;
+      if (typeof value === "number") return value;
+      return String(value ?? "");
+    }
+
     return "";
   };
 
-  const sortedData = useMemo(() => {
-    if (loading) return data;
-    const col = visibleColumns[sortIndex];
-    if (!col) return data;
+  const getFilterValue = (row: T, column: Column<T>): string => {
+    if (column.filterValue) return normalizeFilterValue(column.filterValue(row));
 
-    return [...data].sort((a, b) => {
-      const av = getSortValue(a, col);
-      const bv = getSortValue(b, col);
+    if (isKeyColumn(column)) {
+      return normalizeFilterValue(row[column.key] as string | number | null | undefined);
+    }
+
+    const rendered = column.render(row);
+    if (typeof rendered === "string" || typeof rendered === "number") {
+      return normalizeFilterValue(rendered);
+    }
+
+    if (column.sortValue) return normalizeFilterValue(column.sortValue(row));
+    return EMPTY_FILTER_VALUE;
+  };
+
+  const filteredData = useMemo(() => {
+    const activeFilters = Object.entries(filters).filter(([columnId]) => visibleColumns.some(({ id }) => id === columnId));
+    if (activeFilters.length === 0) return data;
+
+    return data.filter((row) =>
+      activeFilters.every(([columnId, selectedValues]) => {
+        const columnEntry = columnsWithId.find(({ id }) => id === columnId);
+        if (!columnEntry) return true;
+        return selectedValues.includes(getFilterValue(row, columnEntry.column));
+      }),
+    );
+  }, [columnsWithId, data, filters, visibleColumns]);
+
+  const filterOptionStatsByColumn = useMemo(() => {
+    const stats = Object.fromEntries(
+      visibleColumns.map(({ id }) => [id, {} as Record<string, number>]),
+    ) as Record<string, Record<string, number>>;
+
+    visibleColumns.forEach(({ id, column }) => {
+      const dataWithoutCurrentFilter = data.filter((row) =>
+        Object.entries(filters).every(([filterColumnId, selectedValues]) => {
+          if (filterColumnId === id) return true;
+          const columnEntry = columnsWithId.find(({ id: candidateId }) => candidateId === filterColumnId);
+          if (!columnEntry) return true;
+          return selectedValues.includes(getFilterValue(row, columnEntry.column));
+        }),
+      );
+
+      dataWithoutCurrentFilter.forEach((row) => {
+        const value = getFilterValue(row, column);
+        stats[id][value] = (stats[id][value] ?? 0) + 1;
+      });
+    });
+
+    return stats;
+  }, [columnsWithId, data, filters, visibleColumns]);
+
+  const filterOptionsByColumn = useMemo(() => {
+    const entries = visibleColumns.map(({ id }) => {
+      const availableValues = Object.entries(filterOptionStatsByColumn[id] ?? {})
+        .filter(([, count]) => count > 0)
+        .map(([value]) => value);
+      const selectedValues = filters[id] ?? [];
+      const values = Array.from(new Set([...availableValues, ...selectedValues])).sort((a, b) =>
+        displayFilterValue(a).localeCompare(displayFilterValue(b), "ru"),
+      );
+
+      return [id, values] as const;
+    });
+
+    return Object.fromEntries(entries) as Record<string, string[]>;
+  }, [filterOptionStatsByColumn, filters, visibleColumns]);
+
+  const sortedData = useMemo(() => {
+    if (loading) return filteredData;
+
+    const columnEntry = visibleColumns.find(({ id }) => id === sortColumnId) ?? visibleColumns[0];
+    if (!columnEntry) return filteredData;
+
+    return [...filteredData].sort((a, b) => {
+      const av = getSortValue(a, columnEntry.column);
+      const bv = getSortValue(b, columnEntry.column);
 
       if (typeof av === "number" && typeof bv === "number") {
         return sortOrder === "asc" ? av - bv : bv - av;
       }
 
-      const as = String(av).toLowerCase();
-      const bs = String(bv).toLowerCase();
-
-      if (as < bs) return sortOrder === "asc" ? -1 : 1;
-      if (as > bs) return sortOrder === "asc" ? 1 : -1;
-      
-      return 0;
-
+      const comparison = RUSSIAN_COLLATOR.compare(String(av), String(bv));
+      return sortOrder === "asc" ? comparison : -comparison;
     });
+  }, [filteredData, loading, sortColumnId, sortOrder, visibleColumns]);
 
-  }, [data, visibleColumns, sortIndex, sortOrder, loading]);
+  useEffect(() => {
+    const visibleColumnSet = new Set(visibleColumnIds);
+    setFilters((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([columnId]) => visibleColumnSet.has(columnId)),
+      );
+      return Object.keys(next).length === Object.keys(current).length ? current : next;
+    });
+  }, [visibleColumnIds]);
+
+  useEffect(() => {
+    const payload: PersistedTableState = {
+      sortColumnId,
+      sortOrder,
+      orderedColumnIds,
+      visibleColumnIds,
+      rowDensity,
+      filters,
+    };
+
+    localStorage.setItem(persistedStateKey, JSON.stringify(payload));
+  }, [filters, orderedColumnIds, persistedStateKey, rowDensity, sortColumnId, sortOrder, visibleColumnIds]);
 
   useEffect(() => {
     setVisibleRowsCount(initialVisibleRows);
-    tbodyRef.current?.scrollTo({ top: 0 });
-  }, [initialVisibleRows, data, sortIndex, sortOrder, visibleColumnsCount, loading]);
+    if (typeof tbodyRef.current?.scrollTo === "function") {
+      tbodyRef.current.scrollTo({ top: 0 });
+    } else if (tbodyRef.current) {
+      tbodyRef.current.scrollTop = 0;
+    }
+  }, [filteredData, initialVisibleRows, loading, sortColumnId, sortOrder, visibleColumnIds]);
 
   useEffect(() => {
     if (loading) return;
@@ -142,7 +529,7 @@ function GenericTable<T extends WithId>({
       if (current <= sortedData.length) return current;
       return Math.max(initialVisibleRows, sortedData.length);
     });
-  }, [sortedData.length, loading, initialVisibleRows]);
+  }, [initialVisibleRows, loading, sortedData.length]);
 
   const visibleData = useMemo(
     () => sortedData.slice(0, visibleRowsCount),
@@ -154,20 +541,18 @@ function GenericTable<T extends WithId>({
 
     const tbody = tbodyRef.current;
     if (!tbody) return;
-
     if (visibleRowsCount >= sortedData.length) return;
 
     if (tbody.scrollHeight <= tbody.clientHeight + 1) {
       setVisibleRowsCount((current) => Math.min(current + rowsPerBatch, sortedData.length));
     }
-  }, [loading, visibleRowsCount, sortedData.length, rowsPerBatch]);
+  }, [loading, rowsPerBatch, sortedData.length, visibleRowsCount]);
 
   const handleTableScroll = (event: React.UIEvent<HTMLTableSectionElement>) => {
     if (loading) return;
 
     const target = event.currentTarget;
     const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
-
     if (distanceToBottom > 120) return;
 
     setVisibleRowsCount((current) => {
@@ -176,13 +561,119 @@ function GenericTable<T extends WithId>({
     });
   };
 
-  const handleSort = (index: number) => {
-    if (sortIndex === index) {
+  const handleSort = (columnId: string) => {
+    if (sortColumnId === columnId) {
       setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setSortIndex(index);
-      setSortOrder("asc");
+      return;
     }
+
+    setSortColumnId(columnId);
+    setSortOrder("asc");
+  };
+
+  const handleFilterButtonClick = (columnId: string) => {
+    setOpenFilterColumnId((current) => (current === columnId ? null : columnId));
+    setColumnsMenuOpen(false);
+  };
+
+  const getSelectedValues = (columnId: string): string[] => {
+    const options = filterOptionsByColumn[columnId] ?? [];
+    return hasColumnFilter(filters, columnId) ? filters[columnId] ?? [] : options;
+  };
+
+  const setColumnSelection = (columnId: string, values: string[]) => {
+    const options = filterOptionsByColumn[columnId] ?? [];
+
+    setFilters((current) => {
+      if (values.length === options.length) {
+        const next = { ...current };
+        delete next[columnId];
+        return next;
+      }
+
+      return {
+        ...current,
+        [columnId]: values,
+      };
+    });
+  };
+
+  const handleToggleFilterValue = (columnId: string, value: string) => {
+    const selectedValues = getSelectedValues(columnId);
+    const nextValues = selectedValues.includes(value)
+      ? selectedValues.filter((item) => item !== value)
+      : [...selectedValues, value];
+
+    setColumnSelection(columnId, nextValues);
+  };
+
+  const handleToggleSelectAll = (columnId: string, checked: boolean) => {
+    const options = filterOptionsByColumn[columnId] ?? [];
+    setColumnSelection(columnId, checked ? options : []);
+  };
+
+  const resetColumnFilter = (columnId: string) => {
+    setFilters((current) => {
+      const next = { ...current };
+      delete next[columnId];
+      return next;
+    });
+  };
+
+  const isColumnFiltered = (columnId: string) => {
+    const options = filterOptionsByColumn[columnId] ?? [];
+    if (!hasColumnFilter(filters, columnId)) return false;
+    const selected = filters[columnId] ?? [];
+    return selected.length !== options.length;
+  };
+
+  const handleToggleVisibleColumn = (columnId: string) => {
+    setVisibleColumnIds((current) => {
+      const isVisible = current.includes(columnId);
+
+      if (isVisible) {
+        if (current.length === 1) return current;
+        return current.filter((id) => id !== columnId);
+      }
+
+      const nextVisibleSet = new Set([...current, columnId]);
+      return columnsWithId.filter(({ id }) => nextVisibleSet.has(id)).map(({ id }) => id);
+    });
+  };
+
+  const handleMoveColumn = (columnId: string, direction: "up" | "down") => {
+    setOrderedColumnIds((current) => {
+      const currentIndex = current.indexOf(columnId);
+      if (currentIndex === -1) return current;
+
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+
+      const next = [...current];
+      [next[currentIndex], next[targetIndex]] = [next[targetIndex], next[currentIndex]];
+      return next;
+    });
+  };
+
+  const areColumnsCustomized = useMemo(
+    () =>
+      !areStringArraysEqual(
+        visibleColumnIds,
+        defaultVisibleColumnIds.length > 0 ? defaultVisibleColumnIds : defaultOrderedColumnIds.slice(0, 1),
+      ) || !areStringArraysEqual(orderedColumnIds, defaultOrderedColumnIds) || rowDensity !== DEFAULT_ROW_DENSITY,
+    [defaultOrderedColumnIds, defaultVisibleColumnIds, orderedColumnIds, rowDensity, visibleColumnIds],
+  );
+
+  const resetTableSettings = () => {
+    const defaultVisible = defaultVisibleColumnIds.length > 0 ? defaultVisibleColumnIds : defaultOrderedColumnIds.slice(0, 1);
+    setSortColumnId(defaultVisible[0] ?? defaultOrderedColumnIds[0] ?? null);
+    setSortOrder("asc");
+    setOrderedColumnIds(defaultOrderedColumnIds);
+    setVisibleColumnIds(defaultVisible);
+    setRowDensity(DEFAULT_ROW_DENSITY);
+    setFilters({});
+    filterSearchRef.current = {};
+    setOpenFilterColumnId(null);
   };
 
   const onRowClickHandle = (row: T | null) => {
@@ -196,64 +687,305 @@ function GenericTable<T extends WithId>({
     navigate(`${routeTo}/${row.id}`, { state: row });
   };
 
+  const renderCellValue = (value: React.ReactNode) => {
+    if (typeof value === "string" || typeof value === "number") {
+      return highlightMatches(value, normalizedHighlightQuery);
+    }
+
+    return value;
+  };
+
+  const showSettingsButton = columnsWithId.length > 1;
+  const shouldStretchSingleRow = loading || visibleData.length === 0;
+  const shouldAddSingleRowSpacing = !loading && visibleData.length === 1;
+
   return (
-    <div className={styles.tableWrapper}>
+    <div className={`${styles.tableWrapper} ${styles[`density_${rowDensity}`]}`} ref={wrapperRef}>
       <table className={styles.table}>
         <thead>
           <tr>
-            {visibleColumns.map((col, index) => (
-              <th
-                key={isKeyColumn(col) ? String(col.key) : col.label}
-                onClick={() => handleSort(index)}
-                className={styles.sortable}
-              >
-                {col.label}
-                {sortIndex === index && (
-                  <span className={styles.sortArrow}>
-                    {sortOrder === "asc" ? "▲" : "▼"}
-                  </span>
-                )}
-              </th>
-            ))}
+            {visibleColumns.map(({ id, column }) => {
+              const columnFiltered = isColumnFiltered(id);
+
+              return (
+                <th key={id} onClick={() => handleSort(id)} className={styles.sortable}>
+                  <div className={styles.headerCell}>
+                    <span className={styles.headerLabel}>{column.label}</span>
+
+                    <div className={styles.headerActions}>
+                      {sortColumnId === id && (
+                        <span className={styles.sortArrow}>{sortOrder === "asc" ? "▲" : "▼"}</span>
+                      )}
+
+                      <button
+                        type="button"
+                        className={`${styles.filterButton} ${columnFiltered ? styles.filterButtonActive : ""}`}
+                        ref={(element) => {
+                          filterButtonRefs.current[id] = element;
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleFilterButtonClick(id);
+                        }}
+                        aria-label={`Фильтр по столбцу ${column.label}`}
+                        title={columnFiltered ? `На столбце "${column.label}" установлен фильтр` : `Фильтр по столбцу ${column.label}`}
+                      >
+                        <FilterListRoundedIcon fontSize="small" />
+                        {columnFiltered && <span className={styles.filterButtonDot} />}
+                      </button>
+                    </div>
+                  </div>
+                </th>
+              );
+            })}
           </tr>
         </thead>
 
-        <tbody ref={tbodyRef} className={styles.scrollableTbody} onScroll={handleTableScroll}>
-          { loading ? (
-            <tr>
-              <td colSpan={Math.max(visibleColumns.length, 1)} className={styles.textAlign}>
+        <tbody
+          ref={tbodyRef}
+          className={`${styles.scrollableTbody} ${shouldStretchSingleRow ? styles.scrollableTbodyState : ""} ${shouldAddSingleRowSpacing ? styles.scrollableTbodySingleRow : ""}`}
+          onScroll={handleTableScroll}
+        >
+          {loading ? (
+            <tr className={styles.stateRow}>
+              <td colSpan={Math.max(visibleColumns.length, 1)} className={`${styles.textAlign} ${styles.stateCell}`}>
                 <LoadingSpinner />
               </td>
             </tr>
           ) : visibleData.length > 0 ? (
             visibleData.map((row) => (
               <tr key={String(row.id)} onClick={() => onRowClickHandle(row)}>
-                {visibleColumns.map((col) => (
-                  <td key={col.label} title={String(getCellValue(row, col))}>{getCellValue(row, col)}</td>
+                {visibleColumns.map(({ id, column }) => (
+                  <td key={id} title={String(getCellValue(row, column))}>
+                    {renderCellValue(getCellValue(row, column))}
+                  </td>
                 ))}
               </tr>
             ))
           ) : (
-            <tr>
-              <td colSpan={Math.max(visibleColumns.length, 1)} className={styles.textAlign}>
-                По такому запросу ничего не найдено!
+            <tr className={styles.stateRow}>
+              <td colSpan={Math.max(visibleColumns.length, 1)} className={`${styles.textAlign} ${styles.stateCell}`}>
+                По такому запросу ничего не найдено
               </td>
             </tr>
           )}
         </tbody>
 
-        {!loading && addOption && (
-          <tfoot>
-            <tr>
-              <td colSpan={Math.max(visibleColumns.length, 1)}>
+        <tfoot>
+          <tr>
+            <td colSpan={Math.max(visibleColumns.length, 1)}>
+              {showSettingsButton && (
+                <button
+                  type="button"
+                  ref={settingsButtonRef}
+                  className={`${styles.settingsButton} ${areColumnsCustomized ? styles.settingsButtonActive : ""}`}
+                  onClick={() => {
+                    setColumnsMenuOpen((current) => !current);
+                    setOpenFilterColumnId(null);
+                  }}
+                  aria-label="Настройка колонок"
+                  title="Настройка колонок"
+                >
+                  <SettingsRoundedIcon />
+                  {areColumnsCustomized && <span className={styles.settingsButtonDot} />}
+                </button>
+              )}
+
+              {!loading && addOption && (
                 <div className={styles.addButton} onClick={() => onRowClickHandle(null)}>
                   +
                 </div>
-              </td>
-            </tr>
-          </tfoot>
-        )}
+              )}
+            </td>
+          </tr>
+        </tfoot>
       </table>
+
+      {openFilterColumnId &&
+        filterMenuPosition &&
+        createPortal(
+          (() => {
+            if (!visibleColumns.some(({ id }) => id === openFilterColumnId)) return null;
+
+            const filterOptions = filterOptionsByColumn[openFilterColumnId] ?? [];
+            const selectedValues = getSelectedValues(openFilterColumnId);
+            const visibleFilterOptions = filterOptions.filter((value) =>
+              includesNormalized(displayFilterValue(value), filterSearchText),
+            );
+
+            return (
+              <div
+                ref={filterMenuRef}
+                className={styles.filterMenu}
+                style={{
+                  left: `${filterMenuPosition.left}px`,
+                  top: `${filterMenuPosition.top}px`,
+                  maxHeight: `${filterMenuPosition.maxHeight}px`,
+                }}
+                onClick={(event) => event.stopPropagation()}
+              >
+                <label className={styles.filterSearch}>
+                  <SearchRoundedIcon fontSize="small" />
+                  <input
+                    type="text"
+                    value={filterSearchText}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      filterSearchRef.current[openFilterColumnId] = value;
+                      setFilterSearchText(value);
+                    }}
+                    placeholder="Поиск"
+                  />
+                </label>
+
+                <Checkbox
+                  size="sm"
+                  checked={selectedValues.length === filterOptions.length}
+                  onChange={(event) => handleToggleSelectAll(openFilterColumnId, event.target.checked)}
+                  label="Выделить все"
+                  labelClassName={styles.filterOption}
+                />
+
+                <div className={styles.filterOptionsList}>
+                  {visibleFilterOptions.map((value) => (
+                    <Checkbox
+                      key={value}
+                      size="sm"
+                      checked={selectedValues.includes(value)}
+                      onChange={() => handleToggleFilterValue(openFilterColumnId, value)}
+                      label={
+                        <>
+                          <span className={styles.filterOptionLabel} title={displayFilterValue(value)}>
+                            {highlightMatches(displayFilterValue(value), filterSearchText)}
+                          </span>
+                          <span className={styles.filterOptionCount}>
+                            ({filterOptionStatsByColumn[openFilterColumnId]?.[value] ?? 0})
+                          </span>
+                        </>
+                      }
+                      labelClassName={styles.filterOption}
+                    />
+                  ))}
+
+                  {visibleFilterOptions.length === 0 && (
+                    <div className={styles.filterEmpty}>Ничего не найдено</div>
+                  )}
+                </div>
+
+                <div className={styles.filterMenuActions}>
+                  <button
+                    type="button"
+                    className={styles.filterSecondaryButton}
+                    onClick={() => resetColumnFilter(openFilterColumnId)}
+                  >
+                    Сбросить
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.filterPrimaryButton}
+                    onClick={() => setOpenFilterColumnId(null)}
+                  >
+                    Готово
+                  </button>
+                </div>
+              </div>
+            );
+          })(),
+          document.body,
+        )}
+
+      {columnsMenuOpen &&
+        columnsMenuPosition &&
+        createPortal(
+          <div
+            ref={settingsMenuRef}
+            className={styles.filterMenu}
+            style={{
+              left: `${columnsMenuPosition.left}px`,
+              top: `${columnsMenuPosition.top}px`,
+              maxHeight: `${columnsMenuPosition.maxHeight}px`,
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.columnsMenuTitle}>Колонки таблицы</div>
+
+            <div className={styles.densitySection}>
+              <div className={styles.sectionTitle}>Плотность строк</div>
+              <div className={styles.densityOptions}>
+                {ROW_DENSITY_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className={`${styles.densityOptionButton} ${
+                      rowDensity === option.value ? styles.densityOptionButtonActive : ""
+                    }`}
+                    onClick={() => setRowDensity(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={styles.sectionTitle}>Порядок и видимость</div>
+            <div className={styles.filterOptionsList}>
+              {orderedColumnIds.map((columnId, index) => {
+                const columnEntry = columnsById[columnId];
+                if (!columnEntry) return null;
+
+                const { id, column } = columnEntry;
+                const checked = visibleColumnIds.includes(id);
+                const isLastVisible = checked && visibleColumnIds.length === 1;
+
+                return (
+                  <div className={styles.columnSettingsRow} key={id}>
+                    <Checkbox
+                      size="sm"
+                      checked={checked}
+                      disabled={isLastVisible}
+                      onChange={() => handleToggleVisibleColumn(id)}
+                      label={<span className={styles.filterOptionLabel}>{column.label}</span>}
+                      labelClassName={styles.filterOption}
+                    />
+
+                    <div className={styles.columnOrderActions}>
+                      <button
+                        type="button"
+                        className={styles.columnOrderButton}
+                        onClick={() => handleMoveColumn(id, "up")}
+                        disabled={index === 0}
+                        aria-label={`Поднять колонку ${column.label}`}
+                        title={`Поднять колонку ${column.label}`}
+                      >
+                        <ArrowUpwardRoundedIcon fontSize="inherit" />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.columnOrderButton}
+                        onClick={() => handleMoveColumn(id, "down")}
+                        disabled={index === orderedColumnIds.length - 1}
+                        aria-label={`Опустить колонку ${column.label}`}
+                        title={`Опустить колонку ${column.label}`}
+                      >
+                        <ArrowDownwardRoundedIcon fontSize="inherit" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className={styles.filterMenuActions}>
+              <button type="button" className={styles.filterSecondaryButton} onClick={resetTableSettings}>
+                По умолчанию
+              </button>
+              <button type="button" className={styles.filterPrimaryButton} onClick={() => setColumnsMenuOpen(false)}>
+                Готово
+              </button>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

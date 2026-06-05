@@ -36,30 +36,7 @@ namespace Office.Server.Controllers
                 })
                 .ToListAsync();
 
-            foreach (var item in officeNotifications)
-            {
-                OfficeBid? officeBid = await _rKNETDBContext.OfficeBids
-                            .Include(x => x.OfficeUser)
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(x => x.Id == item.RelatedEntity);
-
-                if (officeBid == null)
-                {
-                    return NotFound(new { message = "OfficeBid not found" });
-                }
-
-                switch (item.TypeId)
-                {
-                    case 1:
-                        item.RelatedEntityData = officeBid;
-                        break;
-                    case 2:
-                        item.RelatedEntityData = officeBid;
-                        break;
-                    default:
-                        return NotFound(new { message = "Case not found" });
-                }
-            }
+            await FillRelatedEntityDataAsync(officeNotifications);
 
             return Ok(officeNotifications);
         }
@@ -84,34 +61,35 @@ namespace Office.Server.Controllers
                 })
                 .ToListAsync();
 
+            await FillRelatedEntityDataAsync(officeNotifications);
+
+            return Ok(officeNotifications);
+        }
+
+        private async Task FillRelatedEntityDataAsync(List<NotificationDto> officeNotifications)
+        {
             foreach (var item in officeNotifications)
             {
-                OfficeBid? officeBid = await _rKNETDBContext.OfficeBids
+                switch (item.TypeId)
+                {
+                    case 1:
+                    case 2:
+                    {
+                        OfficeBid? officeBid = await _rKNETDBContext.OfficeBids
                             .Include(x => x.OfficeUser)
                             .AsNoTracking()
                             .FirstOrDefaultAsync(x => x.Id == item.RelatedEntity);
 
-                if (officeBid == null)
-                {
-                    return NotFound(new { message = "OfficeBid not found" });
-                }
-
-
-                switch (item.TypeId)
-                {
-                    case 1:
-                        item.RelatedEntityData = officeBid;
+                        item.RelatedEntityData = officeBid is not null
+                            ? officeBid
+                            : $"OfficeBid #{item.RelatedEntity}";
                         break;
-                    case 2:
-                        item.RelatedEntityData = officeBid;
-                        break;
+                    }
                     default:
-                        item.RelatedEntityData = "/";
+                        item.RelatedEntityData = item.RelatedEntity.ToString();
                         break;
                 }
             }
-
-            return Ok(officeNotifications);
         }
 
         [HttpPost("setnotificationsstatusone")]

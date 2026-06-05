@@ -61,6 +61,8 @@ function renderHeader() {
 describe("Header", () => {
   beforeEach(() => {
     localStorage.clear();
+    localStorage.setItem("userFullName", "Иванов Иван Иванович");
+    localStorage.setItem("userPosition", "Инженер");
     document.documentElement.removeAttribute("data-theme");
   });
 
@@ -85,5 +87,14 @@ describe("Header", () => {
     fireEvent.click(switches[1]);
 
     expect(store.getState().preferences.notificationSoundEnabled).toBe(false);
+  });
+
+  it("renders persisted user profile in the menu", () => {
+    renderHeader();
+
+    fireEvent.click(document.querySelector('[class*="header_logo"]') as Element);
+
+    expect(screen.getByText("Иванов Иван Иванович")).toBeInTheDocument();
+    expect(screen.getByText("Инженер")).toBeInTheDocument();
   });
 });

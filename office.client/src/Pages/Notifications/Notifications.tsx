@@ -1,24 +1,21 @@
-import styles from "./Notifications.module.css";
 import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { useNotifications } from "@toolpad/core";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { titleSet } from "../../Store/stateForPageTitleSlice";
-import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
-import type { RootState } from "../../Store";
+import Checkbox from "../../Components/Checkbox/Checkbox";
+import type { OfficeNotification, UserDataApiNotification } from "../../Interfaces/UserData";
 import { callApi, get, post } from "../../Services/api";
-import type {
-  OfficeNotification,
-  UserDataApiNotification,
-} from "../../Interfaces/UserData";
+import type { RootState } from "../../Store";
+import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
+import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { setUserData } from "../../Store/userDataSlice";
+import styles from "./Notifications.module.css";
 import {
   formatNotificationDate,
   getNotificationEntityPreview,
   isAccessRequestData,
   markNotificationsAsViewed,
   normalizeNotification,
-  removeNotificationById,
   resolveNotificationUserId,
   sortNotificationsByDateDesc,
   toUserDataPayload,
@@ -30,11 +27,23 @@ const Notifications = () => {
   const pageNotifications = useNotifications();
   const userIdFromStore = useSelector((state: RootState) => state.auth.id);
   const roles = useSelector((state: RootState) => state.userData.roles);
-  const fallbackNotifications = useSelector((state: RootState) => [
-    ...state.userData.newNotifications,
-    ...state.userData.activeNotifications,
-  ]);
-  const [notifications, setNotifications] = useState<OfficeNotification[]>([]);
+  const newNotificationsFromStore = useSelector(
+    (state: RootState) => state.userData.newNotifications,
+  );
+  const activeNotificationsFromStore = useSelector(
+    (state: RootState) => state.userData.activeNotifications,
+  );
+
+  const [activeNotifications, setActiveNotifications] = useState<OfficeNotification[]>([]);
+  const [activeLoaded, setActiveLoaded] = useState(false);
+  const [archivedNotifications, setArchivedNotifications] = useState<OfficeNotification[]>([]);
+  const [archivedLoaded, setArchivedLoaded] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+
+  const fallbackNotifications = [
+    ...newNotificationsFromStore,
+    ...activeNotificationsFromStore,
+  ];
 
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
@@ -55,7 +64,7 @@ const Notifications = () => {
         get<UserDataApiNotification[]>("/Notification/getactivenotifications", {
           params: { userId },
         }),
-        { notifications: pageNotifications }
+        { notifications: pageNotifications },
       );
 
       if (!listResult.ok || cancelled) {
@@ -70,13 +79,13 @@ const Notifications = () => {
       if (newNotificationIds.length > 0) {
         const markViewedResult = await callApi(
           post("/Notification/setnotificationsstatusone", newNotificationIds),
-          { notifications: pageNotifications }
+          { notifications: pageNotifications },
         );
 
         if (markViewedResult.ok) {
           normalizedNotifications = markNotificationsAsViewed(
             normalizedNotifications,
-            newNotificationIds
+            newNotificationIds,
           );
         }
       }
@@ -85,7 +94,8 @@ const Notifications = () => {
         return;
       }
 
-      setNotifications(normalizedNotifications);
+      setActiveNotifications(normalizedNotifications);
+      setActiveLoaded(true);
       dispatch(setUserData(toUserDataPayload(normalizedNotifications, roles)));
     };
 
@@ -96,38 +106,116 @@ const Notifications = () => {
     };
   }, [dispatch, pageNotifications, roles, userIdFromStore]);
 
-  const updateNotificationsState = (nextNotifications: OfficeNotification[]) => {
-    setNotifications(nextNotifications);
-    dispatch(setUserData(toUserDataPayload(nextNotifications, roles)));
-  };
-
-  const handleAcknowledge = async (notificationId: number) => {
-    const result = await callApi(
-      post("/Notification/setnotificationsstatustwo", notificationId),
-      { notifications: pageNotifications }
-    );
-
-    if (!result.ok) {
+  useEffect(() => {
+    const userId = resolveNotificationUserId(userIdFromStore);
+    if (userId === null || !showArchived || archivedLoaded) {
       return;
     }
 
-    const sourceNotifications =
-      notifications.length > 0 ? notifications : fallbackNotifications;
-    const nextNotifications = removeNotificationById(
-      sourceNotifications,
-      notificationId
-    );
-    updateNotificationsState(nextNotifications);
+    let cancelled = false;
+
+    const loadArchivedNotifications = async () => {
+      const listResult = await callApi(
+        get<UserDataApiNotification[]>("/Notification/getinactivenotifications", {
+          params: { userId },
+        }),
+        { notifications: pageNotifications },
+      );
+
+      if (!listResult.ok || cancelled) {
+        return;
+      }
+
+      setArchivedNotifications(listResult.data.map(normalizeNotification));
+      setArchivedLoaded(true);
+    };
+
+    void loadArchivedNotifications();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [archivedLoaded, pageNotifications, showArchived, userIdFromStore]);
+
+  const updateActiveNotificationsState = (nextNotifications: OfficeNotification[]) => {
+    setActiveNotifications(nextNotifications);
+    setActiveLoaded(true);
+    dispatch(setUserData(toUserDataPayload(nextNotifications, roles)));
   };
 
-  const displayedNotifications = sortNotificationsByDateDesc(
-    notifications.length > 0 ? notifications : fallbackNotifications
-  );
+  const acknowledgeNotification = async (notificationId: number) => {
+    const result = await callApi(
+      post("/Notification/setnotificationsstatustwo", notificationId),
+      { notifications: pageNotifications },
+    );
+
+    if (!result.ok) {
+      return false;
+    }
+
+    const sourceNotifications =
+      activeNotifications.length > 0 ? activeNotifications : fallbackNotifications;
+    const archivedNotification =
+      sourceNotifications.find((item) => item.id === notificationId) ?? null;
+    const nextNotifications = sourceNotifications.filter(
+      (item) => item.id !== notificationId,
+    );
+
+    updateActiveNotificationsState(nextNotifications);
+
+    if (archivedNotification) {
+      setArchivedNotifications((current) =>
+        sortNotificationsByDateDesc([
+          { ...archivedNotification, status: 2 },
+          ...current.filter((item) => item.id !== notificationId),
+        ]),
+      );
+    }
+
+    return true;
+  };
+
+  const handleAcknowledge = async (notificationId: number) => {
+    await acknowledgeNotification(notificationId);
+  };
+
+  const handleNavigateToNotificationTarget = async (
+    notificationId: number,
+    targetPath: string,
+  ) => {
+    const isAcknowledged = await acknowledgeNotification(notificationId);
+    if (!isAcknowledged) {
+      return;
+    }
+
+    navigate(targetPath);
+  };
+
+  const activeNotificationsSource = activeLoaded
+    ? activeNotifications
+    : fallbackNotifications;
+
+  const displayedNotifications = sortNotificationsByDateDesc([
+    ...activeNotificationsSource,
+    ...(showArchived ? archivedNotifications : []),
+  ]);
 
   return (
     <div className={styles.notifications_wrapper}>
+      <div className={styles.notifications_toolbar}>
+        <Checkbox
+          size="sm"
+          checked={showArchived}
+          onChange={(event) => setShowArchived(event.target.checked)}
+          label="Показывать архивные"
+          labelClassName={styles.archivedToggle}
+        />
+      </div>
+
       {displayedNotifications.length === 0 ? (
-        <div className={styles.empty_state}>Новых уведомлений нет.</div>
+        <div className={styles.empty_state}>
+          {showArchived ? "Уведомлений нет." : "Новых уведомлений нет."}
+        </div>
       ) : (
         displayedNotifications.map((item) => {
           const accessRequestData = isAccessRequestData(item.relatedEntityData)
@@ -135,26 +223,43 @@ const Notifications = () => {
             : null;
 
           return (
-            <div className={styles.notification_item} key={item.id}>
+            <div
+              className={`${styles.notification_item} ${
+                item.status === 2 ? styles.notification_item_archived : ""
+              }`}
+              key={item.id}
+            >
               <span>{formatNotificationDate(item.dateTime)}</span>
               <span>{item.officeNotificationType.name}</span>
               <span>{getNotificationEntityPreview(item)}</span>
               <div className={styles.actions}>
-                <button
-                  type="button"
-                  className={styles.secondary_button}
-                  onClick={() => void handleAcknowledge(item.id)}
-                >
-                  Ознакомлен
-                </button>
+                {item.status !== 2 ? (
+                  <button
+                    type="button"
+                    className={styles.secondary_button}
+                    onClick={() => void handleAcknowledge(item.id)}
+                  >
+                    Ознакомлен
+                  </button>
+                ) : (
+                  <span className={styles.archivedLabel}>В архиве</span>
+                )}
 
                 {accessRequestData && item.typeId === 1 ? (
                   <button
                     type="button"
                     className={styles.action_button}
-                    onClick={() =>
-                      navigate(`/Users/Edit/${accessRequestData.officeUserId}`)
-                    }
+                    onClick={() => {
+                      if (item.status === 2) {
+                        navigate(`/Users/Edit/${accessRequestData.officeUserId}`);
+                        return;
+                      }
+
+                      void handleNavigateToNotificationTarget(
+                        item.id,
+                        `/Users/Edit/${accessRequestData.officeUserId}`,
+                      );
+                    }}
                   >
                     Перейти
                   </button>

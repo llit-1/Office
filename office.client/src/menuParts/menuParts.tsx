@@ -15,7 +15,7 @@ export interface MenuPart {
   Icon: SvgIconComponent;
   path: string;
   img: string;
-  requiredRole?: string;
+  requiredRole?: string | string[];
 }
 
 export const menuParts: MenuPart[] = [
@@ -27,12 +27,12 @@ export const menuParts: MenuPart[] = [
     img: "/img/calculator.svg",
     requiredRole: "Calculator",
   },
-  { name: "Торговые точки", Icon: StorefrontOutlinedIcon, path: "/TT", img: "/img/shop.svg", requiredRole: "Location", },
-  { name: "Пользователи", Icon: GroupOutlinedIcon, path: "/Users", img: "/img/users.svg", requiredRole: "Users", },
-  { name: "NX Завод", Icon: CameraAltOutlinedIcon, path: "/FactoryNX", img: "/img/photo-camera.svg", requiredRole: "FactoryNX", },
-  { name: "Заказы ТТ", Icon: AddShoppingCartOutlinedIcon, path: "/Orders", img: "/img/shopping-basket.svg", requiredRole: "OrdersTT", },
-  { name: "Сотрудники завода", Icon: FactoryOutlinedIcon, path: "/FactoryPerson", img: "/img/factory.svg", requiredRole: "FactoryPerson", },
-  { name: "Склад", Icon: StorageOutlinedIcon, path: "/Stock", img: "/img/stock.svg", requiredRole: "Stock", },
-  { name: "Зарплата", Icon: PaymentsOutlinedIcon, path: "/Salary", img: "/img/salary.svg", requiredRole: "Salary", },
-  { name: "Уведомления", Icon: NotificationsNoneIcon, path: "/Notifications", img: "/img/notification.svg"},
+  { name: "Торговые точки", Icon: StorefrontOutlinedIcon, path: "/TT", img: "/img/shop.svg", requiredRole: "Location" },
+  { name: "Пользователи", Icon: GroupOutlinedIcon, path: "/Users", img: "/img/users.svg", requiredRole: "Users" },
+  { name: "NX Завод", Icon: CameraAltOutlinedIcon, path: "/FactoryNX", img: "/img/photo-camera.svg", requiredRole: "FactoryNX" },
+  { name: "Заказы ТТ", Icon: AddShoppingCartOutlinedIcon, path: "/Orders", img: "/img/shopping-basket.svg", requiredRole: ["OrdersTT", "OrdersTTAdmin"] },
+  { name: "Сотрудники завода", Icon: FactoryOutlinedIcon, path: "/FactoryPerson", img: "/img/factory.svg", requiredRole: "FactoryPerson" },
+  { name: "Склад", Icon: StorageOutlinedIcon, path: "/Stock", img: "/img/stock.svg", requiredRole: "Stock" },
+  { name: "Зарплата", Icon: PaymentsOutlinedIcon, path: "/Salary", img: "/img/salary.svg", requiredRole: "Salary" },
+  { name: "Уведомления", Icon: NotificationsNoneIcon, path: "/Notifications", img: "/img/notification.svg" },
 ];

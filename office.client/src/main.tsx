@@ -86,11 +86,9 @@ createRoot(document.getElementById('root')!).render(
                 anchorOrigin: { vertical: 'top', horizontal: 'right' },
               },
             }}>
-                {/* StartupChecker runs after PersistGate rehydration and before routes mount */}
                 <StartupChecker />
 
                 <Routes>
-
                   <Route path='/' element={<RequireAuth><App /></RequireAuth> }>
                     <Route path="Main" element={<Main />} />
 
@@ -100,30 +98,29 @@ createRoot(document.getElementById('root')!).render(
                       <Route path="Calculate/:Location" element={<Calculate />}/>
                     </Route>
 
-                    <Route path="TT" element={<TT />}/>
-                    <Route path="Users" element={<Users />} />
-                    <Route path="/Users/Edit" element={<UserEdit />} />
-                    <Route path="/Users/Edit/:id" element={<UserEdit />} />
-                    <Route path="/Groups/Edit" element={<GroupEdit />} />
-                    <Route path="/Groups/Edit/:id" element={<GroupEdit />} />
-                    <Route path="/Roles/Edit" element={<RoleEdit />} />
-                    <Route path="/Roles/Edit/:id" element={<RoleEdit />} />
+                    <Route path="TT" element={<RequireRole requiredRole="Location"><TT /></RequireRole>}/>
+                    <Route path="Users" element={<RequireRole requiredRole="Users"><Users /></RequireRole>} />
+                    <Route path="/Users/Edit" element={<RequireRole requiredRole="Users"><UserEdit /></RequireRole>} />
+                    <Route path="/Users/Edit/:id" element={<RequireRole requiredRole="Users"><UserEdit /></RequireRole>} />
+                    <Route path="/Groups/Edit" element={<RequireRole requiredRole="Users"><GroupEdit /></RequireRole>} />
+                    <Route path="/Groups/Edit/:id" element={<RequireRole requiredRole="Users"><GroupEdit /></RequireRole>} />
+                    <Route path="/Roles/Edit" element={<RequireRole requiredRole="Users"><RoleEdit /></RequireRole>} />
+                    <Route path="/Roles/Edit/:id" element={<RequireRole requiredRole="Users"><RoleEdit /></RequireRole>} />
                     <Route path="Settings" element={<Settings />} />
                     <Route path="Help" element={<Help />} /> 
                     <Route path="*" element={<NotFound />} />
 
-                    <Route path='FactoryNX' element={<FactoryNX />} />
-                    <Route path='Orders' element={<Orders />} />
-                    <Route path='FactoryPerson' element={<FactoryPerson />} />
-                    <Route path='/FactoryPerson/Edit' element={<FactoryPersonEdit />} />
-                    <Route path='/FactoryPerson/Edit/:id' element={<FactoryPersonEdit />} />
-                    <Route path='/Stock' element={<Stock />} />
-                    <Route path='/Stock/:tab' element={<Stock />} />
-                    <Route path='/StockTable' element={<StockTable />} />
-                    <Route path='/Salary' element={<SalaryPage />} />
-                    <Route path='/Salary/Settings' element={<SalarySettingsPage />} />
+                    <Route path='FactoryNX' element={<RequireRole requiredRole="FactoryNX"><FactoryNX /></RequireRole>} />
+                    <Route path='Orders' element={<RequireRole requiredRole={["OrdersTT", "OrdersTTAdmin"]}><Orders /></RequireRole>} />
+                    <Route path='FactoryPerson' element={<RequireRole requiredRole="FactoryPerson"><FactoryPerson /></RequireRole>} />
+                    <Route path='/FactoryPerson/Edit' element={<RequireRole requiredRole="FactoryPerson"><FactoryPersonEdit /></RequireRole>} />
+                    <Route path='/FactoryPerson/Edit/:id' element={<RequireRole requiredRole="FactoryPerson"><FactoryPersonEdit /></RequireRole>} />
+                    <Route path='/Stock' element={<RequireRole requiredRole="Stock"><Stock /></RequireRole>} />
+                    <Route path='/Stock/:tab' element={<RequireRole requiredRole="Stock"><Stock /></RequireRole>} />
+                    <Route path='/StockTable' element={<RequireRole requiredRole="Stock"><StockTable /></RequireRole>} />
+                    <Route path='/Salary' element={<RequireRole requiredRole="Salary"><SalaryPage /></RequireRole>} />
+                    <Route path='/Salary/Settings' element={<RequireRole requiredRole="Salary"><SalarySettingsPage /></RequireRole>} />
                     <Route path='Notifications' element={<Notifications />} />
-                    
                   </Route>
 
                   <Route path='/Login' element={<Login />} />

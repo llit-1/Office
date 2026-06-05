@@ -23,6 +23,7 @@
   /* Warning */
   --color-warning: #f59e0b;
   --color-warning-bg: #ffe7c8;
+  --color-filter-indicator: #5865F1;
 
   /* Info */
   --color-info: #06b6d4;
@@ -72,6 +73,7 @@
   --color-warning: #f59e0b;
   --color-warning-light: #f59e0b80;
   --color-warning-bg: #453417;
+  --color-filter-indicator: #ffb07c;
 
   --color-info: color-mix(in oklab, var(--blue-new-27) 100%, var(--custom-theme-text-color, #000) var(--custom-theme-text-color-amount, 0%));
   --color-info-bg: #95b4c0;

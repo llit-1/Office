@@ -42,6 +42,8 @@ const Login = () => {
       localStorage.removeItem("user");
       localStorage.removeItem("userId");
       localStorage.removeItem("userRole");
+      localStorage.removeItem("userFullName");
+      localStorage.removeItem("userPosition");
       dispatch(logout());
     } catch (error) {
       console.error(error);
@@ -83,6 +85,8 @@ const Login = () => {
         try {
           localStorage.setItem("token", authToken.token);
           localStorage.setItem("id", String(authToken.id));
+          localStorage.setItem("userFullName", authToken.fullName ?? "");
+          localStorage.setItem("userPosition", authToken.position ?? "");
         } catch {
           // ignore storage errors
         }
@@ -115,7 +119,7 @@ const Login = () => {
         });
         return;
       }
-    } catch (error) {
+    } catch{
       notifications.show("Не удалось выполнить авторизацию.", {
         severity: "error",
         autoHideDuration: 3000,

@@ -34,6 +34,35 @@ function renderWithRoles(roles: string[]) {
   );
 }
 
+function renderWithAllowedRoles(roles: string[]) {
+  const preloadedState = {
+    userData: { roles },
+  };
+
+  const store = configureStore({
+    reducer: () => preloadedState,
+    preloadedState,
+  });
+
+  return render(
+    <Provider store={store}>
+      <MemoryRouter initialEntries={["/protected"]}>
+        <Routes>
+          <Route
+            path="/protected"
+            element={
+              <RequireRole requiredRole={["OrdersTT", "OrdersTTAdmin"]}>
+                <div>Orders page</div>
+              </RequireRole>
+            }
+          />
+          <Route path="/Main" element={<div>Main page</div>} />
+        </Routes>
+      </MemoryRouter>
+    </Provider>
+  );
+}
+
 describe("RequireRole", () => {
   it("renders children when the user has the required role", () => {
     renderWithRoles(["Calculator"]);
@@ -45,5 +74,11 @@ describe("RequireRole", () => {
     renderWithRoles(["Admin"]);
 
     expect(screen.getByText("Main page")).toBeInTheDocument();
+  });
+
+  it("renders children when the user has one of the allowed roles", () => {
+    renderWithAllowedRoles(["OrdersTTAdmin"]);
+
+    expect(screen.getByText("Orders page")).toBeInTheDocument();
   });
 });

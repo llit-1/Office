@@ -9,6 +9,11 @@
     color: var(--color-text);
 }
 
+.checkboxLabel_sm {
+    gap: 8px;
+    font-size: 14px;
+}
+
 .checkboxInput {
     appearance: none;
     -webkit-appearance: none;
@@ -25,6 +30,13 @@
     flex: 0 0 24px;
 }
 
+.checkboxInput_sm {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
+    border-radius: 4px;
+}
+
 .checkboxInput::before {
     content: "";
     width: 10px;
@@ -33,6 +45,11 @@
     transition: transform 0.15s ease-in-out;
     box-shadow: inset 1em 1em var(--color-primary);
     clip-path: polygon(14% 44%, 0 59%, 43% 100%, 100% 21%, 84% 6%, 41% 70%);
+}
+
+.checkboxInput_sm::before {
+    width: 8px;
+    height: 8px;
 }
 
 .checkboxInput:checked {

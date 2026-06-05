@@ -23,6 +23,7 @@ import type {
   FactoryPerson,
   Personality,
   Location,
+  OfficeBid,
 } from "../../Interfaces/Users";
 import Select from "../../Components/Select/Select";
 
@@ -33,6 +34,7 @@ type OfficeUserModel = {
   officeUser: OfficeUser;
   locations: Location[] | null;     // справочник всех локаций
   officeGroups: OfficeGroup[] | null; // справочник всех групп
+  officeBids: OfficeBid[] | null;
 };
 
 /**
@@ -123,6 +125,33 @@ function asApiSetError(setError: UseFormSetError<FormValues>) {
   return setError as unknown as UseFormSetError<Record<string, unknown>>;
 }
 
+function formatOfficeBidDate(value?: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function getOfficeBidComment(bid: OfficeBid) {
+  return bid.comment ?? bid.Comment ?? "Без комментария";
+}
+
+function getOfficeBidDateTime(bid: OfficeBid) {
+  return formatOfficeBidDate(bid.dateTime ?? bid.DateTime);
+}
+
 export default function UserEdit() {
   const { id } = useParams<{ id: string }>();
   const isCreate = !id || id === "new";
@@ -133,6 +162,8 @@ export default function UserEdit() {
 
   const [pageLoading, setPageLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [officeBids, setOfficeBids] = useState<OfficeBid[]>([]);
+  const [selectedOfficeBid, setSelectedOfficeBid] = useState<OfficeBid | null>(null);
 
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -246,6 +277,7 @@ export default function UserEdit() {
     const load = async () => {
       if (isCreate) {
         reset(DEFAULTS);
+        setOfficeBids([]);
         return;
       }
       if (!id) return;
@@ -261,6 +293,7 @@ export default function UserEdit() {
 
       if (result?.ok && result.data) {
         reset(modelToForm(result.data));
+        setOfficeBids(result.data.officeBids ?? []);
       }
 
       setPageLoading(false);
@@ -446,7 +479,30 @@ export default function UserEdit() {
             </div>
 
             <div className={styles.groups}>
-              <label className={styles.blockLabel}>Заметки по заявке пользователя</label>
+              <label className={styles.blockLabel}>Заявки пользователя</label>
+              {officeBids.length === 0 ? (
+                <div className={styles.emptyOfficeBids}>Активных заявок нет.</div>
+              ) : (
+                <div className={styles.officeBidsList}>
+                  {officeBids.map((bid) => {
+                    const dateTime = getOfficeBidDateTime(bid);
+
+                    return (
+                      <button
+                        key={bid.id}
+                        type="button"
+                        className={styles.officeBidItem}
+                        onClick={() => setSelectedOfficeBid(bid)}
+                      >
+                        <div className={styles.officeBidMeta}>
+                          <span>#{bid.id}</span>
+                          {dateTime ? <span>{dateTime}</span> : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -494,6 +550,25 @@ export default function UserEdit() {
               </div>
             </div>
           )}
+
+          <Modal
+            isOpen={Boolean(selectedOfficeBid)}
+            onClose={() => setSelectedOfficeBid(null)}
+            title={
+              selectedOfficeBid
+                ? `Заявка #${selectedOfficeBid.id}${getOfficeBidDateTime(selectedOfficeBid) ? ` • ${getOfficeBidDateTime(selectedOfficeBid)}` : ""}`
+                : ""
+            }
+            size="sm"
+          >
+            {selectedOfficeBid ? (
+              <div className={styles.officeBidModalContent}>
+                <div className={styles.officeBidModalComment}>
+                  {getOfficeBidComment(selectedOfficeBid)}
+                </div>
+              </div>
+            ) : null}
+          </Modal>
 
           <Modal
             isOpen={open}

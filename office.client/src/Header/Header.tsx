@@ -13,6 +13,20 @@ interface HeaderProps {
   setIsMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+const getStoredUserProfile = () => {
+  try {
+    return {
+      fullName: localStorage.getItem("userFullName")?.trim() || "Пользователь",
+      position: localStorage.getItem("userPosition")?.trim() || "Должность не указана",
+    };
+  } catch {
+    return {
+      fullName: "Пользователь",
+      position: "Должность не указана",
+    };
+  }
+};
+
 const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const title = useSelector((state: RootState) => state.pageTitle.title);
   const visible = useSelector((state: RootState) => state.backButton.visible);
@@ -29,6 +43,7 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const dispatch = useDispatch();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [userProfile] = useState(getStoredUserProfile);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const savedTheme = localStorage.getItem("theme");
@@ -148,8 +163,8 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
 
         {isProfileMenuOpen && (
           <div className={styles.profileMenu} onClick={(e) => e.stopPropagation()}>
-            <p>Кургузов Владислав Сергеевич</p>
-            <p className={styles.profileMenuTextJob}>Программист-разработчик</p>
+            <p>{userProfile.fullName}</p>
+            <p className={styles.profileMenuTextJob}>{userProfile.position}</p>
 
             <div className={styles.themeSwitchRow}>
               <span>Тёмная тема</span>

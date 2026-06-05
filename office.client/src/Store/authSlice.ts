@@ -41,6 +41,8 @@ const authSlice = createSlice({
         localStorage.removeItem('authToken'); // legacy key
         localStorage.removeItem('token');
         localStorage.removeItem('id');
+        localStorage.removeItem('userFullName');
+        localStorage.removeItem('userPosition');
       } catch {}
     },
   },

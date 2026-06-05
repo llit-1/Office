@@ -8,6 +8,7 @@ import authReducer from "../../Store/authSlice";
 
 const showMock = vi.fn();
 const authMock = vi.fn();
+const getUserDataMock = vi.fn();
 
 vi.mock("@toolpad/core", () => ({
   useNotifications: () => ({ show: showMock }),
@@ -15,6 +16,10 @@ vi.mock("@toolpad/core", () => ({
 
 vi.mock("../../Pages/Requests", () => ({
   Auth: (...args: unknown[]) => authMock(...args),
+}));
+
+vi.mock("../../Services/userData", () => ({
+  getUserData: (...args: unknown[]) => getUserDataMock(...args),
 }));
 
 function renderLogin() {
@@ -55,6 +60,12 @@ describe("Login", () => {
     localStorage.clear();
     showMock.mockReset();
     authMock.mockReset();
+    getUserDataMock.mockReset();
+    getUserDataMock.mockResolvedValue({
+      newNotifications: [],
+      activeNotifications: [],
+      roles: [],
+    });
   });
 
   it("clears persisted auth data on mount", () => {
@@ -78,6 +89,8 @@ describe("Login", () => {
       id: 7,
       token: "jwt-token",
       responseCode: 1,
+      fullName: "Иванов Иван Иванович",
+      position: "Инженер",
     });
 
     renderLogin();
@@ -91,6 +104,8 @@ describe("Login", () => {
 
     expect(localStorage.getItem("token")).toBe("jwt-token");
     expect(localStorage.getItem("id")).toBe("7");
+    expect(localStorage.getItem("userFullName")).toBe("Иванов Иван Иванович");
+    expect(localStorage.getItem("userPosition")).toBe("Инженер");
   });
 
   it("shows a modal for inactive accounts", async () => {

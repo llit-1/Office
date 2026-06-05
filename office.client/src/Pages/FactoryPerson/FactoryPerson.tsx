@@ -1,46 +1,101 @@
-import GenericTable from "../../Components/GenericTable/GenericTable";
-import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
-import styles from "./FactoryPerson.module.css";
 import SearchIcon from "@mui/icons-material/Search";
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
-import { titleSet } from "../../Store/stateForPageTitleSlice";
-import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
+import GenericTable, { type Column } from "../../Components/GenericTable/GenericTable";
+import { includesNormalized } from "../../Components/GenericTable/searchUtils";
+import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
+import useDebouncedValue from "../../Hooks/useDebouncedValue";
+import usePersistedSearchText from "../../Hooks/usePersistedSearchText";
 import { FactoryPersonWithNav } from "../../Interfaces/Users";
-import { get, callApi } from "../../Services/api";
-
-type Column<T> =
-  | { label: string; key: keyof T }
-  | { label: string; render: (row: T) => React.ReactNode; sortValue?: (row: T) => string | number };
+import { callApi, get } from "../../Services/api";
+import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
+import { titleSet } from "../../Store/stateForPageTitleSlice";
+import styles from "./FactoryPerson.module.css";
 
 const personColumns: Column<FactoryPersonWithNav>[] = [
   { label: "Фамилия", key: "surname" },
   { label: "Имя", key: "name" },
   { label: "Отчество", key: "patronymic" },
-  { label: "Дата рождения", render: (p) => p.birthdate ? new Date(p.birthdate).toLocaleDateString('ru-RU') : "", sortValue: (p) => p.birthdate ?? "" },
+  {
+    label: "Дата рождения",
+    render: (p) => (p.birthdate ? new Date(p.birthdate).toLocaleDateString("ru-RU") : ""),
+    sortValue: (p) => p.birthdate ?? "",
+  },
   { label: "Паспорт", key: "passport" },
-  { label: "Отдел", render: (p) => p.factoryDepartmentName ?? "" },
-  { label: "Участок", render: (p) => p.factoryWorkshopName ?? "" },
-  { label: "Должность", render: (p) => p.factoryJobTitleName ?? "" },
-  { label: "Гражданство", render: (p) => p.citizenship?.name ?? "" },
-  { label: "Юр. лицо", render: (p) => p.entity?.name ?? "" },
-  { label: "Тип документа", render: (p) => p.documentType?.name ?? "" },
+  {
+    label: "Отдел",
+    render: (p) => p.factoryDepartmentName ?? "",
+    sortValue: (p) => p.factoryDepartmentName ?? "",
+  },
+  {
+    label: "Участок",
+    render: (p) => p.factoryWorkshopName ?? "",
+    sortValue: (p) => p.factoryWorkshopName ?? "",
+  },
+  {
+    label: "Должность",
+    render: (p) => p.factoryJobTitleName ?? "",
+    sortValue: (p) => p.factoryJobTitleName ?? "",
+  },
+  {
+    label: "Гражданство",
+    render: (p) => p.citizenship?.name ?? "",
+    sortValue: (p) => p.citizenship?.name ?? "",
+    defaultVisible: false,
+  },
+  {
+    label: "Юр. лицо",
+    render: (p) => p.entity?.name ?? "",
+    sortValue: (p) => p.entity?.name ?? "",
+    defaultVisible: false,
+  },
+  {
+    label: "Тип документа",
+    render: (p) => p.documentType?.name ?? "",
+    sortValue: (p) => p.documentType?.name ?? "",
+    defaultVisible: false,
+  },
   { label: "Номер телефона", key: "phone" },
-  { label: "Номер банковской карты", key: "cardNumber" },
-  { label: "Банк", render: (p) => p.bank?.name ?? "" },
-  { label: "Дата въезда", render: (p) => p.hostelChekin ? new Date(p.hostelChekin).toLocaleDateString('ru-RU') : "" },
-  { label: "Дата выезда", render: (p) => p.hostelCheckOut ? new Date(p.hostelCheckOut).toLocaleDateString('ru-RU') : "" },
-  { label: "Дата приема на работу", render: (p) => p.hiringDate ? new Date(p.hiringDate).toLocaleDateString('ru-RU') : "" },
-  { label: "Дата увольнения", render: (p) => p.dismissedDate ? new Date(p.dismissedDate).toLocaleDateString('ru-RU') : "" },
+  { label: "Номер банковской карты", key: "cardNumber", defaultVisible: false },
+  {
+    label: "Банк",
+    render: (p) => p.bank?.name ?? "",
+    sortValue: (p) => p.bank?.name ?? "",
+    defaultVisible: false,
+  },
+  {
+    label: "Дата въезда",
+    render: (p) => (p.hostelChekin ? new Date(p.hostelChekin).toLocaleDateString("ru-RU") : ""),
+    sortValue: (p) => p.hostelChekin ?? "",
+    defaultVisible: false,
+  },
+  {
+    label: "Дата выезда",
+    render: (p) => (p.hostelCheckOut ? new Date(p.hostelCheckOut).toLocaleDateString("ru-RU") : ""),
+    sortValue: (p) => p.hostelCheckOut ?? "",
+    defaultVisible: false,
+  },
+  {
+    label: "Дата приема на работу",
+    render: (p) => (p.hiringDate ? new Date(p.hiringDate).toLocaleDateString("ru-RU") : ""),
+    sortValue: (p) => p.hiringDate ?? "",
+  },
+  {
+    label: "Дата увольнения",
+    render: (p) => (p.dismissedDate ? new Date(p.dismissedDate).toLocaleDateString("ru-RU") : ""),
+    sortValue: (p) => p.dismissedDate ?? "",
+    defaultVisible: false,
+  },
 ];
 
 export default function FactoryPersonPage() {
+  const tableStateKey = "factory-person-list";
   const dispatch = useDispatch();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [searchText, setSearchText] = useState("");
+  const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
+  const debouncedSearchText = useDebouncedValue(searchText);
   const [persons, setPersons] = useState<FactoryPersonWithNav[]>([]);
   const [loading, setLoading] = useState(true);
-  // navigate not required here
 
   const loadPersons = async () => {
     setLoading(true);
@@ -52,21 +107,20 @@ export default function FactoryPersonPage() {
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
     dispatch(visibleSet({ visible: true }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
   useEffect(() => {
-    dispatch(titleSet({ title: "Cотрудники завод" }));
+    dispatch(titleSet({ title: "Сотрудники завода" }));
     loadPersons();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dispatch]);
 
   const handleClick = (index: number) => setActiveIndex(index);
 
   const filteredData = useMemo(() => {
-    const lower = searchText.toLowerCase();
-    return persons.filter((p) => `${p.surname ?? ""} ${p.name ?? ""}`.toLowerCase().includes(lower));
-  }, [searchText, persons]);
+    return persons.filter((p) =>
+      includesNormalized(`${p.surname ?? ""} ${p.name ?? ""}`, debouncedSearchText),
+    );
+  }, [debouncedSearchText, persons]);
 
   return (
     <>
@@ -98,8 +152,9 @@ export default function FactoryPersonPage() {
         routeTo="/FactoryPerson/Edit"
         loading={loading}
         addOption={true}
+        tableStateKey={tableStateKey}
+        highlightQuery={debouncedSearchText}
       />
     </>
   );
 }
-// file intentionally ends after default export above

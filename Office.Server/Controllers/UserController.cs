@@ -38,6 +38,7 @@ namespace Office.Server.Controllers
             OfficeUserModel officeUserModel = new(user);
             officeUserModel.Locations = _context.Locations.Include(x => x.LocationType).ToList();
             officeUserModel.officeGroups = _context.OfficeGroup.Include(x => x.OfficeRole).ToList();
+            officeUserModel.officeBids = _context.OfficeBids.Where(x => x.OfficeUser.Id == id && x.Status == 0).ToList();
             return officeUserModel;
         }
 
@@ -262,7 +263,7 @@ namespace Office.Server.Controllers
             public OfficeUser OfficeUser { get; set; } = null!;
             public List<Location> Locations { get; set; } = new();
             public List<OfficeGroup> officeGroups { get; set; } = new();
-
+            public List<OfficeBid> officeBids { get; set; } = new List<OfficeBid>();
             public OfficeUserModel(OfficeUser officeUser)
             {
                 OfficeUser = officeUser;

@@ -15,16 +15,22 @@ describe("access helpers", () => {
     expect(hasRequiredRole(["Admin"], "Calculator")).toBe(false);
   });
 
+  it("allows access when the user has any role from the allowed list", () => {
+    expect(hasRequiredRole(["OrdersTTAdmin"], ["OrdersTT", "OrdersTTAdmin"])).toBe(true);
+  });
+
   it("filters menu parts by required role", () => {
     const parts = [
       { name: "Main", path: "/Main" },
       { name: "Calculator", path: "/Calculator", requiredRole: "Calculator" },
+      { name: "Orders", path: "/Orders", requiredRole: ["OrdersTT", "OrdersTTAdmin"] },
       { name: "Salary", path: "/Salary", requiredRole: "Salary" },
     ] as MenuPart[];
 
-    expect(getAvailableMenuParts(parts, ["Calculator"])).toEqual([
+    expect(getAvailableMenuParts(parts, ["Calculator", "OrdersTTAdmin"])).toEqual([
       parts[0],
       parts[1],
+      parts[2],
     ]);
   });
 });
