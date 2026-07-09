@@ -3,51 +3,59 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 interface AuthState {
   id: number | null;
   token: string | null;
-  phone: string | null;
-  code: string | null;
+  fullName: string | null;
+  position: string | null;
+  initialized: boolean;
 }
 
 const initialState: AuthState = {
   id: null,
   token: null,
-  phone: '',
-  code: null,
+  fullName: null,
+  position: null,
+  initialized: false,
 };
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    login(state, action: PayloadAction<{ id?: number; token?: string; phone?: string; code?: string }>) {
+    login(state, action: PayloadAction<{ id?: number; token?: string; fullName?: string | null; position?: string | null }>) {
       if (typeof action.payload.id !== 'undefined') {
         state.id = action.payload.id ?? null;
       }
-      if (action.payload.token) {
-        state.token = action.payload.token;
+      if (typeof action.payload.token !== 'undefined') {
+        state.token = action.payload.token ?? null;
       }
-      if (action.payload.phone) {
-        state.phone = action.payload.phone;
+      if (typeof action.payload.fullName !== 'undefined') {
+        state.fullName = action.payload.fullName ?? null;
       }
-      if (action.payload.code) {
-        state.code = action.payload.code;
+      if (typeof action.payload.position !== 'undefined') {
+        state.position = action.payload.position ?? null;
       }
+      state.initialized = true;
     },
     logout: (state) => {
       state.id = null;
       state.token = null;
-      state.phone = '';
-      state.code = null;
+      state.fullName = null;
+      state.position = null;
+      state.initialized = true;
       try {
         localStorage.removeItem('authToken'); // legacy key
         localStorage.removeItem('token');
         localStorage.removeItem('id');
+        localStorage.removeItem('login');
         localStorage.removeItem('userFullName');
         localStorage.removeItem('userPosition');
       } catch {}
     },
+    setAuthInitialized(state, action: PayloadAction<boolean>) {
+      state.initialized = action.payload;
+    },
   },
 });
 
-export const { login, logout } = authSlice.actions;
+export const { login, logout, setAuthInitialized } = authSlice.actions;
 
 export default authSlice.reducer;

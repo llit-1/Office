@@ -102,6 +102,12 @@ namespace Office.Server.DbContexts.RKNETDB
             modelBuilder.Entity<FactoryPerson>()
                 .ToTable("FactoryPerson", tb => tb.UseSqlOutputClause(false));
 
+            modelBuilder.Entity<OfficeAuthLog>()
+                .HasOne(x => x.OfficeUser)
+                .WithMany()
+                .HasForeignKey(x => x.OfficeUserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             base.OnModelCreating(modelBuilder);
         }
         public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; }//пользователь
@@ -111,6 +117,9 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<DbContexts.RKNETDB.Models.OfficeRole> OfficeRole { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.OfficeGroup> OfficeGroup { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.Location> Locations { get; set; } // локация
+        public DbSet<DbContexts.RKNETDB.Models.LocationType> LocationTypes { get; set; } // типы локаций
+        public DbSet<DbContexts.RKNETDB.Models.LocationVersion> LocationVersions { get; set; } // версии локаций
+        public DbSet<DbContexts.RKNETDB.Models.Entity> Entity { get; set; } // организации
         public DbSet<DbContexts.RKNETDB.Models.JobTitle> JobTitles { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.PersonalityVersion> PersonalityVersions { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.TimeSheet> TimeSheets { get; set; }
@@ -137,5 +146,9 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<WarehouseCategories> WarehouseCategories { get; set; }
         public DbSet<WarehouseHolder> WarehouseHolders { get; set; }
         public DbSet<OfficeBid> OfficeBids { get; set; }
+        public DbSet<OfficeAuthLog> OfficeAuthLogs { get; set; }
+        public DbSet<VideoDevice> VideoDevices { get; set; }
+        public DbSet<VideoInfo> VideoInfo { get; set; }
+        public DbSet<VideoOrientation> VideoOrientation { get; set; }
     }
 }

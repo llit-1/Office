@@ -1,11 +1,13 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@toolpad/core";
+import { useSelector } from "react-redux";
 import Select from "../../Components/Select/Select";
 import Input from "../../Components/Input/Input";
 import Modal from "../../Components/Modal/Modal";
 import { get, getFriendlyErrorMessage } from "../../Services/api";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import styles from "./StockTransfer.module.css";
+import type { RootState } from "../../Store";
 
 type WarehouseHolder = {
   id: number;
@@ -131,6 +133,8 @@ const StockTransferPage = () => {
   const [holderForm, setHolderForm] = useState<HolderForm>(emptyHolderForm);
 
   const notifications = useNotifications();
+  const authFullName = useSelector((state: RootState) => state.auth.fullName);
+  const authUserId = useSelector((state: RootState) => state.auth.id);
 
   const getWarehouseApiToken = async (forceRefresh = false) => {
     if (!forceRefresh && warehouseTokenRef.current) {
@@ -293,11 +297,8 @@ const StockTransferPage = () => {
   const selectedLocation = locationOptions.find((item) => item.value === locationGuid) ?? null;
 
   const filledBy = useMemo(() => {
-    const fullName = localStorage.getItem("userFullName");
-    const login = localStorage.getItem("login");
-    const id = localStorage.getItem("id");
-    return fullName || login || (id ? `User #${id}` : "Текущий пользователь");
-  }, []);
+    return authFullName?.trim() || (authUserId ? `User #${authUserId}` : "Текущий пользователь");
+  }, [authFullName, authUserId]);
 
   const addDraftByCode = async (raw: string, source: "manual" | "scanner" = "manual") => {
     const prepared = normalizeRfidCode(raw.trim());
@@ -592,19 +593,47 @@ const StockTransferPage = () => {
 
           {drafts.map((draft, index) => (
             <div className={styles.rowDrafts} key={`${draft.code}-${index}`}>
-              <p className={styles.colCode}>{getShortCode(draft.code)}</p>
-              <p className={styles.colCategory}>{draft.category}</p>
-              <p className={styles.colSubCategory}>{draft.subCategory}</p>
-              <p className={styles.colName}>{draft.name}</p>
-              <p className={styles.colStartLocation}>{draft.startLocation}</p>
-              <p className={styles.colEndLocation}>{draft.endLocationName || "-"}</p>
-              <p className={styles.colNewHolder}>{draft.newHolderName || "-"}</p>
-              <p className={styles.colFilledBy}>{draft.filledBy}</p>
-              <input
-                className={`${styles.commentRowInput} ${styles.colComment}`}
-                value={draft.comment}
-                onChange={(e) => updateDraftComment(index, e.target.value)}
-              />
+              <div className={`${styles.draftField} ${styles.colCode}`}>
+                <span className={styles.draftFieldLabel}>ID</span>
+                <span className={styles.draftFieldValue}>{getShortCode(draft.code)}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colCategory}`}>
+                <span className={styles.draftFieldLabel}>Категория</span>
+                <span className={styles.draftFieldValue}>{draft.category}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colSubCategory}`}>
+                <span className={styles.draftFieldLabel}>Подкатегория</span>
+                <span className={styles.draftFieldValue}>{draft.subCategory}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colName}`}>
+                <span className={styles.draftFieldLabel}>Наименование</span>
+                <span className={styles.draftFieldValue}>{draft.name}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colStartLocation}`}>
+                <span className={styles.draftFieldLabel}>Начальная точка</span>
+                <span className={styles.draftFieldValue}>{draft.startLocation}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colEndLocation}`}>
+                <span className={styles.draftFieldLabel}>Конечная точка</span>
+                <span className={styles.draftFieldValue}>{draft.endLocationName || "-"}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colNewHolder}`}>
+                <span className={styles.draftFieldLabel}>Новый держатель</span>
+                <span className={styles.draftFieldValue}>{draft.newHolderName || "-"}</span>
+              </div>
+              <div className={`${styles.draftField} ${styles.colFilledBy}`}>
+                <span className={styles.draftFieldLabel}>Заполнил</span>
+                <span className={styles.draftFieldValue}>{draft.filledBy}</span>
+              </div>
+              <label className={`${styles.draftCommentField} ${styles.colComment}`}>
+                <span className={styles.draftFieldLabel}>Комментарий</span>
+                <input
+                  className={styles.commentRowInput}
+                  value={draft.comment}
+                  onChange={(e) => updateDraftComment(index, e.target.value)}
+                  placeholder="Комментарий"
+                />
+              </label>
             </div>
           ))}
         </div>

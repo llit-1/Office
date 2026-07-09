@@ -3,6 +3,7 @@ import { useNotifications } from "@toolpad/core";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import Checkbox from "../../Components/Checkbox/Checkbox";
+import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import type { OfficeNotification, UserDataApiNotification } from "../../Interfaces/UserData";
 import { callApi, get, post } from "../../Services/api";
 import type { RootState } from "../../Store";
@@ -38,6 +39,7 @@ const Notifications = () => {
   const [activeLoaded, setActiveLoaded] = useState(false);
   const [archivedNotifications, setArchivedNotifications] = useState<OfficeNotification[]>([]);
   const [archivedLoaded, setArchivedLoaded] = useState(false);
+  const [archivedLoading, setArchivedLoading] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const fallbackNotifications = [
@@ -104,7 +106,7 @@ const Notifications = () => {
     return () => {
       cancelled = true;
     };
-  }, [dispatch, pageNotifications, roles, userIdFromStore]);
+  }, [dispatch, pageNotifications, userIdFromStore]);
 
   useEffect(() => {
     const userId = resolveNotificationUserId(userIdFromStore);
@@ -115,6 +117,8 @@ const Notifications = () => {
     let cancelled = false;
 
     const loadArchivedNotifications = async () => {
+      setArchivedLoading(true);
+
       const listResult = await callApi(
         get<UserDataApiNotification[]>("/Notification/getinactivenotifications", {
           params: { userId },
@@ -122,7 +126,13 @@ const Notifications = () => {
         { notifications: pageNotifications },
       );
 
-      if (!listResult.ok || cancelled) {
+      if (cancelled) {
+        return;
+      }
+
+      setArchivedLoading(false);
+
+      if (!listResult.ok) {
         return;
       }
 
@@ -211,6 +221,13 @@ const Notifications = () => {
           labelClassName={styles.archivedToggle}
         />
       </div>
+
+      {showArchived && archivedLoading && (
+        <div className={styles.archivedLoader}>
+          <LoadingSpinner />
+          <span>Загружаем архивные уведомления...</span>
+        </div>
+      )}
 
       {displayedNotifications.length === 0 ? (
         <div className={styles.empty_state}>

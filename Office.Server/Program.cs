@@ -2,9 +2,18 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Office.Server.Security;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+var allowedCorsOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>()?
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Select(origin => origin.Trim().TrimEnd('/'))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray()
+    ?? ["https://localhost:5173"];
 
 // Add services to the container.
 builder.Services.AddControllers();
@@ -45,16 +54,19 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAllOrigins",
-        builder =>
+    options.AddPolicy("AllowConfiguredOrigins",
+        policy =>
         {
-            builder.AllowAnyOrigin()
-                   .AllowAnyMethod()
-                   .AllowAnyHeader();
+            policy.WithOrigins(allowedCorsOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
         });
 });
 
 builder.Services.AddAuthorization();
+builder.Services.AddScoped<AuthTokenService>();
+builder.Services.AddSingleton<ClientInfoParser>();
 
 builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(options =>
 {
@@ -65,9 +77,18 @@ builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(o
         });
 });
 
+builder.Services.AddDbContext<Office.Server.DbContexts.PowerBi.PowerBiContext>(options =>
+{
+    options.UseSqlServer(Office.Server.Global.PowerBiMSSqlConnectionString,
+        sqlServerOptionsAction: mssqlOptions =>
+        {
+            mssqlOptions.EnableRetryOnFailure(maxRetryCount: 10, maxRetryDelay: TimeSpan.FromSeconds(30), errorNumbersToAdd: null);
+        });
+});
+
 var app = builder.Build();
 
-app.UseCors("AllowAllOrigins");
+app.UseCors("AllowConfiguredOrigins");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

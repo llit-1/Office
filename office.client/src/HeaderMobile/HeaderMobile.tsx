@@ -7,20 +7,10 @@ import type { RootState } from "../Store";
 import { useNavigate } from "react-router-dom";
 import { HamburgerMenuMobile } from "../HamburgerMenuMobile/HamburgerMenuMobile";
 import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
-
-const getStoredUserProfile = () => {
-  try {
-    return {
-      fullName: localStorage.getItem("userFullName")?.trim() || "Пользователь",
-      position: localStorage.getItem("userPosition")?.trim() || "Должность не указана",
-    };
-  } catch {
-    return {
-      fullName: "Пользователь",
-      position: "Должность не указана",
-    };
-  }
-};
+import { logout } from "../Store/authSlice";
+import { clearUserData } from "../Store/userDataSlice";
+import { logoutSession } from "../Services/api";
+import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
 
 export const HeaderMobile = () => {
   const navigate = useNavigate();
@@ -31,12 +21,13 @@ export const HeaderMobile = () => {
   const notificationsCount = useSelector(
     (state: RootState) =>
       state.userData.newNotifications.length +
-      state.userData.activeNotifications.length
+      state.userData.activeNotifications.length,
   );
   const notificationSoundEnabled = useSelector(
-    (state: RootState) => state.preferences.notificationSoundEnabled
+    (state: RootState) => state.preferences.notificationSoundEnabled,
   );
-  const [userProfile] = useState(getStoredUserProfile);
+  const fullName = useSelector((state: RootState) => state.auth.fullName);
+  const position = useSelector((state: RootState) => state.auth.position);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const savedTheme = localStorage.getItem("theme");
@@ -95,19 +86,33 @@ export const HeaderMobile = () => {
     };
   }, [isProfileMenuOpen]);
 
+  const handleLogout = async () => {
+    setIsProfileMenuOpen(false);
+    await logoutSession();
+    dispatch(clearUserData());
+    dispatch(logout());
+    navigate("/Login", { replace: true });
+  };
+
   return (
     <header className={styles.header}>
       <div className={styles.hamburger}>
         <Hamburger toggled={isOpen} toggle={setIsOpen} size={20} color="white" />
       </div>
 
-      <p onClick={() => navigate("/Main")}>{title}</p>
+      <p
+        onMouseEnter={() => void preloadRouteForPath("/Main")}
+        onClick={() => void navigateWithPreloadedRoute(navigate, "/Main")}
+      >
+        {title}
+      </p>
 
       <div
         className={styles.buttonNotifications}
         data-count={notificationsCount > 99 ? "99+" : String(notificationsCount)}
         data-has-notifications={notificationsCount > 0}
-        onClick={() => navigate("/Notifications")}
+        onMouseEnter={() => void preloadRouteForPath("/Notifications")}
+        onClick={() => void navigateWithPreloadedRoute(navigate, "/Notifications")}
       >
         <NotificationsNoneIcon />
       </div>
@@ -120,8 +125,8 @@ export const HeaderMobile = () => {
 
         {isProfileMenuOpen && (
           <div className={styles.profileMenu} onClick={(e) => e.stopPropagation()}>
-            <p>{userProfile.fullName}</p>
-            <p className={styles.profileMenuTextJob}>{userProfile.position}</p>
+            <p>{fullName?.trim() || "Пользователь"}</p>
+            <p className={styles.profileMenuTextJob}>{position?.trim() || "Должность не указана"}</p>
 
             <div className={styles.themeSwitchRow}>
               <span>Тёмная тема</span>
@@ -157,12 +162,7 @@ export const HeaderMobile = () => {
               </button>
             </div>
 
-            <button
-              onClick={() => {
-                setIsProfileMenuOpen(false);
-                navigate("/Login");
-              }}
-            >
+            <button onClick={() => void handleLogout()}>
               Выйти
             </button>
           </div>

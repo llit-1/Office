@@ -3,6 +3,8 @@ import styles from "./HamburgerMenuMobile.module.css";
 import { menuParts } from "../menuParts/menuParts";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Drawer } from "@mui/material";
+import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
+import { preloadImage } from "../App/assetPreload";
 
 interface HamburgerMenuMobileProps {
   isOpen: boolean;
@@ -27,7 +29,7 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
   const activeHandler = (index: number, path: string) => {
     setActiveIndex(index);
     setIsOpen(false);
-    navigate(path);
+    void navigateWithPreloadedRoute(navigate, path);
   };
 
   return (
@@ -48,6 +50,10 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
               key={elem.path}
               className={index === activeIndex ? styles.active : ""}
               onClick={() => activeHandler(index, elem.path)}
+              onMouseEnter={() => {
+                void preloadRouteForPath(elem.path);
+                void preloadImage(elem.img);
+              }}
             >
               <div>
                 <Icon className={styles.menuIcon} />

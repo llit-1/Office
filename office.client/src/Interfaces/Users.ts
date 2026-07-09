@@ -48,6 +48,12 @@ export interface OfficeUser {
   locations: Location[];
 }
 
+export interface AdDirectoryUser {
+  login: string;
+  fullName: string;
+  position: string | null;
+}
+
 export type Guid = string;
 
 export interface LocationType {

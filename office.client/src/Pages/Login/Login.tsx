@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { Button, TextField } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNotifications } from "@toolpad/core";
 import styles from "./Login.module.css";
 import { Auth } from "../Requests";
 import type { AuthAnswer } from "../../Interfaces/AuthAnswer";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import { Modal } from "../../Components/Modal/Modal";
-import { login, logout } from "../../Store/authSlice";
+import { login } from "../../Store/authSlice";
 import { setUserData } from "../../Store/userDataSlice";
 import { getUserData } from "../../Services/userData";
+import { RootState } from "../../Store";
+import { setAccessToken } from "../../Services/api";
 
 type ModalKind = "warning" | "error";
 
@@ -28,34 +30,25 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loginState, setLoginState] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [buttonText, setButtonText] = useState("Войти");
   const [modal, setModal] = useState<ModalState>({ open: false });
 
   const notifications = useNotifications();
   const navigator = useNavigate();
   const dispatch = useDispatch();
+  const token = useSelector((state: RootState) => state.auth.token);
+  const initialized = useSelector((state: RootState) => state.auth.initialized);
 
   useEffect(() => {
-    try {
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
-      localStorage.removeItem("user");
-      localStorage.removeItem("userId");
-      localStorage.removeItem("userRole");
-      localStorage.removeItem("userFullName");
-      localStorage.removeItem("userPosition");
-      dispatch(logout());
-    } catch (error) {
-      console.error(error);
+    if (initialized && token) {
+      navigator("/Main", { replace: true });
     }
-  }, [dispatch]);
+  }, [initialized, navigator, token]);
 
   const closeModal = () => setModal({ open: false });
 
   const handlerAuth = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setButtonText("");
     setIsLoading(true);
 
     try {
@@ -82,20 +75,15 @@ const Login = () => {
       }
 
       if (authToken.responseCode === 1) {
-        try {
-          localStorage.setItem("token", authToken.token);
-          localStorage.setItem("id", String(authToken.id));
-          localStorage.setItem("userFullName", authToken.fullName ?? "");
-          localStorage.setItem("userPosition", authToken.position ?? "");
-        } catch {
-          // ignore storage errors
-        }
-
-        try {
-          dispatch(login({ id: authToken.id, token: authToken.token }));
-        } catch {
-          // ignore redux sync issues
-        }
+        setAccessToken(authToken.token);
+        dispatch(
+          login({
+            id: authToken.id,
+            token: authToken.token,
+            fullName: authToken.fullName ?? null,
+            position: authToken.position ?? null,
+          }),
+        );
 
         try {
           const userData = await getUserData(authToken.id);
@@ -114,19 +102,18 @@ const Login = () => {
           kind: "error",
           title: "Доступ запрещён",
           message:
-            "Вход запрещён. Если вы считаете это ошибкой — обратитесь к администратору.",
+            "Вход запрещён. Если вы считаете это ошибкой, обратитесь к администратору.",
           img: "/img/stop.svg",
         });
         return;
       }
-    } catch{
+    } catch {
       notifications.show("Не удалось выполнить авторизацию.", {
         severity: "error",
         autoHideDuration: 3000,
       });
     } finally {
       setIsLoading(false);
-      setButtonText("Войти");
     }
   };
 
@@ -183,7 +170,12 @@ const Login = () => {
             type="submit"
             disabled={isLoading}
           >
-            {isLoading ? <LoadingSpinner size={24} /> : buttonText}
+            <span className={`${styles.submitButtonText} ${isLoading ? styles.submitButtonTextHidden : ""}`} translate="no">
+              Войти
+            </span>
+            <span className={`${styles.submitButtonLoader} ${isLoading ? styles.submitButtonLoaderVisible : ""}`} aria-hidden="true">
+              <LoadingSpinner size={24} />
+            </span>
           </Button>
         </form>
 

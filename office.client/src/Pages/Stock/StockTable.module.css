@@ -62,7 +62,7 @@
     overflow: hidden;
     background-color: var(--color-surface-muted);
     border-radius: 8px;
-    padding: 4px 2px;
+    padding: 4px;
     width: 28px;
     height: 28px;
     box-sizing: border-box;
@@ -236,8 +236,7 @@
 }
 
 .getStartedIcon {
-    width: 90px;
-    height: 90px;
+    font-size: 90px !important;
     transform: rotate(55deg);
     color: var(--color-primary);
 }
@@ -248,6 +247,68 @@
 
 .confirmModalPanel {
     composes: confirmModalPanel from "../../styles/shared-stock-modal.module.css";
+}
+
+@media screen and (max-width: 900px) {
+    .wrapper {
+        height: auto;
+        min-height: 100%;
+    }
+
+    .stockTable {
+        flex-direction: column;
+        height: auto;
+    }
+
+    .stockTableSubCategories,
+    .stockTableItems {
+        height: auto;
+    }
+
+    .itemsScroll {
+        height: auto;
+        max-height: 420px;
+    }
+}
+
+@media screen and (max-width: 640px) {
+    .stockTableSubCategories,
+    .stockTableItems {
+        padding: 8px;
+    }
+
+    .stockTableSubCategoriesItem {
+        padding: 14px 10px;
+        font-size: 15px;
+    }
+
+    .stockTableSubCategoriesItem:hover:not(.addCategory) {
+        transform: none;
+    }
+
+    .settingsCard,
+    .stockTableSubCategoriesItem:hover .settingsCard {
+        width: 28px;
+    }
+
+    .settingsText {
+        display: none;
+    }
+
+    .gettingStarted {
+        padding: 20px 10px;
+        text-align: center;
+        gap: 18px;
+    }
+
+    .gettingStarted > p {
+        font-size: 18px;
+    }
+
+    .getStartedIcon {
+        font-size: 72px !important;
+        transform: rotate(90deg);
+    }
 }
 
 

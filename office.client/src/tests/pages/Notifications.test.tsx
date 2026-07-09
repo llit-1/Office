@@ -15,14 +15,15 @@ const showMock = vi.fn();
 const callApiMock = vi.fn();
 const postMock = vi.fn();
 const getMock = vi.fn();
+const notificationsApi = { show: showMock };
 
 vi.mock("@toolpad/core", () => ({
-  useNotifications: () => ({ show: showMock }),
+  useNotifications: () => notificationsApi,
 }));
 
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>(
-    "react-router-dom"
+    "react-router-dom",
   );
 
   return {
@@ -47,7 +48,7 @@ function renderNotifications() {
       preferences: preferencesReducer,
     },
     preloadedState: {
-      auth: { id: null, token: "token", phone: "", code: null },
+      auth: { id: 3, token: "token", fullName: "Иванов Иван", position: "Инженер", initialized: true },
       backButton: { path: "/Main", visible: false },
       pageTitle: { title: "" },
       userData: {
@@ -90,7 +91,7 @@ function renderNotifications() {
       <MemoryRouter>
         <Notifications />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 
   return store;
@@ -103,11 +104,15 @@ describe("Notifications page", () => {
     callApiMock.mockReset();
     postMock.mockReset();
     getMock.mockReset();
+    getMock.mockResolvedValue([]);
+    callApiMock.mockResolvedValue({ ok: true, data: [] });
   });
 
   it('acknowledges notification before navigating by "Перейти"', async () => {
     postMock.mockResolvedValue(undefined);
-    callApiMock.mockResolvedValue({ ok: true, data: undefined });
+    callApiMock
+      .mockResolvedValueOnce({ ok: true, data: [] })
+      .mockResolvedValueOnce({ ok: true, data: undefined });
 
     const store = renderNotifications();
 
@@ -116,7 +121,7 @@ describe("Notifications page", () => {
     await waitFor(() => {
       expect(postMock).toHaveBeenCalledWith(
         "/Notification/setnotificationsstatustwo",
-        15
+        15,
       );
       expect(navigateMock).toHaveBeenCalledWith("/Users/Edit/77");
     });

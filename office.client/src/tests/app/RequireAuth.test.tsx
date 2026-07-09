@@ -26,7 +26,7 @@ function renderWithAuthState(preloadedState: unknown, initialEntry = "/protected
           <Route path="/Login" element={<div>Login page</div>} />
         </Routes>
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 }
 
@@ -37,17 +37,7 @@ describe("RequireAuth", () => {
 
   it("renders children when token exists in the store", () => {
     renderWithAuthState({
-      auth: { token: "store-token" },
-    });
-
-    expect(screen.getByText("Protected page")).toBeInTheDocument();
-  });
-
-  it("renders children when token exists in localStorage", () => {
-    localStorage.setItem("token", "local-token");
-
-    renderWithAuthState({
-      auth: { token: null },
+      auth: { token: "store-token", initialized: true },
     });
 
     expect(screen.getByText("Protected page")).toBeInTheDocument();
@@ -55,21 +45,18 @@ describe("RequireAuth", () => {
 
   it("redirects to login when there is no token", () => {
     renderWithAuthState({
-      auth: { token: null },
+      auth: { token: null, initialized: true },
     });
 
     expect(screen.getByText("Login page")).toBeInTheDocument();
   });
 
-  it("moves legacy authToken into token key", () => {
-    localStorage.setItem("authToken", "legacy-token");
-
+  it("renders nothing until auth initialization completes", () => {
     renderWithAuthState({
-      auth: { token: null },
+      auth: { token: null, initialized: false },
     });
 
-    expect(localStorage.getItem("token")).toBe("legacy-token");
-    expect(localStorage.getItem("authToken")).toBeNull();
-    expect(screen.getByText("Protected page")).toBeInTheDocument();
+    expect(screen.queryByText("Protected page")).not.toBeInTheDocument();
+    expect(screen.queryByText("Login page")).not.toBeInTheDocument();
   });
 });

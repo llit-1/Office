@@ -165,7 +165,7 @@
     overflow: hidden;
     background-color: var(--color-bg);
     border-radius: 8px;
-    padding: 4px 2px;
+    padding: 2px 4px;
     width: 28px;
     height: 28px;
     box-sizing: border-box;
@@ -221,10 +221,6 @@
     background-color: var(--color-danger);
 }
 
-.saveButton {
-    background-color: var(--color-primary);
-}
-
 .deleteButton, .saveButton {
     color: var(--color-white);
     border: none;
@@ -236,6 +232,11 @@
     transition: all 0.2s ease-in-out;
     padding: 8px 8px;
     font-weight: 600;
+}
+
+.saveButton {
+    background-color: var(--color-primary);
+    width: fit-content;
 }
 
 .deleteButton:hover {
@@ -353,6 +354,61 @@
     .structureControls {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .table_search {
+        width: 100%;
+    }
+
+    .searchDropdown {
+        min-width: 0;
+    }
+
+    .filterToggle {
+        width: 100%;
+        min-width: 0;
+        min-height: 52px;
+        padding: 12px 14px;
+        border: 1px solid var(--color-border);
+        justify-content: space-between;
+    }
+
+    .filterToggleLabel {
+        position: static;
+        left: auto;
+        top: auto;
+        order: -1;
+        background: var(--color-transparent);
+        font-size: 15px;
+        line-height: 1.2;
+    }
+
+    .contentWrapper {
+        grid-template-columns: 1fr;
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+    }
+
+    .card {
+        height: 132px;
+        aspect-ratio: auto;
+        font-size: 17px;
+    }
+
+    .loaderWrapper {
+        height: auto;
+        min-height: 240px;
+    }
+
+    .modalButtons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .deleteButton,
+    .saveButton {
+        width: 100%;
     }
 }
 

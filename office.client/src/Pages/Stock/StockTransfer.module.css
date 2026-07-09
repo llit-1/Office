@@ -92,6 +92,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    height: 50px;
 }
 
 .scanBtn:hover {
@@ -128,9 +129,11 @@
     0% {
         box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 32%, var(--color-transparent));
     }
+
     70% {
         box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
     }
+
     100% {
         box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
     }
@@ -141,10 +144,12 @@
         transform: scale(1);
         opacity: 0.95;
     }
+
     50% {
         transform: scale(1.2);
         opacity: 1;
     }
+
     100% {
         transform: scale(1);
         opacity: 0.95;
@@ -176,7 +181,6 @@
 
 .btnSend {
     background-color: var(--color-primary);
-    
 }
 
 .btnSend:hover {
@@ -205,7 +209,7 @@
 }
 
 .headerDrafts p,
-.rowDrafts p {
+.draftFieldValue {
     margin: 0;
     font-size: 14px;
     font-weight: 600;
@@ -228,6 +232,29 @@
     border: 1px solid var(--color-border);
     border-radius: 8px;
     padding: 8px 10px;
+}
+
+.draftField,
+.draftCommentField {
+    min-width: 0;
+}
+
+.draftField {
+    display: flex;
+    align-items: center;
+}
+
+.draftFieldLabel {
+    display: none;
+}
+
+.draftFieldValue {
+    width: 100%;
+}
+
+.draftCommentField {
+    display: flex;
+    align-items: center;
 }
 
 .commentRowInput {
@@ -346,7 +373,7 @@
     }
 
     .headerDrafts p,
-    .rowDrafts p,
+    .draftFieldValue,
     .commentRowInput {
         font-size: 13px;
     }
@@ -359,4 +386,129 @@
 .codeInputSection {
     display: flex;
     justify-content: space-between;
+}
+
+@media (max-width: 768px) {
+    .transferWrapper {
+        gap: 14px;
+    }
+
+    .mainFieldsWrapper {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .mainFields {
+        gap: 16px;
+        padding: 16px;
+        border-radius: 18px;
+        box-shadow: 0 10px 28px color-mix(in srgb, var(--color-black) 8%, var(--color-transparent));
+    }
+
+    .holderSelectWrapper,
+    .codeInputSection,
+    .addHolderModalButtons,
+    .buttonsWrapper {
+        flex-direction: column;
+    }
+
+    .holderSelectWrapper {
+        gap: 12px;
+    }
+
+    .addHolder,
+    .submitButton {
+        width: 100%;
+        min-height: 48px;
+        padding: 12px 14px;
+    }
+
+    .scanBtn {
+        min-height: 56px;
+        height: auto;
+        padding: 14px 16px;
+        border-radius: 14px;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .scanState {
+        font-size: 11px;
+        letter-spacing: 0.04em;
+    }
+
+    .commentInput {
+        min-height: 120px;
+    }
+
+    .headerDrafts {
+        display: none;
+    }
+
+    .bodyDrafts {
+        max-height: none;
+        overflow: visible;
+        padding-right: 0;
+        gap: 12px;
+    }
+
+    .rowDrafts {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 20px;
+        background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface) 94%, var(--color-white)) 0%,
+            color-mix(in srgb, var(--color-surface-muted) 88%, var(--color-white)) 100%
+        );
+        border-color: color-mix(in srgb, var(--color-border) 75%, var(--color-transparent));
+        box-shadow: 0 10px 24px color-mix(in srgb, var(--color-black) 6%, var(--color-transparent));
+    }
+
+    .draftField,
+    .draftCommentField {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: color-mix(in srgb, var(--color-surface) 92%, var(--color-transparent));
+        border: 1px solid color-mix(in srgb, var(--color-border) 65%, var(--color-transparent));
+    }
+
+    .draftFieldLabel {
+        display: block;
+        color: var(--color-text-muted);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .draftFieldValue {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: clip;
+        font-size: 14px;
+        line-height: 1.4;
+        color: var(--color-text);
+    }
+
+    .commentRowInput {
+        min-height: 44px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+    }
+
+    .buttonsWrapper {
+        padding-top: 4px;
+    }
+
+    .addHolderModalButtons {
+        gap: 10px;
+    }
 }

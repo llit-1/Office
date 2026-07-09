@@ -41,11 +41,9 @@ describe("notifications helpers", () => {
     expect(result.officeNotificationType).toEqual({ id: 1, name: "Тип 1" });
   });
 
-  it("resolves user id from store first and then from localStorage", () => {
-    localStorage.setItem("id", "42");
-
+  it("resolves user id only from store", () => {
     expect(resolveNotificationUserId(7)).toBe(7);
-    expect(resolveNotificationUserId(null)).toBe(42);
+    expect(resolveNotificationUserId(null)).toBeNull();
   });
 
   it("detects access request payloads", () => {

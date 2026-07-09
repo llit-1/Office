@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./MultiplySelect.module.css";
 
 type Key = string | number;
@@ -7,13 +7,17 @@ type MultiplySelectProps<T> = {
   items: T[];
   getKey: (item: T) => Key;
   getLabel: (item: T) => string;
-
   selectedKeys: Key[];
   onChange: (nextSelectedKeys: Key[]) => void;
-
   placeholder?: string;
   disabled?: boolean;
+  loading?: boolean;
+  loadingText?: string;
 };
+
+const INITIAL_VISIBLE_ITEMS = 120;
+const VISIBLE_ITEMS_BATCH = 120;
+const SCROLL_THRESHOLD_PX = 160;
 
 export function MultiplySelect<T>({
   items,
@@ -23,17 +27,14 @@ export function MultiplySelect<T>({
   onChange,
   placeholder = "Поиск...",
   disabled = false,
+  loading = false,
+  loadingText = "Загрузка...",
 }: MultiplySelectProps<T>) {
+  const optionsRef = useRef<HTMLDivElement | null>(null);
   const [searchText, setSearchText] = useState("");
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
 
-  // Подсветка/выбор — обновляется при каждом клике (это нормально)
   const selectedSet = useMemo(() => new Set(selectedKeys), [selectedKeys]);
-
-  /**
-   * Фиксируем порядок в state, чтобы:
-   * 1) после первичной инициализации отрисовалось
-   * 2) порядок не пересчитывался от кликов
-   */
   const [orderKeys, setOrderKeys] = useState<Key[]>([]);
   const [initialized, setInitialized] = useState(false);
 
@@ -46,7 +47,6 @@ export function MultiplySelect<T>({
 
     const keysInItems = new Set(items.map(getKey));
 
-    // 1) Первая инициализация: выбранные сверху + алфавит
     if (!initialized) {
       const selectedAtInit = new Set(selectedKeys);
 
@@ -54,16 +54,13 @@ export function MultiplySelect<T>({
         const aKey = getKey(a);
         const bKey = getKey(b);
 
-        const aSel = selectedAtInit.has(aKey);
-        const bSel = selectedAtInit.has(bKey);
+        const aSelected = selectedAtInit.has(aKey);
+        const bSelected = selectedAtInit.has(bKey);
 
-        if (aSel && !bSel) return -1;
-        if (!aSel && bSel) return 1;
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
 
-        const la = getLabel(a);
-        const lb = getLabel(b);
-
-        const byLabel = la.localeCompare(lb, "ru");
+        const byLabel = getLabel(a).localeCompare(getLabel(b), "ru");
         if (byLabel !== 0) return byLabel;
 
         return String(aKey).localeCompare(String(bKey), "ru");
@@ -74,54 +71,88 @@ export function MultiplySelect<T>({
       return;
     }
 
-    // 2) После инициализации:
-    //    - удаляем ключи, которых больше нет
-    //    - новые элементы добавляем в конец
     setOrderKeys((prev) => {
-      const next = prev.filter((k) => keysInItems.has(k));
+      const next = prev.filter((key) => keysInItems.has(key));
 
-      for (const it of items) {
-        const k = getKey(it);
-        if (!next.includes(k)) next.push(k);
+      for (const item of items) {
+        const key = getKey(item);
+        if (!next.includes(key)) {
+          next.push(key);
+        }
       }
 
       return next;
     });
+  }, [getKey, getLabel, initialized, items, selectedKeys]);
 
-    // ВАЖНО: специально НЕ зависим от selectedKeys,
-    // чтобы клики не пересортировывали порядок
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, getKey, getLabel, initialized]);
-
-  // key -> item
   const itemByKey = useMemo(() => {
     const map = new Map<Key, T>();
-    for (const it of items) map.set(getKey(it), it);
+    for (const item of items) {
+      map.set(getKey(item), item);
+    }
     return map;
-  }, [items, getKey]);
+  }, [getKey, items]);
 
-  // items в зафиксированном порядке
-  const orderedItems = useMemo(() => {
-    return orderKeys
-      .map((k) => itemByKey.get(k))
-      .filter((x): x is T => Boolean(x));
-  }, [orderKeys, itemByKey]);
+  const orderedItems = useMemo(
+    () =>
+      orderKeys
+        .map((key) => itemByKey.get(key))
+        .filter((item): item is T => Boolean(item)),
+    [itemByKey, orderKeys],
+  );
 
-  // Фильтрация НЕ меняет порядок
   const visibleItems = useMemo(() => {
-    const lower = searchText.trim().toLowerCase();
-    if (!lower) return orderedItems;
+    const normalizedSearch = searchText.trim().toLowerCase();
+    if (!normalizedSearch) {
+      return orderedItems;
+    }
 
-    return orderedItems.filter((item) =>
-      getLabel(item).toLowerCase().includes(lower)
-    );
-  }, [orderedItems, searchText, getLabel]);
+    return orderedItems.filter((item) => getLabel(item).toLowerCase().includes(normalizedSearch));
+  }, [getLabel, orderedItems, searchText]);
+
+  const renderedItems = useMemo(() => visibleItems.slice(0, visibleCount), [visibleCount, visibleItems]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE_ITEMS);
+    if (optionsRef.current) {
+      optionsRef.current.scrollTop = 0;
+    }
+  }, [searchText]);
+
+  const loadMore = () => {
+    setVisibleCount((current) => {
+      if (current >= visibleItems.length) {
+        return current;
+      }
+
+      return Math.min(current + VISIBLE_ITEMS_BATCH, visibleItems.length);
+    });
+  };
+
+  const handleScroll = () => {
+    const node = optionsRef.current;
+    if (!node || loading) {
+      return;
+    }
+
+    const distanceToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    if (distanceToBottom <= SCROLL_THRESHOLD_PX) {
+      loadMore();
+    }
+  };
 
   const toggle = (key: Key) => {
-    if (disabled) return;
+    if (disabled || loading) {
+      return;
+    }
+
     const next = new Set(selectedSet);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
+    if (next.has(key)) {
+      next.delete(key);
+    } else {
+      next.add(key);
+    }
+
     onChange(Array.from(next));
   };
 
@@ -130,31 +161,51 @@ export function MultiplySelect<T>({
       <input
         className={styles.search}
         value={searchText}
-        onChange={(e) => setSearchText(e.target.value)}
+        onChange={(event) => setSearchText(event.target.value)}
         placeholder={placeholder}
-        disabled={disabled}
+        disabled={disabled || loading}
       />
 
-      <div className={styles.optionsWrapper}>
-        {visibleItems.map((item) => {
-          const key = getKey(item);
-          const label = getLabel(item);
-          const isSelected = selectedSet.has(key);
+      <div ref={optionsRef} className={styles.optionsWrapper} onScroll={handleScroll}>
+        {loading && (
+          <div className={styles.loadingState}>
+            <div className={styles.spinner} />
+            <span>{loadingText}</span>
+          </div>
+        )}
 
-          return (
-            <div
-              key={String(key)}
-              className={`${styles.optionItem} ${
-                isSelected ? styles.selected : ""
-              }`}
-              onClick={() => toggle(key)}
-              role="button"
-              tabIndex={0}
-            >
-              {label}
-            </div>
-          );
-        })}
+        {!loading &&
+          renderedItems.map((item) => {
+            const key = getKey(item);
+            const label = getLabel(item);
+            const isSelected = selectedSet.has(key);
+
+            return (
+              <div
+                key={String(key)}
+                className={`${styles.optionItem} ${isSelected ? styles.selected : ""}`}
+                onClick={() => toggle(key)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    toggle(key);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+              >
+                {label}
+              </div>
+            );
+          })}
+
+        {!loading && visibleItems.length > renderedItems.length && (
+          <div className={styles.loadMoreHint}>
+            Показано {renderedItems.length} из {visibleItems.length}
+          </div>
+        )}
+
+        {!loading && visibleItems.length === 0 && <div className={styles.emptyState}>Ничего не найдено</div>}
       </div>
     </div>
   );

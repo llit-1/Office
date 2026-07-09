@@ -44,4 +44,10 @@
     composes: confirmModalPanel from "../../styles/shared-user-editor.module.css";
 }
 
+@media screen and (max-width: 900px) {
+    .blocks {
+        flex-direction: column;
+    }
+}
+
 

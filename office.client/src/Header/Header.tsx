@@ -7,25 +7,15 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useEffect, useRef, useState } from "react";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
+import { logout } from "../Store/authSlice";
+import { clearUserData } from "../Store/userDataSlice";
+import { logoutSession } from "../Services/api";
+import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
 
 interface HeaderProps {
   isMenuOpen: boolean;
   setIsMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
 }
-
-const getStoredUserProfile = () => {
-  try {
-    return {
-      fullName: localStorage.getItem("userFullName")?.trim() || "Пользователь",
-      position: localStorage.getItem("userPosition")?.trim() || "Должность не указана",
-    };
-  } catch {
-    return {
-      fullName: "Пользователь",
-      position: "Должность не указана",
-    };
-  }
-};
 
 const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const title = useSelector((state: RootState) => state.pageTitle.title);
@@ -34,16 +24,17 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const notificationsCount = useSelector(
     (state: RootState) =>
       state.userData.newNotifications.length +
-      state.userData.activeNotifications.length
+      state.userData.activeNotifications.length,
   );
   const notificationSoundEnabled = useSelector(
-    (state: RootState) => state.preferences.notificationSoundEnabled
+    (state: RootState) => state.preferences.notificationSoundEnabled,
   );
+  const fullName = useSelector((state: RootState) => state.auth.fullName);
+  const position = useSelector((state: RootState) => state.auth.position);
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [userProfile] = useState(getStoredUserProfile);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const savedTheme = localStorage.getItem("theme");
@@ -110,6 +101,14 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
     }
   }, [theme]);
 
+  const handleLogout = async () => {
+    closeProfileMenu();
+    await logoutSession();
+    dispatch(clearUserData());
+    dispatch(logout());
+    navigate("/Login", { replace: true });
+  };
+
   return (
     <header className={styles.header}>
       <div
@@ -140,12 +139,16 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
       </div>
 
       {visible && (
-        <div className={styles.button_back} onClick={() => navigate(path)}>
+        <div className={styles.button_back} onClick={() => void navigateWithPreloadedRoute(navigate, path)}>
           <ArrowBackIosNewIcon />
         </div>
       )}
 
-      <div className={styles.header_title} onClick={() => navigate("/Main")}>
+      <div
+        className={styles.header_title}
+        onMouseEnter={() => void preloadRouteForPath("/Main")}
+        onClick={() => void navigateWithPreloadedRoute(navigate, "/Main")}
+      >
         {title}
       </div>
 
@@ -153,7 +156,8 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
         className={styles.button_notifications}
         data-count={notificationsCount > 99 ? "99+" : String(notificationsCount)}
         data-has-notifications={notificationsCount > 0}
-        onClick={() => navigate("/Notifications")}
+        onMouseEnter={() => void preloadRouteForPath("/Notifications")}
+        onClick={() => void navigateWithPreloadedRoute(navigate, "/Notifications")}
       >
         <NotificationsNoneIcon />
       </div>
@@ -163,8 +167,8 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
 
         {isProfileMenuOpen && (
           <div className={styles.profileMenu} onClick={(e) => e.stopPropagation()}>
-            <p>{userProfile.fullName}</p>
-            <p className={styles.profileMenuTextJob}>{userProfile.position}</p>
+            <p>{fullName?.trim() || "Пользователь"}</p>
+            <p className={styles.profileMenuTextJob}>{position?.trim() || "Должность не указана"}</p>
 
             <div className={styles.themeSwitchRow}>
               <span>Тёмная тема</span>
@@ -194,12 +198,7 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
               </button>
             </div>
 
-            <button
-              onClick={() => {
-                closeProfileMenu();
-                navigate("/Login");
-              }}
-            >
+            <button onClick={() => void handleLogout()}>
               Выйти
             </button>
           </div>

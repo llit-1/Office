@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import Login from "../../Pages/Login/Login";
 import authReducer from "../../Store/authSlice";
+import userDataReducer from "../../Store/userDataSlice";
 
 const showMock = vi.fn();
 const authMock = vi.fn();
@@ -26,6 +27,7 @@ function renderLogin() {
   const store = configureStore({
     reducer: {
       auth: authReducer,
+      userData: userDataReducer,
     },
   });
 
@@ -37,7 +39,7 @@ function renderLogin() {
           <Route path="/Main" element={<div>Main page</div>} />
         </Routes>
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 
   return { store };
@@ -45,10 +47,10 @@ function renderLogin() {
 
 function fillCredentials() {
   const usernameInput = document.querySelector(
-    'input[autocomplete="username"]'
+    'input[autocomplete="username"]',
   ) as HTMLInputElement;
   const passwordInput = document.querySelector(
-    'input[autocomplete="current-password"]'
+    'input[autocomplete="current-password"]',
   ) as HTMLInputElement;
 
   fireEvent.change(usernameInput, { target: { value: "user" } });
@@ -68,23 +70,7 @@ describe("Login", () => {
     });
   });
 
-  it("clears persisted auth data on mount", () => {
-    localStorage.setItem("token", "token");
-    localStorage.setItem("authToken", "legacy");
-    localStorage.setItem("user", "user");
-    localStorage.setItem("userId", "1");
-    localStorage.setItem("userRole", "Admin");
-
-    renderLogin();
-
-    expect(localStorage.getItem("token")).toBeNull();
-    expect(localStorage.getItem("authToken")).toBeNull();
-    expect(localStorage.getItem("user")).toBeNull();
-    expect(localStorage.getItem("userId")).toBeNull();
-    expect(localStorage.getItem("userRole")).toBeNull();
-  });
-
-  it("stores auth data and navigates on successful login", async () => {
+  it("stores auth data in redux and navigates on successful login", async () => {
     authMock.mockResolvedValue({
       id: 7,
       token: "jwt-token",
@@ -93,7 +79,7 @@ describe("Login", () => {
       position: "Инженер",
     });
 
-    renderLogin();
+    const { store } = renderLogin();
     fillCredentials();
 
     fireEvent.click(screen.getByRole("button"));
@@ -102,10 +88,13 @@ describe("Login", () => {
       expect(screen.getByText("Main page")).toBeInTheDocument();
     });
 
-    expect(localStorage.getItem("token")).toBe("jwt-token");
-    expect(localStorage.getItem("id")).toBe("7");
-    expect(localStorage.getItem("userFullName")).toBe("Иванов Иван Иванович");
-    expect(localStorage.getItem("userPosition")).toBe("Инженер");
+    expect(store.getState().auth).toMatchObject({
+      id: 7,
+      token: "jwt-token",
+      fullName: "Иванов Иван Иванович",
+      position: "Инженер",
+      initialized: true,
+    });
   });
 
   it("shows a modal for inactive accounts", async () => {

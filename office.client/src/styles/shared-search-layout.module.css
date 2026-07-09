@@ -35,23 +35,23 @@
   display: flex;
   align-items: center;
   padding: 0;
-  padding-bottom: 10px;
   gap: 10px;
   justify-content: start;
 }
 
 .ttWrapperShell {
-  width: 100%;
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-start;
-  align-items: center;
-  padding-bottom: 10px;
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    align-items: center;
+    padding-bottom: 10px;
 }
 
 @media screen and (max-width: 586px) {
   .tabAndSearchShell {
     flex-direction: column-reverse;
+    width: 100%;
   }
 
   .searchShell {

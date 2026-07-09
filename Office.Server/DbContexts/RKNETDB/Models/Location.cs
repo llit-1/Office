@@ -16,9 +16,21 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("LOCATIONTYPEGUID")]
         public Guid? LocationTypeGuid { get; set; }
 
+        [Column("PARENTGUID")]
+        public Guid? ParentGuid { get; set; }
+
+        [Column("LATITUDE")]
+        public double? Latitude { get; set; }
+
+        [Column("LONGITUDE")]
+        public double? Longitude { get; set; }
+
         // ===== Навигация =====
         [ForeignKey(nameof(LocationTypeGuid))]
         public LocationType? LocationType { get; set; }
+
+        [ForeignKey(nameof(ParentGuid))]
+        public Location? Parent { get; set; }
     }
 
     [Table("LocationTypes")]

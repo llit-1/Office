@@ -98,3 +98,34 @@
 .confirmModalPanel {
   max-width: 420px;
 }
+
+@media screen and (max-width: 900px) {
+  .roleEditWrapper {
+    height: auto;
+    min-height: 100%;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .blockLabel {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .groups {
+    padding: 12px;
+  }
+
+  .userEditFooter {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .userEditFooter > button {
+    width: 100%;
+    min-height: 44px;
+  }
+}

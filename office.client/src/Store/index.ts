@@ -30,7 +30,7 @@ const rootReducer = combineReducers({
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["calculatorData", "pageTitle", "backButton", "auth", "usersTabs", "preferences", "userData"],
+  whitelist: ["calculatorData", "pageTitle", "backButton", "usersTabs", "preferences"],
 };
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

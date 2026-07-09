@@ -1,39 +1,27 @@
-import { createRoot } from 'react-dom/client'
-import { useEffect } from 'react'
-import App from './App/App'
-import store, { persistor, RootState } from './Store/index'
-import { Provider } from "react-redux";
-import { BrowserRouter, Routes, Route, useNavigate } from "react-router-dom"
-import { useSelector, useDispatch } from 'react-redux'
-import { login } from './Store/authSlice'
+import { Suspense, useEffect, type ReactNode } from "react";
+import { createRoot } from "react-dom/client";
+import { Provider, useDispatch, useSelector } from "react-redux";
+import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { PersistGate } from "redux-persist/integration/react";
-import Login from "./Pages/Login/Login"
+import { NotificationsProvider } from "@toolpad/core";
+import App from "./App/App";
+import store, { persistor, RootState } from "./Store/index";
+import { login, logout, setAuthInitialized } from "./Store/authSlice";
+import { clearUserData } from "./Store/userDataSlice";
+import { refreshSession, setAccessToken } from "./Services/api";
+import { warmUpFonts } from "./fontBootstrap";
 import RequireAuth from "./App/RequireAuth";
-import RequireRole from "./App/RequireRole";
-import TT from "./Pages/TT/TT"
-import NotFound from "./Pages/NotFound/NotFound"
-import Users from "./Pages/Users/Users"
-import Settings from "./Pages/Settings/Settings"
-import Help from "./Pages/Help/Help"
-import Main from "./Pages/Main/Main"
-import { NotificationsProvider } from '@toolpad/core';
-import CalculatorCategories from './Pages/Calculator/CalculatorCategories';
-import Calculate from './Pages/Calculator/Calculate';
-import CalculatorSelectTT from './Pages/Calculator/CalculatorSelectTT';
-import Calculator from './Pages/Calculator/Calculator';
-import FactoryNX from './Pages/FactoryNX/FactoryNX';
+import {
+  preloadRouteForPath,
+  protectedRoutes,
+  publicRoutes,
+  renderConfiguredRoute,
+  warmRouteModuleCache,
+} from "./App/routes";
+import { preloadImage } from "./App/assetPreload";
+import { menuParts } from "./menuParts/menuParts";
+import LoadingSpinner from "./Components/LoadingSpinner/LoadingSpinner";
 import "./styles/design-tokens.css";
-import UserEdit from './Pages/Users/UserEdit';
-import Orders from './Pages/Orders/Orders';
-import Notifications from './Pages/Notifications/Notifications';
-import GroupEdit from './Pages/Users/GroupEdit';
-import RoleEdit from './Pages/Users/RoleEdit';
-import FactoryPerson from './Pages/FactoryPerson/FactoryPerson'
-import FactoryPersonEdit from './Pages/FactoryPerson/FactoryPersonEdit'
-import Stock from './Pages/Stock/Stock'
-import StockTable from './Pages/Stock/StockTable';
-import SalaryPage from './Pages/Salary/SalaryPage';
-import SalarySettingsPage from './Pages/Salary/SalarySettingsPage';
 
 try {
   const savedTheme = localStorage.getItem("theme");
@@ -49,86 +37,117 @@ try {
 function StartupChecker() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const token = useSelector((s: RootState) => s.auth?.token);
-  const id = useSelector((s: RootState) => s.auth?.id);
+  const location = useLocation();
+  const token = useSelector((s: RootState) => s.auth.token);
+  const initialized = useSelector((s: RootState) => s.auth.initialized);
 
   useEffect(() => {
-    try {
-      const lsToken = localStorage.getItem('token') || localStorage.getItem('authToken');
-      const lsId = localStorage.getItem('id') || localStorage.getItem('userId');
-      const parsedId = lsId ? Number(lsId) : undefined;
-
-      if (token && (id !== null && typeof id !== "undefined")) {
-        return;
-      }
-
-      if (lsToken) {
-        dispatch(login({ id: parsedId, token: token || lsToken }));
-        return;
-      }
-    } catch {
-      // ignore localStorage errors
+    if (initialized) {
+      return;
     }
 
-    // No token found anywhere — redirect to login (cannot silently obtain token without credentials)
-    navigate('/Login');
-  }, [token, id, dispatch, navigate]);
+    let cancelled = false;
+
+    const bootstrapSession = async () => {
+      if (token) {
+        setAccessToken(token);
+        dispatch(setAuthInitialized(true));
+        return;
+      }
+
+      if (location.pathname === "/Login") {
+        setAccessToken(null);
+        dispatch(clearUserData());
+        dispatch(logout());
+        dispatch(setAuthInitialized(true));
+        return;
+      }
+
+      const session = await refreshSession();
+      if (cancelled) {
+        return;
+      }
+
+      if (session?.responseCode === 1 && session.token) {
+        setAccessToken(session.token);
+        dispatch(
+          login({
+            id: session.id,
+            token: session.token,
+            fullName: session.fullName ?? null,
+            position: session.position ?? null,
+          }),
+        );
+        return;
+      }
+
+      setAccessToken(null);
+      dispatch(clearUserData());
+      dispatch(logout());
+      dispatch(setAuthInitialized(true));
+      navigate("/Login", { replace: true });
+    };
+
+    void bootstrapSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch, initialized, location.pathname, navigate, token]);
 
   return null;
 }
 
-createRoot(document.getElementById('root')!).render(
-      <Provider store={store}>
-        <PersistGate loading={null} persistor={persistor}>
-          <BrowserRouter>
-            <NotificationsProvider slotProps={{
+function RouteFallback() {
+  return (
+    <div style={{ display: "grid", placeItems: "center", minHeight: "40vh" }}>
+      <LoadingSpinner />
+    </div>
+  );
+}
+
+function withRouteSuspense(element: ReactNode) {
+  return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
+}
+
+async function bootstrapStaticAssets() {
+  const tileImages = menuParts.map((part) => part.img).filter(Boolean);
+  await Promise.all(tileImages.map((src) => preloadImage(src)));
+}
+
+const initialPath = window.location.pathname === "/" || window.location.pathname === ""
+  ? "/Main"
+  : window.location.pathname;
+
+void Promise.all([
+  warmUpFonts(),
+  preloadRouteForPath(initialPath) ?? Promise.resolve(),
+  bootstrapStaticAssets(),
+]).finally(() => {
+  createRoot(document.getElementById("root")!).render(
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <BrowserRouter>
+          <NotificationsProvider
+            slotProps={{
               snackbar: {
-                anchorOrigin: { vertical: 'top', horizontal: 'right' },
+                anchorOrigin: { vertical: "top", horizontal: "right" },
               },
-            }}>
-                <StartupChecker />
+            }}
+          >
+            <StartupChecker />
+            <Routes>
+              <Route path="/" element={<RequireAuth><App /></RequireAuth>}>
+                {protectedRoutes.map((route) => renderConfiguredRoute(route, withRouteSuspense))}
+              </Route>
 
-                <Routes>
-                  <Route path='/' element={<RequireAuth><App /></RequireAuth> }>
-                    <Route path="Main" element={<Main />} />
+              {publicRoutes.map((route) => renderConfiguredRoute(route, withRouteSuspense))}
+            </Routes>
+          </NotificationsProvider>
+        </BrowserRouter>
+      </PersistGate>
+    </Provider>,
+  );
 
-                    <Route path="Calculator" element={<RequireRole requiredRole="Calculator"><Calculator /></RequireRole>}>
-                      <Route path="SelectCategory" element={<CalculatorCategories />}/>
-                      <Route path="SelectTT" element={<CalculatorSelectTT />}/>
-                      <Route path="Calculate/:Location" element={<Calculate />}/>
-                    </Route>
-
-                    <Route path="TT" element={<RequireRole requiredRole="Location"><TT /></RequireRole>}/>
-                    <Route path="Users" element={<RequireRole requiredRole="Users"><Users /></RequireRole>} />
-                    <Route path="/Users/Edit" element={<RequireRole requiredRole="Users"><UserEdit /></RequireRole>} />
-                    <Route path="/Users/Edit/:id" element={<RequireRole requiredRole="Users"><UserEdit /></RequireRole>} />
-                    <Route path="/Groups/Edit" element={<RequireRole requiredRole="Users"><GroupEdit /></RequireRole>} />
-                    <Route path="/Groups/Edit/:id" element={<RequireRole requiredRole="Users"><GroupEdit /></RequireRole>} />
-                    <Route path="/Roles/Edit" element={<RequireRole requiredRole="Users"><RoleEdit /></RequireRole>} />
-                    <Route path="/Roles/Edit/:id" element={<RequireRole requiredRole="Users"><RoleEdit /></RequireRole>} />
-                    <Route path="Settings" element={<Settings />} />
-                    <Route path="Help" element={<Help />} /> 
-                    <Route path="*" element={<NotFound />} />
-
-                    <Route path='FactoryNX' element={<RequireRole requiredRole="FactoryNX"><FactoryNX /></RequireRole>} />
-                    <Route path='Orders' element={<RequireRole requiredRole={["OrdersTT", "OrdersTTAdmin"]}><Orders /></RequireRole>} />
-                    <Route path='FactoryPerson' element={<RequireRole requiredRole="FactoryPerson"><FactoryPerson /></RequireRole>} />
-                    <Route path='/FactoryPerson/Edit' element={<RequireRole requiredRole="FactoryPerson"><FactoryPersonEdit /></RequireRole>} />
-                    <Route path='/FactoryPerson/Edit/:id' element={<RequireRole requiredRole="FactoryPerson"><FactoryPersonEdit /></RequireRole>} />
-                    <Route path='/Stock' element={<RequireRole requiredRole="Stock"><Stock /></RequireRole>} />
-                    <Route path='/Stock/:tab' element={<RequireRole requiredRole="Stock"><Stock /></RequireRole>} />
-                    <Route path='/StockTable' element={<RequireRole requiredRole="Stock"><StockTable /></RequireRole>} />
-                    <Route path='/Salary' element={<RequireRole requiredRole="Salary"><SalaryPage /></RequireRole>} />
-                    <Route path='/Salary/Settings' element={<RequireRole requiredRole="Salary"><SalarySettingsPage /></RequireRole>} />
-                    <Route path='Notifications' element={<Notifications />} />
-                  </Route>
-
-                  <Route path='/Login' element={<Login />} />
-
-                </Routes>
-
-            </NotificationsProvider>
-          </BrowserRouter>
-        </PersistGate>
-      </Provider>
-)
+  void warmRouteModuleCache();
+});

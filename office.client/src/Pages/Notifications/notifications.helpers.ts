@@ -40,15 +40,7 @@ export const resolveNotificationUserId = (userIdFromStore: number | null) => {
   if (typeof userIdFromStore === "number" && !Number.isNaN(userIdFromStore)) {
     return userIdFromStore;
   }
-
-  const persistedUserId =
-    localStorage.getItem("id") || localStorage.getItem("userId");
-  if (!persistedUserId) {
-    return null;
-  }
-
-  const parsedUserId = Number(persistedUserId);
-  return Number.isNaN(parsedUserId) ? null : parsedUserId;
+  return null;
 };
 
 export const isAccessRequestData = (

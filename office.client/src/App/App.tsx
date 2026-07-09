@@ -9,6 +9,7 @@ import type { RootState } from "../Store";
 import { post } from "../Services/api";
 import { clearUserData, setUserData } from "../Store/userDataSlice";
 import { getUserData } from "../Services/userData";
+import { navigateWithPreloadedRoute } from "./routes";
 import "./App.css";
 
 let notificationAudioContext: AudioContext | null = null;
@@ -125,30 +126,15 @@ function App() {
     (state: RootState) => state.preferences.notificationSoundEnabled
   );
 
-  const effectiveUserId = (() => {
-    if (typeof userId === "number" && !Number.isNaN(userId)) {
-      return userId;
-    }
-
-    try {
-      const persistedId = localStorage.getItem("id") || localStorage.getItem("userId");
-      if (!persistedId) {
-        return null;
-      }
-
-      const parsedId = Number(persistedId);
-      return Number.isNaN(parsedId) ? null : parsedId;
-    } catch {
-      return null;
-    }
-  })();
+  const effectiveUserId =
+    typeof userId === "number" && !Number.isNaN(userId) ? userId : null;
 
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const path = location.pathname || "/";
     if (path === "/" || path === "") {
-      navigate("Main", { replace: true });
+      void navigateWithPreloadedRoute(navigate, "/Main", { replace: true });
     }
   }, [location.pathname, navigate]);
 

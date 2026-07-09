@@ -16,6 +16,11 @@
   flex: 1;
   min-width: 0;
   margin: 0;
+  padding-left: 60px;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .logo {
@@ -40,6 +45,7 @@
   min-width: 60px;
   height: 100%;
   display: flex;
+  min-height: 60px;
   justify-content: center;
   align-items: center;
   background-color: var(--color-primary);

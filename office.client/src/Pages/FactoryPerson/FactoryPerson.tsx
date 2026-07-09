@@ -1,4 +1,3 @@
-import SearchIcon from "@mui/icons-material/Search";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 import GenericTable, { type Column } from "../../Components/GenericTable/GenericTable";
@@ -126,18 +125,6 @@ export default function FactoryPersonPage() {
     <>
       <div className={styles.tt_wrapper}>
         <div className={styles.tabAndSearchWrapper}>
-          <div className={styles.table_search}>
-            <span>
-              <SearchIcon />
-            </span>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Поиск..."
-            />
-          </div>
-
           <TabNavigation
             items={["Сотрудники"]}
             activeIndex={activeIndex}
@@ -154,6 +141,8 @@ export default function FactoryPersonPage() {
         addOption={true}
         tableStateKey={tableStateKey}
         highlightQuery={debouncedSearchText}
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
       />
     </>
   );

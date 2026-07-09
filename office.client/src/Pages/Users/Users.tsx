@@ -1,7 +1,7 @@
 import GenericTable from "../../Components/GenericTable/GenericTable";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import styles from "./Users.module.css";
-import SearchIcon from "@mui/icons-material/Search";
+
 import { useState, useMemo, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
@@ -120,18 +120,6 @@ export default function Users() {
     <>
       <div className={styles.tt_wrapper}>
         <div className={styles.tabAndSearchWrapper}>
-          <div className={styles.table_search}>
-            <span>
-              <SearchIcon />
-            </span>
-            <input
-              type="text"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              placeholder="Поиск..."
-            />
-          </div>
-
           <TabNavigation
             items={["Пользователи", "Группы", "Роли"]}
             activeIndex={activeIndex}
@@ -148,6 +136,8 @@ export default function Users() {
           loading={loading}
           addOption={false}
           tableStateKey="users-list"
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
           highlightQuery={debouncedSearchText}
         />
       )}
@@ -160,6 +150,8 @@ export default function Users() {
           loading={loading}
           addOption={true}
           tableStateKey="groups-list"
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
           highlightQuery={debouncedSearchText}
         />
       )}
@@ -172,6 +164,8 @@ export default function Users() {
           loading={loading}
           addOption={true}
           tableStateKey="roles-list"
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
           highlightQuery={debouncedSearchText}
         />
       )}

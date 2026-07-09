@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Select.module.css";
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
@@ -21,6 +22,8 @@ const normalizeOptions = (opts: Array<OptionItem> | string[]) =>
 const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, options, placeholder, className, wrapperClassName, renderOption, disabled, search = false, size, ...rest }, ref) => {
     const rootRef = useRef<HTMLDivElement | null>(null);
+    const controlRef = useRef<HTMLDivElement | null>(null);
+    const optionsRef = useRef<HTMLDivElement | null>(null);
     const hiddenSelectRef = useRef<HTMLSelectElement | null>(null);
     const prevHiddenRef = useRef<HTMLSelectElement | null>(null);
 
@@ -35,6 +38,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
     const [isOpen, setIsOpen] = useState(false);
     const [selected, setSelected] = useState<string>(initial);
     const [searchText, setSearchText] = useState("");
+    const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
     // keep selected in sync when rest.value is controlled
     useEffect(() => {
@@ -43,8 +47,9 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
     useEffect(() => {
       const onDoc = (e: MouseEvent) => {
-        if (!rootRef.current) return;
-        if (!rootRef.current.contains(e.target as Node)) setIsOpen(false);
+        const target = e.target as Node;
+        if (rootRef.current?.contains(target) || optionsRef.current?.contains(target)) return;
+        setIsOpen(false);
       };
 
       document.addEventListener("mousedown", onDoc);
@@ -57,6 +62,43 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
     const currentOption = opts.find((o) => String(o.value) === String(selected));
     const wrapperSizeClass = size === "small" ? styles.sizeSmall : size === "medium" ? styles.sizeMedium : "";
+    const updateDropdownPosition = useCallback(() => {
+      const control = controlRef.current;
+      if (!control) return;
+
+      const rect = control.getBoundingClientRect();
+      const gap = 6;
+      const viewportPadding = 12;
+      const availableBelow = window.innerHeight - rect.bottom - gap - viewportPadding;
+      const availableAbove = rect.top - gap - viewportPadding;
+      const openUp = availableBelow < 180 && availableAbove > availableBelow;
+      const maxHeight = Math.max(140, Math.min(260, openUp ? availableAbove : availableBelow));
+
+      setDropdownStyle({
+        position: "fixed",
+        left: rect.left,
+        top: openUp ? undefined : rect.bottom + gap,
+        bottom: openUp ? window.innerHeight - rect.top + gap : undefined,
+        right: "auto",
+        width: rect.width,
+        maxHeight,
+        zIndex: 2000,
+      });
+    }, []);
+
+    useLayoutEffect(() => {
+      if (!isOpen) return;
+
+      updateDropdownPosition();
+      window.addEventListener("resize", updateDropdownPosition);
+      window.addEventListener("scroll", updateDropdownPosition, true);
+
+      return () => {
+        window.removeEventListener("resize", updateDropdownPosition);
+        window.removeEventListener("scroll", updateDropdownPosition, true);
+      };
+    }, [isOpen, updateDropdownPosition]);
+
     const filteredOptions = useMemo(() => {
       if (!search) return opts;
       const query = searchText.trim().toLowerCase();
@@ -139,6 +181,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
 
         {/* visible custom control */}
         <div
+          ref={controlRef}
           className={`${styles.customControl} ${disabled ? styles.disabled : ""} ${isOpen ? styles.open : ""} ${className ?? ""}`}
           onClick={() => { if (!disabled) setIsOpen((s) => !s); }}
           aria-disabled={disabled ? true : undefined}
@@ -147,8 +190,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
           <ArrowDropDownIcon className={styles.icon} />
         </div>
 
-        {isOpen && (
-          <div className={styles.optionsList} role="listbox">
+        {isOpen && createPortal(
+          <div ref={optionsRef} className={styles.optionsList} style={dropdownStyle} role="listbox">
             {search && (
               <div className={styles.searchBox}>
                 <input
@@ -179,7 +222,8 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
                 </div>
               );
             })}
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     );

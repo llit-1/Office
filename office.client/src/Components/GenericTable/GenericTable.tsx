@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
 import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
@@ -6,6 +6,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import useWindowSize from "../../Hooks/useWindowSize";
 import Checkbox from "../Checkbox/Checkbox";
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
 import { highlightMatches, includesNormalized, normalizeSearchText } from "./searchUtils";
@@ -15,32 +16,44 @@ export interface WithId {
   id: string | number;
 }
 
+type ViewportBucket = "phone" | "tablet" | "desktop";
+
+interface ResponsiveColumnOptions {
+  defaultVisible?: boolean;
+  responsivePriority?: number;
+  responsivePriorityByViewport?: Partial<Record<ViewportBucket, number>>;
+}
+
+type BaseColumn<T> = ResponsiveColumnOptions & {
+  label: string;
+  sortValue?: (row: T) => string | number;
+  filterValue?: (row: T) => string | number | null | undefined;
+};
+
 export type Column<T> =
-  | {
-      label: string;
+  | (BaseColumn<T> & {
       key: keyof T;
-      sortValue?: (row: T) => string | number;
-      filterValue?: (row: T) => string | number | null | undefined;
-      defaultVisible?: boolean;
-    }
-  | {
-      label: string;
+    })
+  | (BaseColumn<T> & {
       render: (row: T) => React.ReactNode;
-      sortValue?: (row: T) => string | number;
-      filterValue?: (row: T) => string | number | null | undefined;
-      defaultVisible?: boolean;
-    };
+    });
 
 interface GenericTableProps<T extends WithId> {
   columns: Column<T>[];
   data: T[];
   routeTo?: string;
+  onRowClick?: (row: T) => void;
   loading: boolean;
   addOption: boolean;
+  onAddClick?: () => void;
+  wrapperClassName?: string;
   initialVisibleRows?: number;
   rowsPerBatch?: number;
   tableStateKey?: string;
   highlightQuery?: string;
+  searchText?: string;
+  onSearchTextChange?: (value: string) => void;
+  searchPlaceholder?: string;
 }
 
 type RowDensity = "compact" | "normal" | "comfortable";
@@ -50,6 +63,7 @@ interface PersistedTableState {
   sortOrder: "asc" | "desc";
   orderedColumnIds?: string[];
   visibleColumnIds?: string[];
+  visibleColumnMode?: "default" | "custom";
   rowDensity?: RowDensity;
   filters: Record<string, string[]>;
 }
@@ -62,6 +76,10 @@ interface PopupPosition {
 
 const EMPTY_FILTER_VALUE = "__generic_table_empty__";
 const DEFAULT_ROW_DENSITY: RowDensity = "normal";
+const PHONE_MAX_WIDTH = 586;
+const TABLET_MAX_WIDTH = 900;
+const PHONE_DEFAULT_VISIBLE_COLUMNS = 2;
+const TABLET_DEFAULT_VISIBLE_COLUMNS = 4;
 const ROW_DENSITY_OPTIONS: Array<{ value: RowDensity; label: string }> = [
   { value: "compact", label: "Компактно" },
   { value: "normal", label: "Обычно" },
@@ -88,6 +106,7 @@ function readPersistedState(storageKey: string): PersistedTableState | null {
       sortOrder: parsed.sortOrder === "desc" ? "desc" : "asc",
       orderedColumnIds: Array.isArray(parsed.orderedColumnIds) ? parsed.orderedColumnIds : undefined,
       visibleColumnIds: Array.isArray(parsed.visibleColumnIds) ? parsed.visibleColumnIds : undefined,
+      visibleColumnMode: parsed.visibleColumnMode === "custom" ? "custom" : "default",
       rowDensity:
         parsed.rowDensity === "compact" || parsed.rowDensity === "comfortable" || parsed.rowDensity === "normal"
           ? parsed.rowDensity
@@ -115,6 +134,26 @@ function hasColumnFilter(filters: Record<string, string[]>, columnId: string): b
 function areStringArraysEqual(a: string[], b: string[]): boolean {
   if (a.length !== b.length) return false;
   return a.every((value, index) => value === b[index]);
+}
+
+function getDefaultVisibleColumnLimit(viewportWidth: number): number | null {
+  if (viewportWidth <= PHONE_MAX_WIDTH) return PHONE_DEFAULT_VISIBLE_COLUMNS;
+  if (viewportWidth <= TABLET_MAX_WIDTH) return TABLET_DEFAULT_VISIBLE_COLUMNS;
+  return null;
+}
+
+function getViewportBucket(viewportWidth: number): ViewportBucket {
+  if (viewportWidth <= PHONE_MAX_WIDTH) return "phone";
+  if (viewportWidth <= TABLET_MAX_WIDTH) return "tablet";
+  return "desktop";
+}
+
+function getColumnResponsivePriority<T>(column: Column<T>, viewportBucket: ViewportBucket, index: number): number {
+  const viewportPriority = column.responsivePriorityByViewport?.[viewportBucket];
+  if (typeof viewportPriority === "number") return viewportPriority;
+  if (typeof column.responsivePriority === "number") return column.responsivePriority;
+  if (viewportBucket !== "desktop") return 10_000 + index;
+  return index;
 }
 
 function computePopupPosition(
@@ -158,12 +197,18 @@ function GenericTable<T extends WithId>({
   columns,
   data,
   routeTo,
+  onRowClick,
   loading,
   addOption,
+  onAddClick,
+  wrapperClassName,
   initialVisibleRows = 20,
   rowsPerBatch = 10,
   tableStateKey,
   highlightQuery = "",
+  searchText,
+  onSearchTextChange,
+  searchPlaceholder = "Поиск...",
 }: GenericTableProps<T>) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -174,7 +219,9 @@ function GenericTable<T extends WithId>({
   const filterButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const filterSearchRef = useRef<Record<string, string>>({});
   const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
-  const persistedStateKey = `genericTable:${tableStateKey ?? location.pathname}`;
+  const { width: viewportWidth } = useWindowSize();
+  const viewportBucket = getViewportBucket(viewportWidth);
+  const persistedStateKey = `genericTable:${tableStateKey ?? location.pathname}:${viewportBucket}`;
   const persistedState = useMemo(() => readPersistedState(persistedStateKey), [persistedStateKey]);
 
   const columnsWithId = useMemo(
@@ -194,13 +241,34 @@ function GenericTable<T extends WithId>({
     [columnsWithId],
   );
 
-  const defaultVisibleColumnIds = useMemo(
+  const baseDefaultVisibleColumnIds = useMemo(
     () =>
       columnsWithId
         .filter(({ column }) => column.defaultVisible !== false)
         .map(({ id }) => id),
     [columnsWithId],
   );
+  const defaultVisibleColumnIds = useMemo(() => {
+    const limit = getDefaultVisibleColumnLimit(viewportWidth);
+    if (limit === null || baseDefaultVisibleColumnIds.length <= limit) {
+      return baseDefaultVisibleColumnIds;
+    }
+
+    const visibleColumnSet = new Set(baseDefaultVisibleColumnIds);
+    const prioritizedIds = columnsWithId
+      .map((entry, index) => ({
+        id: entry.id,
+        priority: getColumnResponsivePriority(entry.column, viewportBucket, index),
+        index,
+      }))
+      .filter(({ id }) => visibleColumnSet.has(id))
+      .sort((a, b) => (a.priority === b.priority ? a.index - b.index : a.priority - b.priority))
+      .slice(0, Math.max(1, limit))
+      .map(({ id }) => id);
+
+    const prioritizedIdSet = new Set(prioritizedIds);
+    return baseDefaultVisibleColumnIds.filter((id) => prioritizedIdSet.has(id));
+  }, [baseDefaultVisibleColumnIds, columnsWithId, viewportBucket, viewportWidth]);
 
   const deriveOrderedColumnIds = (persistedOrderedColumnIds?: string[]) => {
     if (!persistedOrderedColumnIds || persistedOrderedColumnIds.length === 0) {
@@ -223,13 +291,27 @@ function GenericTable<T extends WithId>({
     return persistedExisting.length > 0 ? persistedExisting : fallback;
   };
 
+  const initialVisibleColumnMode: "default" | "custom" = (() => {
+    if (persistedState?.visibleColumnMode === "default" || persistedState?.visibleColumnMode === "custom") {
+      return persistedState.visibleColumnMode;
+    }
+
+    const persistedVisibleColumnIds = persistedState?.visibleColumnIds?.filter((id) => defaultOrderedColumnIds.includes(id)) ?? [];
+    if (persistedVisibleColumnIds.length === 0) {
+      return "default";
+    }
+
+    return areStringArraysEqual(persistedVisibleColumnIds, baseDefaultVisibleColumnIds) ? "default" : "custom";
+  })();
+
   const [sortColumnId, setSortColumnId] = useState<string | null>(persistedState?.sortColumnId ?? null);
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">(persistedState?.sortOrder ?? "asc");
   const [orderedColumnIds, setOrderedColumnIds] = useState<string[]>(() =>
     deriveOrderedColumnIds(persistedState?.orderedColumnIds),
   );
+  const [visibleColumnMode, setVisibleColumnMode] = useState<"default" | "custom">(initialVisibleColumnMode);
   const [visibleColumnIds, setVisibleColumnIds] = useState<string[]>(() =>
-    deriveVisibleColumnIds(persistedState?.visibleColumnIds),
+    deriveVisibleColumnIds(initialVisibleColumnMode === "custom" ? persistedState?.visibleColumnIds : undefined),
   );
   const [rowDensity, setRowDensity] = useState<RowDensity>(persistedState?.rowDensity ?? DEFAULT_ROW_DENSITY);
   const [visibleRowsCount, setVisibleRowsCount] = useState(initialVisibleRows);
@@ -242,6 +324,39 @@ function GenericTable<T extends WithId>({
   const normalizedHighlightQuery = useMemo(() => normalizeSearchText(highlightQuery), [highlightQuery]);
 
   useEffect(() => {
+    const nextVisibleColumnMode: "default" | "custom" = (() => {
+      if (persistedState?.visibleColumnMode === "default" || persistedState?.visibleColumnMode === "custom") {
+        return persistedState.visibleColumnMode;
+      }
+
+      const persistedVisibleColumnIds =
+        persistedState?.visibleColumnIds?.filter((id) => defaultOrderedColumnIds.includes(id)) ?? [];
+      if (persistedVisibleColumnIds.length === 0) {
+        return "default";
+      }
+
+      return areStringArraysEqual(persistedVisibleColumnIds, baseDefaultVisibleColumnIds) ? "default" : "custom";
+    })();
+
+    const nextVisibleColumnIds = deriveVisibleColumnIds(
+      nextVisibleColumnMode === "custom" ? persistedState?.visibleColumnIds : undefined,
+    );
+
+    setSortColumnId(persistedState?.sortColumnId ?? nextVisibleColumnIds[0] ?? defaultOrderedColumnIds[0] ?? null);
+    setSortOrder(persistedState?.sortOrder ?? "asc");
+    setOrderedColumnIds(deriveOrderedColumnIds(persistedState?.orderedColumnIds));
+    setVisibleColumnMode(nextVisibleColumnMode);
+    setVisibleColumnIds(nextVisibleColumnIds);
+    setRowDensity(persistedState?.rowDensity ?? DEFAULT_ROW_DENSITY);
+    setFilters(persistedState?.filters ?? {});
+    setOpenFilterColumnId(null);
+    setFilterSearchText("");
+    setColumnsMenuOpen(false);
+    setColumnsMenuPosition(null);
+    filterSearchRef.current = {};
+  }, [baseDefaultVisibleColumnIds, defaultOrderedColumnIds, persistedState, persistedStateKey]);
+
+  useEffect(() => {
     setOrderedColumnIds((current) => {
       const next = deriveOrderedColumnIds(current);
       return areStringArraysEqual(current, next) ? current : next;
@@ -250,10 +365,10 @@ function GenericTable<T extends WithId>({
 
   useEffect(() => {
     setVisibleColumnIds((current) => {
-      const next = deriveVisibleColumnIds(current);
+      const next = visibleColumnMode === "default" ? deriveVisibleColumnIds() : deriveVisibleColumnIds(current);
       return areStringArraysEqual(current, next) ? current : next;
     });
-  }, [defaultOrderedColumnIds, defaultVisibleColumnIds]);
+  }, [defaultOrderedColumnIds, defaultVisibleColumnIds, visibleColumnMode]);
 
   useEffect(() => {
     if (columnsWithId.length === 0) {
@@ -348,19 +463,21 @@ function GenericTable<T extends WithId>({
     };
   }, [openFilterColumnId, visibleColumnIds]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!columnsMenuOpen) {
       setColumnsMenuPosition(null);
       return;
     }
 
     const updateColumnsMenuPosition = () => {
-      if (!settingsButtonRef.current) return;
+      const button = settingsButtonRef.current;
+      if (!button) return;
+      const estimatedColumnsMenuHeight = columnsWithId.length > 1 ? 320 : 176;
 
       const popupPosition = computePopupPosition(
-        settingsButtonRef.current.getBoundingClientRect(),
+        button.getBoundingClientRect(),
         settingsMenuRef.current?.offsetWidth ?? 280,
-        settingsMenuRef.current?.offsetHeight ?? 320,
+        settingsMenuRef.current?.offsetHeight ?? estimatedColumnsMenuHeight,
         window.innerWidth,
         window.innerHeight,
         true,
@@ -382,7 +499,7 @@ function GenericTable<T extends WithId>({
       window.removeEventListener("resize", updateColumnsMenuPosition);
       window.removeEventListener("scroll", handleColumnsMenuScroll, true);
     };
-  }, [columnsMenuOpen]);
+  }, [columnsMenuOpen, columnsWithId.length]);
 
   const getCellValue = (row: T, column: Column<T>): React.ReactNode => {
     if (isKeyColumn(column)) return String(row[column.key] ?? "");
@@ -506,12 +623,13 @@ function GenericTable<T extends WithId>({
       sortOrder,
       orderedColumnIds,
       visibleColumnIds,
+      visibleColumnMode,
       rowDensity,
       filters,
     };
 
     localStorage.setItem(persistedStateKey, JSON.stringify(payload));
-  }, [filters, orderedColumnIds, persistedStateKey, rowDensity, sortColumnId, sortOrder, visibleColumnIds]);
+  }, [filters, orderedColumnIds, persistedStateKey, rowDensity, sortColumnId, sortOrder, visibleColumnIds, visibleColumnMode]);
 
   useEffect(() => {
     setVisibleRowsCount(initialVisibleRows);
@@ -628,6 +746,7 @@ function GenericTable<T extends WithId>({
   };
 
   const handleToggleVisibleColumn = (columnId: string) => {
+    setVisibleColumnMode("custom");
     setVisibleColumnIds((current) => {
       const isVisible = current.includes(columnId);
 
@@ -669,6 +788,7 @@ function GenericTable<T extends WithId>({
     setSortColumnId(defaultVisible[0] ?? defaultOrderedColumnIds[0] ?? null);
     setSortOrder("asc");
     setOrderedColumnIds(defaultOrderedColumnIds);
+    setVisibleColumnMode("default");
     setVisibleColumnIds(defaultVisible);
     setRowDensity(DEFAULT_ROW_DENSITY);
     setFilters({});
@@ -677,6 +797,11 @@ function GenericTable<T extends WithId>({
   };
 
   const onRowClickHandle = (row: T | null) => {
+    if (row && onRowClick) {
+      onRowClick(row);
+      return;
+    }
+
     if (!routeTo) return;
 
     if (!row) {
@@ -687,6 +812,15 @@ function GenericTable<T extends WithId>({
     navigate(`${routeTo}/${row.id}`, { state: row });
   };
 
+  const handleAddClick = () => {
+    if (onAddClick) {
+      onAddClick();
+      return;
+    }
+
+    onRowClickHandle(null);
+  };
+
   const renderCellValue = (value: React.ReactNode) => {
     if (typeof value === "string" || typeof value === "number") {
       return highlightMatches(value, normalizedHighlightQuery);
@@ -695,12 +829,25 @@ function GenericTable<T extends WithId>({
     return value;
   };
 
-  const showSettingsButton = columnsWithId.length > 1;
+  const showSettingsButton = columnsWithId.length > 0;
+  const canCustomizeColumns = columnsWithId.length > 1;
   const shouldStretchSingleRow = loading || visibleData.length === 0;
   const shouldAddSingleRowSpacing = !loading && visibleData.length === 1;
 
   return (
-    <div className={`${styles.tableWrapper} ${styles[`density_${rowDensity}`]}`} ref={wrapperRef}>
+    <div className={`${styles.tableWrapper} ${styles[`density_${rowDensity}`]} ${wrapperClassName ?? ""}`} ref={wrapperRef}>
+      {typeof searchText === "string" && onSearchTextChange && (
+        <label className={styles.tableSearch}>
+          <SearchRoundedIcon fontSize="small" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={(event) => onSearchTextChange(event.target.value)}
+            placeholder={searchPlaceholder}
+          />
+        </label>
+      )}
+
       <table className={styles.table}>
         <thead>
           <tr>
@@ -792,7 +939,7 @@ function GenericTable<T extends WithId>({
               )}
 
               {!loading && addOption && (
-                <div className={styles.addButton} onClick={() => onRowClickHandle(null)}>
+                <div className={styles.addButton} onClick={handleAddClick}>
                   +
                 </div>
               )}
@@ -899,7 +1046,7 @@ function GenericTable<T extends WithId>({
         createPortal(
           <div
             ref={settingsMenuRef}
-            className={styles.filterMenu}
+            className={`${styles.filterMenu} ${styles.columnsMenu}`}
             style={{
               left: `${columnsMenuPosition.left}px`,
               top: `${columnsMenuPosition.top}px`,
@@ -907,7 +1054,7 @@ function GenericTable<T extends WithId>({
             }}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className={styles.columnsMenuTitle}>Колонки таблицы</div>
+            <div className={styles.columnsMenuTitle}>Настройки таблицы</div>
 
             <div className={styles.densitySection}>
               <div className={styles.sectionTitle}>Плотность строк</div>
@@ -927,53 +1074,57 @@ function GenericTable<T extends WithId>({
               </div>
             </div>
 
-            <div className={styles.sectionTitle}>Порядок и видимость</div>
-            <div className={styles.filterOptionsList}>
-              {orderedColumnIds.map((columnId, index) => {
-                const columnEntry = columnsById[columnId];
-                if (!columnEntry) return null;
+            {canCustomizeColumns && (
+              <>
+                <div className={styles.sectionTitle}>Порядок и видимость</div>
+                <div className={styles.filterOptionsList}>
+                  {orderedColumnIds.map((columnId, index) => {
+                    const columnEntry = columnsById[columnId];
+                    if (!columnEntry) return null;
 
-                const { id, column } = columnEntry;
-                const checked = visibleColumnIds.includes(id);
-                const isLastVisible = checked && visibleColumnIds.length === 1;
+                    const { id, column } = columnEntry;
+                    const checked = visibleColumnIds.includes(id);
+                    const isLastVisible = checked && visibleColumnIds.length === 1;
 
-                return (
-                  <div className={styles.columnSettingsRow} key={id}>
-                    <Checkbox
-                      size="sm"
-                      checked={checked}
-                      disabled={isLastVisible}
-                      onChange={() => handleToggleVisibleColumn(id)}
-                      label={<span className={styles.filterOptionLabel}>{column.label}</span>}
-                      labelClassName={styles.filterOption}
-                    />
+                    return (
+                      <div className={styles.columnSettingsRow} key={id}>
+                        <Checkbox
+                          size="sm"
+                          checked={checked}
+                          disabled={isLastVisible}
+                          onChange={() => handleToggleVisibleColumn(id)}
+                          label={<span className={styles.filterOptionLabel}>{column.label}</span>}
+                          labelClassName={styles.filterOption}
+                        />
 
-                    <div className={styles.columnOrderActions}>
-                      <button
-                        type="button"
-                        className={styles.columnOrderButton}
-                        onClick={() => handleMoveColumn(id, "up")}
-                        disabled={index === 0}
-                        aria-label={`Поднять колонку ${column.label}`}
-                        title={`Поднять колонку ${column.label}`}
-                      >
-                        <ArrowUpwardRoundedIcon fontSize="inherit" />
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.columnOrderButton}
-                        onClick={() => handleMoveColumn(id, "down")}
-                        disabled={index === orderedColumnIds.length - 1}
-                        aria-label={`Опустить колонку ${column.label}`}
-                        title={`Опустить колонку ${column.label}`}
-                      >
-                        <ArrowDownwardRoundedIcon fontSize="inherit" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                        <div className={styles.columnOrderActions}>
+                          <button
+                            type="button"
+                            className={styles.columnOrderButton}
+                            onClick={() => handleMoveColumn(id, "up")}
+                            disabled={index === 0}
+                            aria-label={`Поднять колонку ${column.label}`}
+                            title={`Поднять колонку ${column.label}`}
+                          >
+                            <ArrowUpwardRoundedIcon fontSize="inherit" />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.columnOrderButton}
+                            onClick={() => handleMoveColumn(id, "down")}
+                            disabled={index === orderedColumnIds.length - 1}
+                            aria-label={`Опустить колонку ${column.label}`}
+                            title={`Опустить колонку ${column.label}`}
+                          >
+                            <ArrowDownwardRoundedIcon fontSize="inherit" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <div className={styles.filterMenuActions}>
               <button type="button" className={styles.filterSecondaryButton} onClick={resetTableSettings}>

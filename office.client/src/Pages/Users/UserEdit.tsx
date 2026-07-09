@@ -15,7 +15,7 @@ import Toggle from "../../Components/Toggle/Toggle";
 import ConnectField from "../../Components/ConnectField/ConnectField";
 import Modal from "../../Components/Modal/Modal";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
-import { callApi, get, put } from "../../Services/api";
+import { callApi, get, post, put } from "../../Services/api";
 
 import type {
   OfficeGroup,
@@ -164,6 +164,7 @@ export default function UserEdit() {
   const [saving, setSaving] = useState(false);
   const [officeBids, setOfficeBids] = useState<OfficeBid[]>([]);
   const [selectedOfficeBid, setSelectedOfficeBid] = useState<OfficeBid | null>(null);
+  const [closingOfficeBidId, setClosingOfficeBidId] = useState<number | null>(null);
 
   const [open, setOpen] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -379,6 +380,28 @@ export default function UserEdit() {
 
   const onCancel = () => navigate("/Users");
 
+  const handleCloseOfficeBid = async () => {
+    if (!selectedOfficeBid || closingOfficeBidId !== null) {
+      return;
+    }
+
+    setClosingOfficeBidId(selectedOfficeBid.id);
+
+    const result = await callApi(post(`/User/users/bids/${selectedOfficeBid.id}/close`), {
+      notifications,
+      successMessage: "Заявка закрыта",
+    });
+
+    setClosingOfficeBidId(null);
+
+    if (!result.ok) {
+      return;
+    }
+
+    setOfficeBids((current) => current.filter((bid) => bid.id !== selectedOfficeBid.id));
+    setSelectedOfficeBid(null);
+  };
+
   /**
    * Выбор сотрудника в модалке (пример логики)
    * Если выбрали Personality — сбрасываем FactoryPerson и наоборот.
@@ -565,6 +588,20 @@ export default function UserEdit() {
               <div className={styles.officeBidModalContent}>
                 <div className={styles.officeBidModalComment}>
                   {getOfficeBidComment(selectedOfficeBid)}
+                </div>
+                <div className={styles.officeBidModalActions}>
+                  <button
+                    type="button"
+                    className={styles.closeOfficeBidButton}
+                    onClick={() => void handleCloseOfficeBid()}
+                    disabled={closingOfficeBidId === selectedOfficeBid.id}
+                  >
+                    {closingOfficeBidId === selectedOfficeBid.id ? (
+                      <LoadingSpinner size={20} color="white" />
+                    ) : (
+                      "Закрыть заявку"
+                    )}
+                  </button>
                 </div>
               </div>
             ) : null}

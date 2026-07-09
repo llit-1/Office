@@ -11,3 +11,15 @@
     composes: ttWrapperShell from "../../styles/shared-search-layout.module.css";
 }
 
+.page {
+    display: flex;
+    flex-direction: column;
+}
+
+.loadingState {
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+

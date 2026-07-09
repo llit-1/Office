@@ -67,8 +67,9 @@
 
 .modal_body {
   padding: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
-  height: 100%;
 }
 
 .modal_footer {

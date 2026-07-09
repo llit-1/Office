@@ -34,9 +34,15 @@ function renderHeader() {
       preferences: preferencesReducer,
     },
     preloadedState: {
-      auth: { id: 1, token: "token", phone: "", code: null },
+      auth: {
+        id: 1,
+        token: "token",
+        fullName: "Иванов Иван Иванович",
+        position: "Инженер",
+        initialized: true,
+      },
       backButton: { path: "/Main", visible: false },
-      pageTitle: { title: "Р“Р»Р°РІРЅР°СЏ" },
+      pageTitle: { title: "Главная" },
       userData: {
         newNotifications: [],
         activeNotifications: [],
@@ -52,7 +58,7 @@ function renderHeader() {
       <MemoryRouter>
         <Header isMenuOpen={true} setIsMenuOpen={vi.fn()} />
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 
   return { store, ...result };
@@ -61,8 +67,6 @@ function renderHeader() {
 describe("Header", () => {
   beforeEach(() => {
     localStorage.clear();
-    localStorage.setItem("userFullName", "Иванов Иван Иванович");
-    localStorage.setItem("userPosition", "Инженер");
     document.documentElement.removeAttribute("data-theme");
   });
 
@@ -89,7 +93,7 @@ describe("Header", () => {
     expect(store.getState().preferences.notificationSoundEnabled).toBe(false);
   });
 
-  it("renders persisted user profile in the menu", () => {
+  it("renders user profile from auth state in the menu", () => {
     renderHeader();
 
     fireEvent.click(document.querySelector('[class*="header_logo"]') as Element);

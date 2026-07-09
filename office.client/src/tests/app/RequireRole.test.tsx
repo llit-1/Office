@@ -7,7 +7,8 @@ import RequireRole from "../../App/RequireRole";
 
 function renderWithRoles(roles: string[]) {
   const preloadedState = {
-    userData: { roles },
+    auth: { token: "token", initialized: true },
+    userData: { roles, loaded: true },
   };
 
   const store = configureStore({
@@ -30,13 +31,14 @@ function renderWithRoles(roles: string[]) {
           <Route path="/Main" element={<div>Main page</div>} />
         </Routes>
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 }
 
 function renderWithAllowedRoles(roles: string[]) {
   const preloadedState = {
-    userData: { roles },
+    auth: { token: "token", initialized: true },
+    userData: { roles, loaded: true },
   };
 
   const store = configureStore({
@@ -59,7 +61,7 @@ function renderWithAllowedRoles(roles: string[]) {
           <Route path="/Main" element={<div>Main page</div>} />
         </Routes>
       </MemoryRouter>
-    </Provider>
+    </Provider>,
   );
 }
 

@@ -8,7 +8,9 @@ export interface LoadingSpinnerProps {
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size, color }) => {
   const sizeClassName =
-    size === 24
+    size === 20
+      ? styles.ringSize20
+      : size === 24
       ? styles.ringSize24
       : size === 34
         ? styles.ringSize34

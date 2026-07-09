@@ -9,14 +9,15 @@ describe("authSlice", () => {
   it("stores login payload", () => {
     const state = authReducer(
       undefined,
-      login({ id: 5, token: "token", phone: "123", code: "9999" })
+      login({ id: 5, token: "token", fullName: "Иванов Иван", position: "Инженер" }),
     );
 
     expect(state).toEqual({
       id: 5,
       token: "token",
-      phone: "123",
-      code: "9999",
+      fullName: "Иванов Иван",
+      position: "Инженер",
+      initialized: true,
     });
   });
 
@@ -26,15 +27,16 @@ describe("authSlice", () => {
     localStorage.setItem("id", "7");
 
     const state = authReducer(
-      { id: 7, token: "token", phone: "123", code: "1111" },
-      logout()
+      { id: 7, token: "token", fullName: "Иванов Иван", position: "Инженер", initialized: true },
+      logout(),
     );
 
     expect(state).toEqual({
       id: null,
       token: null,
-      phone: "",
-      code: null,
+      fullName: null,
+      position: null,
+      initialized: true,
     });
     expect(localStorage.getItem("token")).toBeNull();
     expect(localStorage.getItem("authToken")).toBeNull();

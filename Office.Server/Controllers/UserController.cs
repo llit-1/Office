@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using System.DirectoryServices;
+using System.DirectoryServices.AccountManagement;
 
 namespace Office.Server.Controllers
 {
@@ -23,6 +25,58 @@ namespace Office.Server.Controllers
         public async Task<ActionResult<IEnumerable<OfficeUser>>> GetAllUsers()
         {
             return await _context.OfficeUser.ToListAsync();
+        }
+
+        [Authorize]
+        [HttpGet("ad-users")]
+        public ActionResult<IEnumerable<AdDirectoryUserModel>> GetAdUsers()
+        {
+            using var context = new PrincipalContext(ContextType.Domain);
+            using var queryFilter = new UserPrincipal(context)
+            {
+                Enabled = true
+            };
+            using var searcher = new PrincipalSearcher(queryFilter);
+
+            var users = searcher.FindAll()
+                .OfType<UserPrincipal>()
+                .Select(user =>
+                {
+                    var entry = user.GetUnderlyingObject() as DirectoryEntry;
+                    var login = user.SamAccountName?.Trim();
+                    if (string.IsNullOrWhiteSpace(login))
+                    {
+                        return null;
+                    }
+
+                    var firstName = entry?.Properties["givenName"]?.Value?.ToString()?.Trim();
+                    var lastName = entry?.Properties["sn"]?.Value?.ToString()?.Trim();
+                    var middleName = entry?.Properties["middleName"]?.Value?.ToString()?.Trim();
+                    var displayName = entry?.Properties["displayName"]?.Value?.ToString()?.Trim();
+                    var position = entry?.Properties["title"]?.Value?.ToString()?.Trim();
+
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        var nameParts = new[] { lastName, firstName, middleName }
+                            .Where(value => !string.IsNullOrWhiteSpace(value));
+
+                        displayName = string.Join(" ", nameParts);
+                    }
+
+                    return new AdDirectoryUserModel
+                    {
+                        Login = login,
+                        FullName = string.IsNullOrWhiteSpace(displayName) ? login : displayName,
+                        Position = position
+                    };
+                })
+                .Where(user => user != null)
+                .DistinctBy(user => user!.Login, StringComparer.OrdinalIgnoreCase)
+                .OrderBy(user => user!.FullName, StringComparer.CurrentCultureIgnoreCase)
+                .Select(user => user!)
+                .ToList();
+
+            return Ok(users);
         }
 
         // 2) Получение пользователя по Id (развёрнуто)
@@ -87,6 +141,19 @@ namespace Office.Server.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(user);
+        }
+
+        [HttpPost("users/bids/{bidId:int}/close")]
+        public async Task<IActionResult> CloseUserBid(int bidId)
+        {
+            var officeBid = await _context.OfficeBids.FirstOrDefaultAsync(x => x.Id == bidId);
+            if (officeBid == null)
+                return NotFound();
+
+            officeBid.Status = 1;
+            await _context.SaveChangesAsync();
+
+            return Ok();
         }
 
         // 4) Получение всех групп
@@ -285,6 +352,13 @@ namespace Office.Server.Controllers
             public List<int> OfficeGroup { get; set; } = new List<int>();
             public List<Guid> Locations { get; set; } = new List<Guid>();
             public int DefaultLocations { get; set; }
+        }
+
+        public class AdDirectoryUserModel
+        {
+            public string Login { get; set; } = string.Empty;
+            public string FullName { get; set; } = string.Empty;
+            public string? Position { get; set; }
         }
 
         // DefaultLocations: 0 - Ничего, 1 - Все ТТ.

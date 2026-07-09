@@ -1,6 +1,11 @@
-import axios, { AxiosInstance } from "axios";
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from "axios";
 import type { UseFormSetError } from "react-hook-form";
-import type { AxiosRequestConfig } from "axios";
+import type { AuthAnswer } from "../Interfaces/AuthAnswer";
 
 export class ApiError extends Error {
   status?: number;
@@ -17,6 +22,21 @@ export class ApiError extends Error {
   }
 }
 
+interface AuthRequestConfig extends AxiosRequestConfig {
+  _retry?: boolean;
+  skipAuthRefresh?: boolean;
+  skipAuthRedirect?: boolean;
+}
+
+interface AuthInternalRequestConfig extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  skipAuthRefresh?: boolean;
+  skipAuthRedirect?: boolean;
+}
+
+let accessToken: string | null = null;
+let refreshPromise: Promise<AuthAnswer> | null = null;
+
 function resolveApiBaseUrl() {
   const overrideUrl = import.meta.env.VITE_API_URL?.trim();
   if (overrideUrl) {
@@ -32,29 +52,95 @@ function resolveApiBaseUrl() {
   return prodApiUrl || "/api";
 }
 
+export function getApiBaseUrl() {
+  return api.defaults.baseURL || "/api";
+}
+
 const api: AxiosInstance = axios.create({
   baseURL: resolveApiBaseUrl(),
-  timeout: 15000,
+  timeout: 60000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
+export function getAccessToken() {
+  return accessToken;
+}
 
-// Request interceptor: attach token if present
+export function setAccessToken(token: string | null) {
+  accessToken = token?.trim() ? token : null;
+}
+
+export function clearAccessToken() {
+  accessToken = null;
+  try {
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("id");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("login");
+    localStorage.removeItem("userFullName");
+    localStorage.removeItem("userPosition");
+  } catch {
+    // ignore storage cleanup errors
+  }
+}
+
+function redirectToLogin() {
+  const loginPath = "/Login";
+  if (window.location.pathname !== loginPath) {
+    window.location.replace(loginPath);
+  }
+}
+
+async function requestSessionRefresh(): Promise<AuthAnswer> {
+  if (!refreshPromise) {
+    refreshPromise = post<AuthAnswer>("/Authorization/refresh", undefined, {
+        skipAuthRefresh: true,
+        skipAuthRedirect: true,
+      } as AuthRequestConfig)
+      .then((session) => {
+        setAccessToken(session.token);
+        return session;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise!;
+}
+
+export async function refreshSession(): Promise<AuthAnswer | null> {
+  try {
+    return await requestSessionRefresh();
+  } catch {
+    clearAccessToken();
+    return null;
+  }
+}
+
+export async function logoutSession() {
+  try {
+    await api.post("/Authorization/logout", undefined, {
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    } as AuthRequestConfig);
+  } finally {
+    clearAccessToken();
+  }
+}
+
 api.interceptors.request.use(
-  (config) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
-    } catch {
-      // ignore
+  (config: AuthInternalRequestConfig) => {
+    if (accessToken && config.headers) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
 function extractFieldErrors(data: unknown): Record<string, string[]> | undefined {
@@ -62,12 +148,10 @@ function extractFieldErrors(data: unknown): Record<string, string[]> | undefined
 
   const obj = data as Record<string, unknown>;
 
-  // Common ASP.NET Core validation response shape: { errors: { Field: ["msg"] } }
   if (obj["errors"] && typeof obj["errors"] === "object") {
     return obj["errors"] as Record<string, string[]>;
   }
 
-  // Some APIs use 'ModelState' or 'validationErrors'
   if (obj["ModelState"] && typeof obj["ModelState"] === "object") {
     return obj["ModelState"] as Record<string, string[]>;
   }
@@ -79,51 +163,51 @@ function extractFieldErrors(data: unknown): Record<string, string[]> | undefined
   return undefined;
 }
 
-// Response interceptor: unwrap data and handle common errors
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
-    const status = error?.response?.status;
-    const data = error?.response?.data;
-    if (status === 401) {
+  async (error: AxiosError) => {
+    const status = error.response?.status;
+    const data = error.response?.data as Record<string, unknown> | undefined;
+    const originalRequest = error.config as AuthRequestConfig | undefined;
+
+    if (status === 401 && originalRequest && !originalRequest.skipAuthRefresh && !originalRequest._retry) {
+      originalRequest._retry = true;
+
       try {
-        localStorage.removeItem("token");
-        localStorage.removeItem("id");
+        const session = await requestSessionRefresh();
+        originalRequest.headers = originalRequest.headers ?? {};
+        originalRequest.headers.Authorization = `Bearer ${session.token}`;
+        return await api.request(originalRequest);
       } catch {
-        // ignore
+        clearAccessToken();
+        if (!originalRequest.skipAuthRedirect) {
+          redirectToLogin();
+        }
       }
-
-      // чтобы не зациклиться (если мы уже на /Login)
-      const loginPath = "/Login";
-      const currentPath = window.location.pathname;
-
-      if (currentPath !== loginPath) {
-        // Можно также сохранить, куда хотели попасть
-        // localStorage.setItem("afterLoginRedirect", currentPath);
-
-        window.location.replace(loginPath);
-      }
+    } else if (status === 401 && !originalRequest?.skipAuthRedirect) {
+      clearAccessToken();
+      redirectToLogin();
     }
 
     const fieldErrors = extractFieldErrors(data);
-    const message = (data && (data.message || data.title || data.detail)) || error.message || "Ошибка API";
+    const message =
+      (data && (data.message || data.title || data.detail)) ||
+      error.message ||
+      "Ошибка API";
 
-    return Promise.reject(new ApiError(message, status, data, fieldErrors));
-  }
+    return Promise.reject(new ApiError(String(message), status, data, fieldErrors));
+  },
 );
 
 export default api;
 
 export function getFriendlyErrorMessage(err: unknown, fallback = "Ошибка сервера") {
-  // Prefer ApiError with status
   if (err instanceof ApiError) {
-    const ae = err as ApiError;
-    const status = ae.status;
-    // If fieldErrors exist, prefer general message if present
+    const status = err.status;
     if (status) {
       switch (status) {
         case 400:
-          return ae.message || "Неверные данные запроса.";
+          return err.message || "Неверные данные запроса.";
         case 401:
           return "Требуется авторизация. Пожалуйста, войдите в систему.";
         case 403:
@@ -135,17 +219,16 @@ export function getFriendlyErrorMessage(err: unknown, fallback = "Ошибка �
         case 409:
           return "Конфликт данных на сервере.";
         case 422:
-          return ae.message || "Ошибка валидации данных.";
+          return err.message || "Ошибка валидации данных.";
         case 500:
         default:
-          return ae.message || "Внутренняя ошибка сервера.";
+          return err.message || "Внутренняя ошибка сервера.";
       }
     }
 
-    return ae.message || fallback;
+    return err.message || fallback;
   }
 
-  // axios/network error shapes
   const maybeObj = err as Record<string, unknown> | undefined;
   if (maybeObj && typeof maybeObj === "object") {
     const msg = maybeObj["message"] as string | undefined;
@@ -180,10 +263,9 @@ export async function callApi<T>(
     }
 
     if (err instanceof ApiError) {
-      const ae = err as ApiError;
-      if (ae.fieldErrors && options?.setError) {
-        for (const key of Object.keys(ae.fieldErrors)) {
-          const msgs = ae.fieldErrors[key];
+      if (err.fieldErrors && options?.setError) {
+        for (const key of Object.keys(err.fieldErrors)) {
+          const msgs = err.fieldErrors[key];
           const first = Array.isArray(msgs) && msgs.length ? msgs[0] : String(msgs);
           const seg = key.split(".").pop() || key;
           const fieldName = seg.charAt(0).toLowerCase() + seg.slice(1);
@@ -194,14 +276,13 @@ export async function callApi<T>(
           }
         }
       }
-      return { ok: false, error: ae };
+      return { ok: false, error: err };
     }
 
     return { ok: false, error: new ApiError(String(err)) };
   }
 }
 
-// Convenience typed helpers that return the unwrapped response body `T`.
 export async function get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const res = await api.get<T>(url, config);
   return res as unknown as T;

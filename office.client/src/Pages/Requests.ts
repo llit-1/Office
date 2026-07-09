@@ -12,9 +12,6 @@ export const Auth = async (
 ): Promise<AuthAnswer> => {
   try {
     const data = await post<AuthAnswer>("/Authorization/login", { login, password });
-    // typed helper returns payload `AuthAnswer`
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("id", String(data.id));
     return data;
   } catch (e: unknown) {
     throw parseError(e, "Ошибка отправки");

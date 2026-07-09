@@ -325,6 +325,7 @@ export default function FactoryPersonForm() {
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit(onSubmit)} className={styles.formWrapper}>
+        <div className={styles.formContent}>
         <div className={styles.blockHandler}>
           <label className={styles.blockLabel}>Данные сотрудника</label>
           <div className={styles.blocksContainer}>
@@ -340,7 +341,7 @@ export default function FactoryPersonForm() {
               <Input label="Имя" disabled={isSecurity} {...register("name")} onChange={e => setValue("name", onlyRussian(e.target.value))}/>
               <Input label="Отчество" disabled={isSecurity} {...register("patronymic")} onChange={e => setValue("patronymic", onlyRussian(e.target.value))}/>
               <Input label="Дата рождения" type="date" {...register("birthdate")}/>
-              <Input label="Паспорт" disabled={isSecurity} {...register("passport")} onChange={e => setValue("passport", onlyDigits(e.target.value))}/>
+              <Input label="Паспорт" disabled={isSecurity} {...register("passport")} onChange={e => setValue("passport", e.target.value)}/>
               <Input label="Дата выдачи паспорта" type="date" {...register("passportDate")}/>
 
               <Controller name="factoryDepartment" control={control} render={({ field }) => renderNumberSelect(field, options.departments, "Отдел")}/>
@@ -476,26 +477,32 @@ export default function FactoryPersonForm() {
                   </div>
                 )}
 
-                <Input
-                  label="Номер пропуска"
-                  {...register("passCardNumber")}
-                  disabled={isSecurity}
-                />
+                <div className={styles.photoBottom}>
+                  <Input
+                    label="Номер пропуска"
+                    wrapperClassName={styles.photoPassCardField}
+                    {...register("passCardNumber")}
+                    disabled={isSecurity}
+                  />
+                </div>
               </>
             )}
         </div>
-        
+        </div>
+
 
         {modalError && (
           <Modal isOpen={!!modalError} onClose={() => setModalError(null)} title="Ошибка" size="sm">
             <p>{modalError}</p>
           </Modal>
         )}
+        <div className={styles.userEditFooter}>
+          <button type="submit" className={styles.saveButton}>
+            {saving ? <LoadingSpinner size={24} color="white"/> : (isEdit ? "Сохранить" : "Добавить")}
+          </button>
+        </div>
       </form>
 
-      <div className={styles.userEditFooter}>
-        <button type="submit" className={styles.saveButton} onClick={handleSubmit(onSubmit)}>{saving ? <LoadingSpinner size={24} color="white"/> : (isEdit ? "Сохранить" : "Добавить")}</button>
-      </div>
     </div>
   );
 }

@@ -1,0 +1,1293 @@
+.page {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.tabsWrap {
+    width: 100%;
+}
+
+.contentSection {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 0;
+}
+
+.rulesTabSection {
+    min-height: 0;
+}
+
+.metricsGrid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.metricCard {
+    min-height: 58px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 12px;
+    box-shadow: var(--shadow-sm);
+}
+
+.metricCard span {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.15;
+}
+
+.metricCard strong {
+    color: var(--color-text);
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.tableSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 0;
+}
+
+.rulesTableToolbar {
+    display: none;
+}
+
+.rulesTableWrapper thead th:nth-child(6),
+.rulesTableWrapper tbody td:nth-child(6),
+.rulesTableWrapper thead th:nth-child(7),
+.rulesTableWrapper tbody td:nth-child(7) {
+    display: none;
+}
+
+.rulesTableWrapper tbody tr {
+    cursor: pointer;
+}
+
+.chatsTableWrapper tbody tr {
+    cursor: pointer;
+}
+
+.rulesTableCell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.rulesTableCell strong {
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.rulesTableCell span {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.tableIconButton {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.ruleStateBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    height: 28px;
+    border-radius: 999px;
+    padding: 0 12px;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.ruleStateEnabled {
+    background: color-mix(in srgb, var(--color-success) 16%, var(--color-surface));
+    color: var(--color-success);
+    border: 1px solid color-mix(in srgb, var(--color-success) 36%, var(--color-border));
+}
+
+.ruleStateDisabled {
+    background: color-mix(in srgb, #6b7280 14%, var(--color-surface));
+    color: #6b7280;
+    border: 1px solid color-mix(in srgb, #6b7280 36%, var(--color-border));
+}
+
+.rulesLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.rulesHeader {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+.rulesSensorSelect {
+    width: min(420px, 100%);
+}
+
+.rulesSensorMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.rulesGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+}
+
+.ruleCard {
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-sm);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ruleCardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ruleCardHeader h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 18px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.ruleCardHeader p {
+    margin: 6px 0 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.ruleCardToggle {
+    min-width: auto;
+    min-height: auto;
+    padding: 0;
+    background: transparent;
+}
+
+.ruleSettingsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ruleCardActions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.ruleCardEmpty {
+    min-height: 76px;
+    border: 1px dashed var(--color-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-surface));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-subtle);
+    font-weight: 700;
+    text-align: center;
+    padding: 16px;
+}
+
+.rulesModalLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.chatModalLayout {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.chatModalBody {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 10px;
+}
+
+.chatNameField {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.chatSelectsGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    min-height: 0;
+}
+
+.chatSelectHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.chatSelectHeader h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.chatSelectHeader span {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.chatSelectPanel {
+    min-height: 0;
+    height: clamp(240px, 42vh, 360px);
+    display: flex;
+}
+
+.chatEditActions {
+    margin-top: 12px;
+}
+
+.rulesSectionCard {
+    --input-label-background: var(--color-surface);
+    --select-label-background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--color-border) 72%, var(--color-surface));
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-primary) 4%, var(--color-surface)) 0%,
+            var(--color-surface) 100%
+        );
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-border) 16%, transparent);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.rulesSectionHeader h3 {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.rulesSectionHeader p {
+    margin: 6px 0 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.rulesModalGrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.rulesToggleField,
+.rulesToggleCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 50px;
+    height: 50px;
+    padding: 0 14px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--color-primary) 4%, var(--color-surface)) 0%,
+            color-mix(in srgb, var(--color-surface-muted) 18%, var(--color-surface)) 100%
+        );
+}
+
+.rulesToggleCard {
+    width: 100%;
+    text-align: left;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.rulesToggleCardWide {
+    grid-column: 1 / -1;
+}
+
+.rulesToggleControl {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: auto;
+    min-height: auto;
+    height: auto;
+    padding: 0;
+    margin-left: auto;
+    justify-content: flex-end;
+    background: transparent;
+}
+
+.rulesToggleCard:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border));
+    box-shadow: 0 4px 10px color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+.rulesToggleCopy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.rulesToggleTitle,
+.rulesToggleCopy strong {
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.rulesToggleTitle {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.rulesToggleCopy span {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.addRuleButton {
+    height: 38px;
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: var(--color-white);
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.addRuleButtonSecondary {
+    height: 36px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+    color: var(--color-primary);
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.addRuleButtonSecondary:hover {
+    background: color-mix(in srgb, var(--color-primary) 13%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
+    transform: translateY(-1px);
+}
+
+.ruleModalMaintenanceList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ruleModalMaintenanceCard {
+    --input-label-background: var(--color-surface);
+    --select-label-background: var(--color-surface);
+    border: 1px solid color-mix(in srgb, var(--color-border) 86%, var(--color-surface));
+    border-radius: 12px;
+    background:
+        linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-primary) 3%, var(--color-surface)) 0%,
+            color-mix(in srgb, var(--color-surface-muted) 22%, var(--color-surface)) 100%
+        );
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ruleModalMaintenanceHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ruleModalMaintenanceHeader strong {
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.maintenancePreviewText {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.maintenancePreviewBadge {
+    align-self: flex-start;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
+    color: color-mix(in srgb, var(--color-text) 72%, var(--color-primary));
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.3;
+    white-space: normal;
+}
+
+.maintenanceList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.maintenanceItem {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface-muted) 45%, var(--color-surface));
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.maintenanceInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.maintenanceInfo strong {
+    color: var(--color-text);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.maintenanceInfo span {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.maintenanceActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.maintenanceActionButton {
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.maintenanceDeleteButton {
+    color: var(--color-danger);
+}
+
+.inlineRuleFields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.daysPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.daysPickerLabel {
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.daysPickerGrid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.dayChip {
+    height: 38px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.dayChip:hover {
+    border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-border));
+    color: var(--color-primary);
+}
+
+.dayChipActive {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+    box-shadow: 0 8px 16px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.dayChipActive:hover {
+    border-color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 90%, #ffffff 10%);
+    color: var(--color-white);
+}
+
+.controlsBar {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.searchGroup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 auto;
+}
+
+.search {
+    width: 240px;
+    min-width: 180px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    padding: 0 12px;
+    color: var(--color-text-muted);
+}
+
+.search input {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--color-text);
+    font-size: 16px;
+}
+
+.filterBar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+}
+
+.addSensorButton {
+    height: 42px;
+    border: 1px solid var(--color-primary);
+    border-radius: 8px;
+    background: var(--color-primary);
+    color: var(--color-white);
+    padding: 0 14px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.addSensorButton:hover {
+    filter: brightness(0.98);
+    transform: translateY(-1px);
+}
+
+.filterButton {
+    height: 42px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.filterButtonActive {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.sensorsGrid {
+    --sensor-card-min-width: 190px;
+
+    width: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--sensor-card-min-width)), 1fr));
+    grid-auto-rows: 112px;
+    gap: 10px;
+}
+
+.sensorCard {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text);
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.sensorCard:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.cardActionButton {
+    width: 28px;
+    height: 28px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--color-surface-muted) 70%, var(--color-transparent));
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    flex: 0 0 auto;
+}
+
+.cardActionButton:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+}
+
+.cardActionButtonDisabled,
+.cardActionButtonDisabled:hover {
+    border-color: transparent;
+    background: color-mix(in srgb, #9ca3af 28%, var(--color-surface));
+    color: #9ca3af;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.sensorCardOnline {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-success) 12%, var(--color-surface)) 0%,
+        var(--color-surface) 54%,
+        color-mix(in srgb, var(--color-success) 5%, var(--color-surface)) 100%
+    );
+    border-color: color-mix(in srgb, var(--color-success) 46%, var(--color-border));
+}
+
+.sensorCardOffline {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-danger) 16%, var(--color-surface)) 0%,
+        var(--color-surface) 54%,
+        color-mix(in srgb, var(--color-danger) 7%, var(--color-surface)) 100%
+    );
+    border-color: color-mix(in srgb, var(--color-danger) 48%, var(--color-border));
+}
+
+.sensorCardPending {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--color-warning) 16%, var(--color-surface)) 0%,
+        var(--color-surface) 54%,
+        color-mix(in srgb, var(--color-warning) 7%, var(--color-surface)) 100%
+    );
+    border-color: color-mix(in srgb, var(--color-warning) 48%, var(--color-border));
+}
+
+.sensorCardInactive {
+    background: linear-gradient(
+        135deg,
+        color-mix(in srgb, #6b7280 30%, var(--color-surface)) 0%,
+        color-mix(in srgb, #6b7280 18%, var(--color-surface)) 56%,
+        color-mix(in srgb, #4b5563 28%, var(--color-surface)) 100%
+    );
+    border-color: color-mix(in srgb, #4b5563 52%, var(--color-border));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ca3af 22%, transparent);
+}
+
+.sensorCardHeader {
+    width: 100%;
+    min-width: 0;
+    padding-right: 20px;
+}
+
+.sensorTitle {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.18;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.sensorMeta {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 24px;
+}
+
+.sensorCardActions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    min-width: 0;
+    margin-left: auto;
+}
+
+.sensorIp {
+    min-width: 0;
+    max-width: 100%;
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.1;
+}
+
+.missingDataBadge {
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-danger) 42%, var(--color-border));
+    background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+    color: var(--color-danger);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+    flex: 0 0 auto;
+}
+
+.statusDot {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-border);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border) 24%, var(--color-transparent));
+}
+
+.statusDotOnline {
+    background: var(--color-success);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 24%, var(--color-transparent));
+}
+
+.statusDotOffline {
+    background: var(--color-danger);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-danger) 24%, var(--color-transparent));
+}
+
+.statusDotPending {
+    background: var(--color-warning);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-warning) 24%, var(--color-transparent));
+}
+
+.statusDotInactive {
+    background: #6b7280;
+    box-shadow: 0 0 0 2px color-mix(in srgb, #6b7280 28%, var(--color-transparent));
+}
+
+.emptyState {
+    width: 100%;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-subtle);
+    font-weight: 700;
+    text-align: center;
+    padding: 16px;
+}
+
+.chartModalPanel {
+    max-width: min(980px, calc(100vw - 20px));
+}
+
+.editForm {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 14px;
+}
+
+.activityField {
+    height: 50px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface-muted) 32%, var(--color-surface));
+}
+
+.activityFieldButton {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+}
+
+.activityLabel {
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.activityToggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+}
+
+.activityToggle {
+    min-width: auto !important;
+    min-height: auto !important;
+    height: auto !important;
+    padding: 0 !important;
+    background: transparent;
+    border: 0;
+}
+
+.activityState {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+    min-width: 0;
+}
+
+.activityStateActive {
+    color: var(--color-success);
+}
+
+.activityStateInactive {
+    color: #6b7280;
+}
+
+.editActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 18px;
+}
+
+.editCancelButton,
+.editSaveButton,
+.editDeleteButton {
+    min-width: 120px;
+    height: 40px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border);
+    padding: 0 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.editCancelButton {
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+}
+
+.editDeleteButton {
+    margin-right: auto;
+    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+    color: var(--color-danger);
+}
+
+.editSaveButton {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.editCancelButton:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-surface-muted) 58%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-border));
+}
+
+.editDeleteButton:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-danger) 58%, var(--color-border));
+    color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
+}
+
+.editSaveButton:hover:not(:disabled) {
+    background: var(--color-primary-600);
+    border-color: var(--color-primary-600);
+}
+
+.editSaveButton:disabled,
+.editCancelButton:disabled,
+.editDeleteButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.chartToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.chartMeta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.chartStats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.chartStatCard {
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-surface-muted) 62%, var(--color-surface));
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.chartStatLabel {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.15;
+}
+
+.chartStatValue {
+    color: var(--color-text);
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.chartStatTime {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.periodButtons {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.periodButton {
+    height: 36px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    padding: 0 12px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.periodButtonActive {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-white);
+}
+
+.chartWrap {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    overflow: hidden;
+}
+
+.chartCanvas {
+    width: 100%;
+    height: 420px;
+    display: block;
+}
+
+.chartEmpty {
+    width: 100%;
+    min-height: 320px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--color-border);
+    border-radius: 8px;
+    background: var(--color-surface);
+    color: var(--color-text-subtle);
+    font-weight: 700;
+    text-align: center;
+    padding: 16px;
+}
+
+@media screen and (max-width: 586px) {
+    .metricsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .controlsBar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .searchGroup {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .search {
+        width: 100%;
+    }
+
+    .addSensorButton {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .filterBar {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .rulesHeader {
+        align-items: stretch;
+    }
+
+    .rulesSensorSelect {
+        width: 100%;
+    }
+
+    .ruleCardHeader {
+        flex-direction: column;
+    }
+
+    .ruleSettingsGrid,
+    .rulesModalGrid,
+    .inlineRuleFields,
+    .chatSelectsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .chatSelectPanel {
+        height: 164px;
+    }
+
+    .chatModalBody {
+        padding: 10px;
+    }
+
+    .chatModalLayout {
+        gap: 10px;
+    }
+
+    .rulesSectionCard {
+        padding: 10px;
+    }
+
+    .chatSelectHeader {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .chatEditActions {
+        display: grid;
+        grid-template-columns: 1fr;
+    }
+
+    .chatEditActions .editDeleteButton,
+    .chatEditActions .editCancelButton,
+    .chatEditActions .editSaveButton {
+        width: 100%;
+        min-width: 0;
+        margin-right: 0;
+    }
+
+    .daysPickerGrid {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .maintenanceItem {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .activityField {
+        height: auto;
+    }
+
+    .activityFieldButton {
+        grid-template-columns: 1fr;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .activityToggleRow {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .sensorsGrid {
+        --sensor-card-min-width: 100%;
+        grid-template-columns: 1fr;
+        grid-auto-rows: 118px;
+    }
+
+    .chartToolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .chartStats {
+        grid-template-columns: 1fr;
+    }
+
+    .chartCanvas {
+        height: 340px;
+    }
+}

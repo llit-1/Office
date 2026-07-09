@@ -1,13 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using Office.Server.Security;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
 namespace Office.Server.Controllers
 {
@@ -15,66 +12,83 @@ namespace Office.Server.Controllers
     [ApiController]
     public class AuthorizationController : ControllerBase
     {
+        private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
         private readonly RKNETDBContext _rKNETDBContext;
-        public AuthorizationController(RKNETDBContext rKNETDBContext)
+        private readonly AuthTokenService _authTokenService;
+        private readonly ClientInfoParser _clientInfoParser;
+
+        public AuthorizationController(
+            RKNETDBContext rKNETDBContext,
+            AuthTokenService authTokenService,
+            ClientInfoParser clientInfoParser)
         {
             _rKNETDBContext = rKNETDBContext;
+            _authTokenService = authTokenService;
+            _clientInfoParser = clientInfoParser;
         }
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginModel loginModel)
+        public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
         {
             if (loginModel is null)
             {
                 return Unauthorized(new { message = "loginModel is null" });
             }
-            string password = loginModel.Password;
-            string login = loginModel.Login;
+
+            var password = loginModel.Password;
+            var login = loginModel.Login;
             if (password == null || login == null || !ValidateAdUser(login, password))
             {
                 return Unauthorized(new { message = "Данные введены некорректно!" });
             }
+
             var adUser = GetAdUserInfo(login);
-            var officeUser = _rKNETDBContext.OfficeUser.FirstOrDefault(x => x.Login == login);
+            var officeUser = await _rKNETDBContext.OfficeUser.FirstOrDefaultAsync(x => x.Login == login);
             if (officeUser == null)
             {
                 if (adUser == null)
                 {
                     return Unauthorized(new { message = "Пользователь не найден в AD" });
                 }
-                officeUser = new();
-                officeUser.Login = login;
-                officeUser.Name = adUser.FirstName?.Trim();
-                officeUser.Surname = adUser.LastName?.Trim();
-                officeUser.Patronymic = adUser.MiddleName?.Trim();
-                officeUser.Position = adUser.Position?.Trim();
-                officeUser.DefaultLocations = 0;
-                _rKNETDBContext.OfficeUser.Add(officeUser);
-                OfficeBid officeBid = new OfficeBid();
-                officeBid.OfficeUser = officeUser;
-                officeBid.Status = 0;
-                officeBid.DateTime = DateTime.Now;
-                officeBid.Comment = $"Требуется Активация учетной записи {officeUser.Surname} {officeUser.Name} {officeUser.Patronymic}";
-                _rKNETDBContext.OfficeBids.Add(officeBid);
-                _rKNETDBContext.SaveChanges();
 
-                List<OfficeUser> gods = _rKNETDBContext.OfficeUser
-                                .Where(x => x.OfficeGroup
-                                .Any(g => g.OfficeRole
-                                .Any(r => r.Role == "Users")))
-                                .ToList();
+                officeUser = new OfficeUser
+                {
+                    Login = login,
+                    Name = adUser.FirstName?.Trim(),
+                    Surname = adUser.LastName?.Trim(),
+                    Patronymic = adUser.MiddleName?.Trim(),
+                    Position = adUser.Position?.Trim(),
+                    DefaultLocations = 0
+                };
+                _rKNETDBContext.OfficeUser.Add(officeUser);
+
+                var officeBid = new OfficeBid
+                {
+                    OfficeUser = officeUser,
+                    Status = 0,
+                    DateTime = DateTime.Now,
+                    Comment = $"Требуется Активация учетной записи {officeUser.Surname} {officeUser.Name} {officeUser.Patronymic}"
+                };
+                _rKNETDBContext.OfficeBids.Add(officeBid);
+                await _rKNETDBContext.SaveChangesAsync();
+
+                var gods = await _rKNETDBContext.OfficeUser
+                    .Where(x => x.OfficeGroup.Any(g => g.OfficeRole.Any(r => r.Role == "Users")))
+                    .ToListAsync();
 
                 foreach (var god in gods)
                 {
-                    OfficeNotification officeNotification = new();
-                    officeNotification.OfficeUserId = god.Id;
-                    officeNotification.Status = 0;
-                    officeNotification.DateTime = DateTime.Now;
-                    officeNotification.RelatedEntity = officeBid.Id;
-                    officeNotification.TypeId = 1;
-                    _rKNETDBContext.OfficeNotifications.Add(officeNotification);
+                    _rKNETDBContext.OfficeNotifications.Add(new OfficeNotification
+                    {
+                        OfficeUserId = god.Id,
+                        Status = 0,
+                        DateTime = DateTime.Now,
+                        RelatedEntity = officeBid.Id,
+                        TypeId = 1
+                    });
                 }
-                _rKNETDBContext.SaveChanges();
+
+                await _rKNETDBContext.SaveChangesAsync();
             }
             else if (adUser != null)
             {
@@ -82,105 +96,201 @@ namespace Office.Server.Controllers
                 officeUser.Surname = adUser.LastName?.Trim();
                 officeUser.Patronymic = adUser.MiddleName?.Trim();
                 officeUser.Position = adUser.Position?.Trim();
-                _rKNETDBContext.SaveChanges();
+                await _rKNETDBContext.SaveChangesAsync();
             }
+
             if (officeUser.Actual == 0)
             {
-                AuthAnswer answer = new AuthAnswer();
-                answer.id = officeUser.Id;
-                answer.responseCode = 0;
-                answer.fullName = GetDisplayName(officeUser, adUser);
-                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
-                return Ok(answer);
+                return Ok(new AuthAnswer
+                {
+                    id = officeUser.Id,
+                    responseCode = 0,
+                    fullName = GetDisplayName(officeUser, adUser),
+                    position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim()
+                });
             }
+
             if (officeUser.Actual == 1)
             {
-                AuthAnswer answer = new AuthAnswer();
-                answer.id = officeUser.Id;
-                answer.token = GetToken(login);
-                answer.responseCode = 1;
-                answer.fullName = GetDisplayName(officeUser, adUser);
-                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
-                return Ok(answer);
+                return Ok(await IssueTokensAsync(officeUser, adUser));
             }
+
             if (officeUser.Actual == 2)
             {
-                AuthAnswer answer = new AuthAnswer();
-                answer.id = officeUser.Id;
-                answer.token = GetToken(login);
-                answer.responseCode = 2;
-                answer.fullName = GetDisplayName(officeUser, adUser);
-                answer.position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim();
-                return Ok(answer);
+                return Ok(new AuthAnswer
+                {
+                    id = officeUser.Id,
+                    responseCode = 2,
+                    fullName = GetDisplayName(officeUser, adUser),
+                    position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim()
+                });
             }
+
             return Unauthorized(new { message = "Ошибка БД" });
         }
 
+        [HttpPost("refresh")]
+        public async Task<IActionResult> Refresh()
+        {
+            var rawRefreshToken = Request.Cookies[AuthConstants.RefreshCookieName];
+            if (string.IsNullOrWhiteSpace(rawRefreshToken))
+            {
+                ClearRefreshCookie();
+                return Unauthorized(new { message = "Refresh token is missing" });
+            }
 
+            var refreshPayload = _authTokenService.ReadRefreshToken(rawRefreshToken);
+            if (refreshPayload is null)
+            {
+                ClearRefreshCookie();
+                return Unauthorized(new { message = "Refresh token is invalid" });
+            }
+
+            if (refreshPayload.ExpiresAtUtc <= DateTime.UtcNow)
+            {
+                ClearRefreshCookie();
+                return Unauthorized(new { message = "Refresh token expired" });
+            }
+
+            var officeUser = await _rKNETDBContext.OfficeUser.FirstOrDefaultAsync(x =>
+                x.Id == refreshPayload.OfficeUserId &&
+                x.Login == refreshPayload.Login);
+            if (officeUser is null || officeUser.Actual != 1)
+            {
+                ClearRefreshCookie();
+                return Unauthorized(new { message = "User is not active" });
+            }
+
+            return Ok(IssueTokens(officeUser, null));
+        }
+
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            ClearRefreshCookie();
+            return NoContent();
+        }
 
         public class LoginModel
         {
-            public string Login { get; set; } = "";
-            public string Password { get; set; } = "";
-
+            public string Login { get; set; } = string.Empty;
+            public string Password { get; set; } = string.Empty;
         }
+
         private class AuthAnswer
         {
             public int id { get; set; }
-            public string token { get; set; } = "";
+            public string token { get; set; } = string.Empty;
             public int responseCode { get; set; }
             public string? fullName { get; set; }
             public string? position { get; set; }
         }
 
-
-
-        private string GetToken(string name)
-        {
-            JwtSecurityTokenHandler tokenHandler = new();
-            byte[] key = Encoding.UTF8.GetBytes(Global.SecretKey);
-            SecurityTokenDescriptor tokenDescriptor = new SecurityTokenDescriptor
-            {
-                Subject = new ClaimsIdentity(new Claim[]
-            {
-                new Claim(ClaimTypes.Name, name)
-            }),
-                Expires = DateTime.UtcNow.AddDays(30),
-                SigningCredentials = new(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-            };
-            var tok = tokenHandler.CreateToken(tokenDescriptor);
-            string? token = tokenHandler.WriteToken(tok);
-            return token;
-        }
-
-
         private bool ValidateAdUser(string login, string password)
         {
-            using (var context = new PrincipalContext(ContextType.Domain))
-            {
-                return context.ValidateCredentials(login, password);
-            }
+            using var context = new PrincipalContext(ContextType.Domain);
+            return context.ValidateCredentials(login, password);
         }
 
-
-        private AdUserInfo GetAdUserInfo(string login)
+        private AdUserInfo? GetAdUserInfo(string login)
         {
-            using (var ctx = new PrincipalContext(ContextType.Domain))
-            using (var user = UserPrincipal.FindByIdentity(ctx, login))
+            using var ctx = new PrincipalContext(ContextType.Domain);
+            using var user = UserPrincipal.FindByIdentity(ctx, login);
+            if (user == null)
             {
-                if (user == null)
-                    return null;
-                var de = (DirectoryEntry)user.GetUnderlyingObject();
-                return new AdUserInfo
-                {
-                    Login = user.SamAccountName,
-                    FirstName = de.Properties["givenName"]?.Value?.ToString(),
-                    LastName = de.Properties["sn"]?.Value?.ToString(),
-                    MiddleName = de.Properties["middleName"]?.Value?.ToString(),
-                    FullName = de.Properties["displayName"]?.Value?.ToString(),
-                    Position = de.Properties["title"]?.Value?.ToString()
-                };
+                return null;
             }
+
+            var de = (DirectoryEntry)user.GetUnderlyingObject();
+            return new AdUserInfo
+            {
+                Login = user.SamAccountName,
+                FirstName = de.Properties["givenName"]?.Value?.ToString(),
+                LastName = de.Properties["sn"]?.Value?.ToString(),
+                MiddleName = de.Properties["middleName"]?.Value?.ToString(),
+                FullName = de.Properties["displayName"]?.Value?.ToString(),
+                Position = de.Properties["title"]?.Value?.ToString()
+            };
+        }
+
+        private async Task<AuthAnswer> IssueTokensAsync(OfficeUser officeUser, AdUserInfo? adUser)
+        {
+            await WriteSuccessfulLoginLogAsync(officeUser);
+            await _rKNETDBContext.SaveChangesAsync();
+            return IssueTokens(officeUser, adUser);
+        }
+
+        private AuthAnswer IssueTokens(OfficeUser officeUser, AdUserInfo? adUser)
+        {
+            var refreshToken = _authTokenService.CreateRefreshToken(officeUser);
+            Response.Cookies.Append(
+                AuthConstants.RefreshCookieName,
+                refreshToken.RawToken,
+                _authTokenService.BuildRefreshCookie(refreshToken.ExpiresAtUtc));
+
+            return new AuthAnswer
+            {
+                id = officeUser.Id,
+                token = _authTokenService.CreateAccessToken(officeUser),
+                responseCode = 1,
+                fullName = GetDisplayName(officeUser, adUser),
+                position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim()
+            };
+        }
+
+        private async Task WriteSuccessfulLoginLogAsync(OfficeUser officeUser)
+        {
+            var clientInfo = _clientInfoParser.Parse(GetUserAgent());
+            _rKNETDBContext.OfficeAuthLogs.Add(new OfficeAuthLog
+            {
+                OfficeUserId = officeUser.Id,
+                Login = officeUser.Login,
+                LoggedDate = GetMoscowNow(),
+                IpAddress = Truncate(GetRemoteIp(), 64),
+                UserAgent = clientInfo.UserAgent,
+                DeviceType = Truncate(clientInfo.DeviceType, 20),
+                DeviceOs = Truncate(clientInfo.DeviceOs, 50),
+                Browser = Truncate(clientInfo.Browser, 50),
+                BrowserVersion = Truncate(clientInfo.BrowserVersion, 50),
+                IsMobile = clientInfo.IsMobile,
+                RequestScheme = Truncate(Request.Scheme, 10)
+            });
+            await Task.CompletedTask;
+        }
+
+        private void ClearRefreshCookie()
+        {
+            Response.Cookies.Append(
+                AuthConstants.RefreshCookieName,
+                string.Empty,
+                _authTokenService.BuildExpiredRefreshCookie());
+        }
+
+        private string? GetUserAgent()
+        {
+            var userAgent = Request.Headers.UserAgent.ToString();
+            if (string.IsNullOrWhiteSpace(userAgent))
+            {
+                return null;
+            }
+
+            return userAgent.Length <= 512 ? userAgent : userAgent[..512];
+        }
+
+        private string? GetRemoteIp()
+        {
+            return HttpContext.Connection.RemoteIpAddress?.ToString();
+        }
+
+        private static string? Truncate(string? value, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var trimmed = value.Trim();
+            return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
         }
 
         private static string? GetDisplayName(OfficeUser officeUser, AdUserInfo? adUser)
@@ -201,7 +311,25 @@ namespace Office.Server.Controllers
             var fullName = string.Join(" ", parts);
             return string.IsNullOrWhiteSpace(fullName) ? null : fullName;
         }
+
+        private static DateTime GetMoscowNow()
+        {
+            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone);
+        }
+
+        private static TimeZoneInfo ResolveMoscowTimeZone()
+        {
+            try
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Russian Standard Time");
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return TimeZoneInfo.FindSystemTimeZoneById("Europe/Moscow");
+            }
+        }
     }
+
     public class AdUserInfo
     {
         public string? Login { get; set; }

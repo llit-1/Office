@@ -5,6 +5,24 @@
     
 }
 
+html,
+body,
+#root {
+    font-family: var(--font-sans);
+}
+
+body {
+    color: var(--color-text);
+    background-color: var(--color-bg);
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit;
+}
+
 #root {
     width: 100vw;
     height: 100vh;
@@ -73,7 +91,13 @@ select:disabled {
 
 input[type="date"],
 input[type="month"] {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
   color-scheme: light;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 [data-theme="dark"] input[type="date"],

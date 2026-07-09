@@ -5,6 +5,8 @@ import { useSelector } from "react-redux";
 import { useNavigate, useLocation } from "react-router-dom";
 import type { RootState } from "../Store";
 import { getAvailableMenuParts } from "../App/access";
+import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
+import { preloadImage } from "../App/assetPreload";
 
 interface HamburgerMenuProps {
   isMenuOpen: boolean;
@@ -31,7 +33,7 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
   const activeHandler = (index: number, path: string) => {
     setActiveIndex(index);
     setIsMenuOpen(false);
-    navigate(path);
+    void navigateWithPreloadedRoute(navigate, path);
   };
 
   const menuClassName = useMemo(
@@ -50,6 +52,10 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
             key={elem.path}
             className={index === activeIndex ? styles.active : ""}
             onClick={() => activeHandler(index, elem.path)}
+            onMouseEnter={() => {
+              void preloadRouteForPath(elem.path);
+              void preloadImage(elem.img);
+            }}
             title={!isMenuOpen ? elem.name : undefined}
           >
             <div className={styles.menuItemInner}>
