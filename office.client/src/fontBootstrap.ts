@@ -1,5 +1,8 @@
 const FONT_LOAD_TIMEOUT_MS = 2500;
 const FONT_VARIANTS = [
+  "350 1rem 'Roboto Condensed Variable'",
+  "500 1rem 'Roboto Condensed Variable'",
+  "700 1rem 'Roboto Condensed Variable'",
   "400 1rem Akrobat",
   "600 1rem Akrobat",
   "700 1rem Akrobat",

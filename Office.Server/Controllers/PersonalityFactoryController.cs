@@ -11,6 +11,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "FactoryPerson")]
     public class PersonalityFactoryController : ControllerBase
     {
         private readonly RKNETDBContext _context;
@@ -116,10 +117,13 @@ namespace Office.Server.Controllers
         public ActionResult GetJobTitles(int department, int workshop)
         {
             var factoryJobTitles = _context.FactoryDepartmentWorkshopJobTitle
-                .Include(x => x.JobTitleWorkshop)
-                    .ThenInclude(a => a.FactoryJobTitle)
-                .Where(x => x.FactoryDepartmentId == department && x.FactoryWorkshopId == workshop)
-                .Select(x => x.JobTitleWorkshop.FactoryJobTitle)
+                .AsNoTracking()
+                .Where(link => link.FactoryDepartmentId == department && link.FactoryWorkshopId == workshop)
+                .Join(
+                    _context.FactoryJobTitle.AsNoTracking(),
+                    link => link.FactoryJobTitleId,
+                    jobTitle => jobTitle.Id,
+                    (_, jobTitle) => jobTitle)
                 .OrderBy(x => x.Name)
                 .ToList();
 
@@ -196,10 +200,15 @@ namespace Office.Server.Controllers
                     : new List<FactoryWorkshop>(),
                 FactoryJobTitles = (person.FactoryDepartment.HasValue && person.FactoryWorkshop.HasValue)
                     ? _context.FactoryDepartmentWorkshopJobTitle
-                        .Include(x => x.JobTitleWorkshop)
-                            .ThenInclude(a => a.FactoryJobTitle)
-                        .Where(x => x.FactoryDepartmentId == person.FactoryDepartment.Value && x.FactoryWorkshopId == person.FactoryWorkshop.Value)
-                        .Select(x => x.JobTitleWorkshop.FactoryJobTitle)
+                        .AsNoTracking()
+                        .Where(link =>
+                            link.FactoryDepartmentId == person.FactoryDepartment.Value
+                            && link.FactoryWorkshopId == person.FactoryWorkshop.Value)
+                        .Join(
+                            _context.FactoryJobTitle.AsNoTracking(),
+                            link => link.FactoryJobTitleId,
+                            jobTitle => jobTitle.Id,
+                            (_, jobTitle) => jobTitle)
                         .ToList()
                     : new List<FactoryJobTitle>(),
                 FactoryCitizenshipType = person.Citizenship != null

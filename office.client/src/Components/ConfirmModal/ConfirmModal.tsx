@@ -1,4 +1,5 @@
 import Modal from "../Modal/Modal";
+import Button from "../Button/Button";
 import styles from "./ConfirmModal.module.css";
 
 type ConfirmModalProps = {
@@ -31,13 +32,13 @@ export default function ConfirmModal({
         <p className={styles.modalText}>{isOpen ? message : ""}</p>
 
         <div className={styles.modalActions}>
-          <button className={`${styles.modalButton} ${styles.confirmSecondary}`} onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             {cancelLabel}
-          </button>
+          </Button>
 
-          <button className={`${styles.modalButton} ${styles.confirmPrimary}`} onClick={onConfirm}>
+          <Button variant="primary" onClick={onConfirm}>
             {confirmLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

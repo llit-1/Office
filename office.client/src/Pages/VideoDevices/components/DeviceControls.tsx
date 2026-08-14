@@ -1,7 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import Button from "../../../Components/Button/Button";
 import type { FilterState, SortMode } from "../videoDevices.types";
-import styles from "../VideoDevices.module.css";
+import dashboard from "../../../styles/entity-dashboard.module.css";
 
 type DeviceCounts = {
   video: number;
@@ -43,9 +44,9 @@ export default function DeviceControls({
   onBulkUpdate,
 }: DeviceControlsProps) {
   return (
-    <div className={styles.deviceControls}>
-      <div className={styles.controlsLeft}>
-        <label className={styles.search}>
+    <div className={dashboard.toolbar}>
+      <div className={dashboard.toolbarGroup}>
+        <label className={dashboard.search}>
           <SearchRoundedIcon fontSize="small" />
           <input
             value={searchText}
@@ -54,26 +55,26 @@ export default function DeviceControls({
           />
         </label>
 
-        <div className={styles.actions}>
-          <button type="button" className={styles.primaryButton} onClick={onAddDevice}>
+        <div className={dashboard.actionGroup}>
+          <Button variant="primary" onClick={onAddDevice}>
             Добавить устройство
-          </button>
-          <button type="button" className={styles.secondaryButton} onClick={onReplaceVideo}>
+          </Button>
+          <Button variant="secondary" onClick={onReplaceVideo}>
             Замена видео
-          </button>
-          <button type="button" className={styles.secondaryButton} onClick={onBulkUpdate} disabled={outdatedCount === 0}>
+          </Button>
+          <Button variant="secondary" onClick={onBulkUpdate} disabled={outdatedCount === 0}>
             Обновить приложения
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div className={styles.controlsRight}>
-        <div className={styles.filterBar}>
+      <div className={dashboard.toolbarEnd}>
+        <div className={dashboard.filterGroup}>
           {filterItems.map(([key, getLabel]) => (
             <button
               type="button"
               key={key}
-              className={`${styles.filterButton} ${filters[key] ? styles.filterButtonActive : ""}`}
+              className={`${dashboard.filterButton} ${filters[key] ? dashboard.filterButtonActive : ""}`}
               onClick={() => onFiltersChange((current) => ({ ...current, [key]: !current[key] }))}
             >
               {getLabel(counts)}
@@ -82,7 +83,7 @@ export default function DeviceControls({
         </div>
 
         <select
-          className={styles.sortSelect}
+          className={dashboard.sortSelect}
           value={sortMode}
           onChange={(event) => onSortModeChange(event.target.value as SortMode)}
           aria-label="Сортировка устройств"

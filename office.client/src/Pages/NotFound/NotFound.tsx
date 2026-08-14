@@ -1,5 +1,6 @@
 import styles from "./NotFound.module.css"
 import { useNavigate } from "react-router-dom"
+import Button from "../../Components/Button/Button"
 
 const NotFound = () => {
 
@@ -14,10 +15,10 @@ const NotFound = () => {
         <div className={styles.notFoundContainer}>
             <p>Ошибочка, тут ничего нет :(</p>
             <div className={styles.circle}> 404 </div>
-            <button 
-                className={styles.notFoundButton}
+            <Button
+                variant="secondary"
                 onClick={goToHome}
-            >Вернуться на главную страницу</button>
+            >Вернуться на главную страницу</Button>
         </div>
     </>
   )

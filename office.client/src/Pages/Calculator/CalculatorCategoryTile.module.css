@@ -6,7 +6,7 @@
     justify-content: space-evenly;
     flex-direction: column;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     align-items: center;
     position: relative;
     transition: box-shadow 0.3s ease, transform 0.3s ease;
@@ -19,7 +19,7 @@
 
 .categoryTile_wrapper:hover {
     box-shadow: var(--shadow-lg); 
-    transform: translateY(-3px);
+    border-color: var(--color-primary);
 }
 
 .categoryTile_img {
@@ -29,7 +29,8 @@
 
 .categoryTile_text {
     font-size: 24px;
-    font-family: "Akrobat";
+    font-family: var(--font-heading);
+    letter-spacing: normal;
     font-weight: 300;
     text-align: center;
 }

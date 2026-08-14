@@ -1,8 +1,8 @@
 .calculator_wrapper {
   width: 100%;
   background-color: var(--color-surface);
-  border-radius: 8px;
-  padding: 10px;
+  border-radius: var(--radius-control);
+  padding: 12px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(201px, 1fr));
   gap: 8px;
@@ -12,7 +12,6 @@
   height: calc(100% - 52px);
   box-shadow: 0px 4px 5px 0px var(--color-overlay);
   padding-right: 8px;
-  margin-right: -12px; 
 }
 
 .calculator_wrapper::-webkit-scrollbar {
@@ -22,12 +21,12 @@
 
 .calculator_wrapper::-webkit-scrollbar-track {
   background: var(--color-surface-muted); /* светлый фон */
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .calculator_wrapper::-webkit-scrollbar-thumb {
   background-color: var(--color-border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   transition: background-color 0.2s ease;
 }
 
@@ -44,7 +43,7 @@
 
 .table_search {
   composes: searchShell from "../../styles/shared-search-layout.module.css";
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   --search-shell-width: 100%;
 }
 
@@ -64,7 +63,7 @@
 .badSearch {
   font-size: 18px;
   font-weight: 400;
-  padding-top: 10px;
+  padding-top: 12px;
 }
 
 

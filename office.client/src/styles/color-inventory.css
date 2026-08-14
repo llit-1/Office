@@ -1,36 +1,50 @@
 
 :root {
   --color-white: #ffffff;
+  --color-black: #000000;
 
   /* Brand */
   --color-primary: #f47920;
-  --color-primary-hover: #d36218;
+  --color-primary-hover: #df650f;
   --color-primary-soft: #fca160;
+  /* Brand-filled controls keep the corporate orange. Use the dark foreground below. */
+  --color-primary-solid: #f47920;
+  --color-on-primary: #333333;
+  --color-on-primary-solid: #ffffff;
+  --color-primary-surface: #fff1e8;
+  --color-primary-border: #df650f;
+  --color-selection-bg: #f9b27f;
+  --color-selection-text: #242126;
 
   /* Success (2-3 greens max) */
   --color-success: #45A366;       /* confirmation/action success */
   --color-success-light: #4caf50; /* lighter success */
   --color-success-bg: #e0f7e9;    /* success background blocks */
+  --color-success-text: #25633b;
 
   /* Danger / Error */
   --color-danger: hsl(355.636 calc(1*64.706%) 50% /1);
-  --color-danger-border: hsl(0 calc(1*0%) 100% /0.0784313725490196);
+  --color-danger-border: #c53a45;
   --color-danger-hover: hsl(355.075 calc(1*65.686%) 40% /1);
-  --color-danger-border: hsl(0 calc(1*0%) 100% /0.0784313725490196);
-  --color-danger-bg: rgba(239, 68, 68, 0.4);
-  --color-danger-text: hsl(2.655 calc(1*100%) 77.843% /1);
+  --color-danger-bg: #fdebec;
+  --color-danger-text: #a82a32;
+  --color-danger-surface: #fdebec;
+  --color-danger-on-surface: #a82a32;
 
   /* Warning */
   --color-warning: #f59e0b;
   --color-warning-bg: #ffe7c8;
+  --color-warning-text: #805400;
   --color-filter-indicator: #5865F1;
 
   /* Info */
   --color-info: #06b6d4;
   --color-info-bg: #eaf7ff;
+  --color-info-text: #075f72;
 
   /* Surfaces and background */
   --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
   --color-surface-muted: #f5f5f5;
   --color-bg: #eeeeee;
   --color-bg-strong: hsl(240 calc(1*4%) 60.784% /0.2);
@@ -38,11 +52,24 @@
   /* Text */
   --color-text: #333333;
   --color-text-muted: #6d6d6d;
-  --color-text-subtle: #8a8a8a;
+  --color-text-subtle: #707070;
+  --color-text-secondary: var(--color-text-muted);
 
   /* Borders */
   --color-border: #dadce0;
   --color-border-strong: #bdbdbd;
+  --color-border-soft: color-mix(in srgb, var(--color-border) 64%, transparent);
+
+  /* Interaction */
+  --color-hover: #f1f2f3;
+  --color-selected: #fff1e8;
+  --color-disabled-surface: #eceef1;
+  --color-disabled-text: #707070;
+  --color-inactive: #6b7280;
+  --color-inactive-strong: #4b5563;
+  --color-inactive-dark: #111827;
+  --color-inactive-light: #9ca3af;
+  --color-highlight: rgba(255, 224, 130, 0.85);
 
   /* Overlays / shadows */
   --color-transparent: transparent;
@@ -50,48 +77,147 @@
   --color-overlay: #0000002e;
   --color-overlay-strong: #00000063;
   --color-overlay-modal: rgba(0, 0, 0, 0.65);
+  --color-overlay-on-media-soft: rgba(15, 18, 22, 0.5);
+  --color-overlay-on-media: rgba(8, 11, 16, 0.68);
+  --color-overlay-on-media-strong: rgba(8, 11, 16, 0.88);
+  --color-overlay-on-media-danger: rgba(15, 18, 22, 0.62);
+  --color-on-media: #ffffff;
+  --color-on-media-muted: rgba(255, 255, 255, 0.82);
+  --color-on-media-border: rgba(255, 255, 255, 0.28);
+  --gradient-media-card: linear-gradient(180deg, rgba(8, 12, 18, 0.04) 20%, rgba(8, 12, 18, 0.84) 100%);
+  --gradient-media-hero: linear-gradient(90deg, rgba(8, 11, 16, 0.88) 0%, rgba(8, 11, 16, 0.62) 52%, rgba(8, 11, 16, 0.3) 100%);
+  --gradient-media-mobile: linear-gradient(180deg, rgba(8, 11, 16, 0.48) 0%, rgba(8, 11, 16, 0.88) 100%);
+  --color-shadow-sm: rgba(16, 24, 40, 0.05);
+  --color-shadow-md: rgba(16, 24, 40, 0.08);
+  --color-shadow-lg: rgba(16, 24, 40, 0.12);
+  --shadow-text-media-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-text-media-lg: 0 3px 18px rgba(0, 0, 0, 0.38);
+
+  /* Document and file-type accents. These are categorical, not UI states. */
+  --color-file-pdf: #c43e1c;
+  --color-file-word: #2b579a;
+  --color-file-excel: #1d6f42;
+  --color-file-image: #7e3ff2;
+  --color-file-video: #c2185b;
+  --color-file-text: #546e7a;
+  --color-file-archive: #a9761b;
+  --color-file-folder: #d36218;
+  --color-file-code: #10707f;
+  --color-file-other: #6d7076;
+
+  /* Office viewer keeps a paper-like canvas in both application themes. */
+  --color-document-canvas: #ffffff;
+  --color-document-text: #202124;
+  --color-document-muted: #62666d;
+  --color-document-surface: #f2f3f5;
+  --color-document-border: #d6d9dd;
+  --color-document-gridline: #dcdfe3;
+  --color-document-link: #1155cc;
+  --color-document-workspace: #252629;
+
+  /* Data visualisation. Canvas renderers cannot resolve CSS variables themselves. */
+  --color-chart-tooltip-label: #1f2937;
+  --color-chart-tooltip-bg: rgba(15, 23, 42, 0.95);
+  --color-chart-tooltip-text: #f8fafc;
+  --color-chart-axis: #6b7280;
+  --color-chart-axis-line: #d1d5db;
+  --color-chart-grid: rgba(148, 163, 184, 0.2);
+  --color-chart-series: #f97316;
+  --color-chart-series-fill: rgba(249, 115, 22, 0.2);
+  --color-chart-series-fill-soft: rgba(249, 115, 22, 0.02);
+  --color-chart-point: #ffffff;
+  --color-chart-warning: #f59e0b;
+  --color-chart-danger: #dc2626;
+  --color-chart-maintenance: rgba(59, 130, 246, 0.18);
+
+  /* Generated office files deliberately keep a stable light document theme. */
+  --color-export-header: #f47920;
+  --color-export-header-text: #ffffff;
+  --color-export-border: #d9dee7;
+  --color-export-row: #f7f8fa;
+  --color-export-surface: #ffffff;
 }
 
 [data-theme="dark"] {
   --color-white: #ffffff;
+  --color-black: #000000;
 
-  --color-primary: #5865F1;
-  --color-primary-hover: hsl(232.941 calc(1*46.667%) 50% /1);
+  --color-primary: #5865f1;
+  --color-primary-hover: #4752c4;
   --color-primary-soft: #5865f1a3;
+  --color-primary-solid: #5865f1;
+  --color-on-primary: #ffffff;
+  --color-on-primary-solid: #ffffff;
+  --color-primary-surface: #34384f;
+  --color-primary-border: #7b85f5;
+  --color-selection-bg: #4650b8;
+  --color-selection-text: #ffffff;
 
   --color-success: #45A366;
   --color-success-light: #4caf50;
-  --color-success-bg: #8bad98;
+  --color-success-bg: #20372a;
+  --color-success-text: #7bd69a;
 
   --color-danger: hsl(355.636 calc(1*64.706%) 50% /1);
-  --color-danger-border: hsl(0 calc(1*0%) 100% /0.0784313725490196);
+  --color-danger-border: #ff9ca4;
   --color-danger-hover: hsl(355.075 calc(1*65.686%) 40% /1);
-  --color-danger-border: hsl(0 calc(1*0%) 100% /0.0784313725490196);
-  --color-danger-bg: rgba(239, 68, 68, 0.4);
-  --color-danger-text: hsl(2.655 calc(1*100%) 77.843% /1);
+  --color-danger-bg: #41252a;
+  --color-danger-text: #ff9ca4;
+  --color-danger-surface: #41252a;
+  --color-danger-on-surface: #ff9ca4;
 
   --color-warning: #f59e0b;
   --color-warning-light: #f59e0b80;
   --color-warning-bg: #453417;
+  --color-warning-text: #ffc65c;
   --color-filter-indicator: #ffb07c;
 
-  --color-info: color-mix(in oklab, var(--blue-new-27) 100%, var(--custom-theme-text-color, #000) var(--custom-theme-text-color-amount, 0%));
-  --color-info-bg: #95b4c0;
+  --color-info: #46c8df;
+  --color-info-bg: #20383d;
+  --color-info-text: #78dbea;
 
   --color-surface: #2E2F35;
+  --color-surface-elevated: #35363c;
   --color-surface-muted: color-mix(in oklab,hsl(240 calc(1*4%) 60.784% /0.0784313725490196) 100%,hsl(0 0% 0% /0.0784313725490196) 0%);
   --color-bg: #323339;
   --color-bg-strong: hsl(240 calc(1*4%) 60.784% /0.2);
 
   --color-text: color-mix(in oklab, hsl(231.429 calc(1*4.348%) 68.431% /1) 100%, #000 0%);
   --color-text-muted:  color-mix(in oklab, hsl(0 calc(1*0%) 100% /1) 100%, var(--custom-theme-text-color, #000) var(--custom-theme-text-color-amount, 0%));
-  --color-text-subtle: #434d5b;
+  --color-text-subtle: #9ca3af;
+  --color-text-secondary: var(--color-text-muted);
 
   --color-border: color-mix(in oklab,hsl(240 calc(1*4%) 60.784% /0.12156862745098039) 100%,hsl(0 0% 0% /0.12156862745098039) 0%);
   --color-border-strong: #6a7588;
+  --color-border-soft: color-mix(in srgb, var(--color-border) 64%, transparent);
+
+  --color-hover: #3a3b42;
+  --color-selected: #34384f;
+  --color-disabled-surface: #35363a;
+  --color-disabled-text: #9ca3af;
+  --color-inactive: #9ca3af;
+  --color-inactive-strong: #b8bac0;
+  --color-inactive-dark: #d1d5db;
+  --color-inactive-light: #c9ccd1;
+  --color-highlight: rgba(255, 224, 130, 0.85);
 
   --color-overlay-soft: #00000032;
   --color-overlay: #0000005b;
   --color-overlay-strong: #0000008b;
   --color-overlay-modal: rgba(0, 0, 0, 0.72);
+  --color-overlay-on-media-soft: rgba(15, 18, 22, 0.5);
+  --color-overlay-on-media: rgba(8, 11, 16, 0.68);
+  --color-overlay-on-media-strong: rgba(8, 11, 16, 0.88);
+  --color-overlay-on-media-danger: rgba(15, 18, 22, 0.62);
+  --color-on-media: #ffffff;
+  --color-on-media-muted: rgba(255, 255, 255, 0.82);
+  --color-on-media-border: rgba(255, 255, 255, 0.28);
+  --gradient-media-card: linear-gradient(180deg, rgba(8, 12, 18, 0.04) 20%, rgba(8, 12, 18, 0.84) 100%);
+  --gradient-media-hero: linear-gradient(90deg, rgba(8, 11, 16, 0.88) 0%, rgba(8, 11, 16, 0.62) 52%, rgba(8, 11, 16, 0.3) 100%);
+  --gradient-media-mobile: linear-gradient(180deg, rgba(8, 11, 16, 0.48) 0%, rgba(8, 11, 16, 0.88) 100%);
+  --color-shadow-sm: rgba(0, 0, 0, 0.22);
+  --color-shadow-md: rgba(0, 0, 0, 0.35);
+  --color-shadow-lg: rgba(0, 0, 0, 0.48);
+  --shadow-text-media-sm: 0 2px 10px rgba(0, 0, 0, 0.35);
+  --shadow-text-media-lg: 0 3px 18px rgba(0, 0, 0, 0.38);
 }

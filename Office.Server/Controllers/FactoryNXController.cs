@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB;
@@ -15,6 +16,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "FactoryNX")]
     public class FactoryNXController : ControllerBase
     {
         private readonly RKNETDBContext _rKNETDBContext;

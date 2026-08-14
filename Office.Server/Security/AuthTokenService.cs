@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.DbContexts.RKNETDB.Models;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
 
@@ -11,21 +12,32 @@ namespace Office.Server.Security
     public sealed class AuthTokenService
     {
         private readonly IDataProtector _refreshTokenProtector;
+        private readonly ILogger<AuthTokenService> _logger;
 
-        public AuthTokenService(IDataProtectionProvider dataProtectionProvider)
+        public AuthTokenService(
+            IDataProtectionProvider dataProtectionProvider,
+            ILogger<AuthTokenService> logger)
         {
             _refreshTokenProtector = dataProtectionProvider.CreateProtector("Office.Server.Auth.RefreshToken.v1");
+            _logger = logger;
         }
 
         public string CreateAccessToken(OfficeUser user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(Global.SecretKey);
-            var claims = new[]
+            var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.Name, user.Login),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             };
+
+            claims.AddRange(user.OfficeGroup
+                .SelectMany(group => group.OfficeRole)
+                .Select(role => role.Role?.Trim())
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(role => new Claim(ClaimTypes.Role, role!)));
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
@@ -51,37 +63,55 @@ namespace Office.Server.Security
             };
         }
 
-        public RefreshTokenPayload? ReadRefreshToken(string rawToken)
+        public bool TryReadRefreshToken(
+            string rawToken,
+            out RefreshTokenPayload? refreshToken,
+            out string failureReason)
         {
+            refreshToken = null;
+            failureReason = string.Empty;
+
             try
             {
                 var payload = _refreshTokenProtector.Unprotect(rawToken);
                 var parts = payload.Split('\n');
                 if (parts.Length != 3)
                 {
-                    return null;
+                    failureReason = "malformed_payload";
+                    return false;
                 }
 
                 if (!int.TryParse(parts[0], out var officeUserId))
                 {
-                    return null;
+                    failureReason = "invalid_user_id";
+                    return false;
                 }
 
                 if (!DateTime.TryParse(parts[2], null, System.Globalization.DateTimeStyles.RoundtripKind, out var expiresAtUtc))
                 {
-                    return null;
+                    failureReason = "invalid_expiration";
+                    return false;
                 }
 
-                return new RefreshTokenPayload
+                refreshToken = new RefreshTokenPayload
                 {
                     OfficeUserId = officeUserId,
                     Login = parts[1],
                     ExpiresAtUtc = expiresAtUtc
                 };
+                return true;
             }
-            catch
+            catch (CryptographicException ex)
             {
-                return null;
+                failureReason = "unprotect_failed";
+                _logger.LogWarning(ex, "Refresh token could not be decrypted with the current Data Protection key ring.");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                failureReason = "unexpected_read_error";
+                _logger.LogError(ex, "Unexpected error while reading a refresh token.");
+                return false;
             }
         }
 

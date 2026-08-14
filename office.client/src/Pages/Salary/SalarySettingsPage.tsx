@@ -5,6 +5,7 @@ import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import Modal from "../../Components/Modal/Modal";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import Checkbox from "../../Components/Checkbox/Checkbox";
+import Button from "../../Components/Button/Button";
 import Input from "../../Components/Input/Input";
 import Select from "../../Components/Select/Select";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
@@ -442,7 +443,7 @@ const SalarySettingsPage = () => {
                 <div>
                   <p className={styles.sectionMeta}>{baseData?.loadError || `Правил: ${baseData?.baseRules.length ?? 0}`}</p>
                 </div>
-                <button className={styles.primaryButton} type="button" onClick={openCreateBaseModal}>Добавить</button>
+                <Button variant="primary" onClick={openCreateBaseModal}>Добавить</Button>
               </div>
 
               {baseData?.baseRules.length ? (
@@ -484,7 +485,7 @@ const SalarySettingsPage = () => {
                 <div>
                   <p className={styles.sectionMeta}>{locationRules.loadError || `Правил: ${locationRules.items.length}`}</p>
                 </div>
-                <button className={styles.primaryButton} type="button" onClick={openCreateLocationModal}>Добавить</button>
+                <Button variant="primary" onClick={openCreateLocationModal}>Добавить</Button>
               </div>
 
               {locationRules.items.length ? (
@@ -520,7 +521,7 @@ const SalarySettingsPage = () => {
                 <div>
                   <p className={styles.sectionMeta}>{experienceRules.loadError || `Правил: ${experienceRules.items.length}`}</p>
                 </div>
-                <button className={styles.primaryButton} type="button" onClick={openCreateExperienceModal}>Добавить</button>
+                <Button variant="primary" onClick={openCreateExperienceModal}>Добавить</Button>
               </div>
 
               {experienceRules.items.length ? (
@@ -652,13 +653,13 @@ const SalarySettingsPage = () => {
         </div>
         <div className={styles.modalActions}>
           {baseForm.ruleId && (
-            <button className={styles.dangerButton} type="button" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "base", id: baseForm.ruleId! })}>
+            <Button variant="danger" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "base", id: baseForm.ruleId! })}>
               Удалить
-            </button>
+            </Button>
           )}
-          <button className={styles.primaryButton} type="button" disabled={isSaving} onClick={handleSaveBaseRule}>
+          <Button variant="primary" loading={isSaving} onClick={handleSaveBaseRule}>
             {isSaving ? "Сохранение..." : baseForm.ruleId ? "Сохранить" : "Создать"}
-          </button>
+          </Button>
         </div>
       </Modal>
 
@@ -687,13 +688,13 @@ const SalarySettingsPage = () => {
         </div>
         <div className={styles.modalActions}>
           {locationForm.ruleId && (
-            <button className={styles.dangerButton} type="button" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "location", id: locationForm.ruleId! })}>
+            <Button variant="danger" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "location", id: locationForm.ruleId! })}>
               Удалить
-            </button>
+            </Button>
           )}
-          <button className={styles.primaryButton} type="button" disabled={isSaving} onClick={handleSaveLocationRule}>
+          <Button variant="primary" loading={isSaving} onClick={handleSaveLocationRule}>
             {isSaving ? "Сохранение..." : locationForm.ruleId ? "Сохранить" : "Создать"}
-          </button>
+          </Button>
         </div>
       </Modal>
 
@@ -717,13 +718,13 @@ const SalarySettingsPage = () => {
         </div>
         <div className={styles.modalActions}>
           {experienceForm.ruleId && (
-            <button className={styles.dangerButton} type="button" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "experience", id: experienceForm.ruleId! })}>
+            <Button variant="danger" disabled={isSaving} onClick={() => setDeleteTarget({ kind: "experience", id: experienceForm.ruleId! })}>
               Удалить
-            </button>
+            </Button>
           )}
-          <button className={styles.primaryButton} type="button" disabled={isSaving} onClick={handleSaveExperienceRule}>
+          <Button variant="primary" loading={isSaving} onClick={handleSaveExperienceRule}>
             {isSaving ? "Сохранение..." : experienceForm.ruleId ? "Сохранить" : "Создать"}
-          </button>
+          </Button>
         </div>
       </Modal>
 

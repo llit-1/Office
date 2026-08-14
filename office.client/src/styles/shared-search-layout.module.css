@@ -1,12 +1,12 @@
 .searchShell {
   background-color: var(--color-surface);
   width: var(--search-shell-width, fit-content);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: var(--search-shell-justify, space-evenly);
-  padding-left: 5px;
+  padding-left: 4px;
   border: 1px solid var(--color-border);
 }
 
@@ -18,11 +18,11 @@
 
 .searchShell > input {
   border: none;
-  margin-left: 10px;
+  margin-left: 12px;
   background-color: var(--color-transparent);
   outline: none;
   height: 40px;
-  padding-right: 5px;
+  padding-right: 4px;
   font-size: 16px;
   color: var(--color-text);
 }
@@ -35,7 +35,8 @@
   display: flex;
   align-items: center;
   padding: 0;
-  gap: 10px;
+  gap: 12px;
+  padding-bottom: var(--space-3);
   justify-content: start;
 }
 
@@ -45,7 +46,6 @@
     flex-direction: row;
     justify-content: flex-start;
     align-items: center;
-    padding-bottom: 10px;
 }
 
 @media screen and (max-width: 586px) {

@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
 using System.Diagnostics;
@@ -9,6 +11,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "VideoDevices")]
     public class VideoDevicesController : ControllerBase
     {
         private static readonly Guid[] TestLocationTypeGuids =
@@ -34,15 +37,18 @@ namespace Office.Server.Controllers
         private readonly RKNETDBContext _context;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<VideoDevicesController> _logger;
 
         public VideoDevicesController(
             RKNETDBContext context,
             IHttpClientFactory httpClientFactory,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ILogger<VideoDevicesController> logger)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
+            _logger = logger;
         }
 
         private string VideoTvRootPath => _configuration["VideoDevices:RootPath"]
@@ -94,6 +100,12 @@ namespace Office.Server.Controllers
         [HttpGet("form-data")]
         public async Task<IActionResult> GetFormData([FromQuery] Guid? deviceGuid)
         {
+            var rootError = GetVideoTvRootAvailabilityError();
+            if (rootError != null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = rootError });
+            }
+
             SyncVideoLibraryWithDisk();
 
             var videos = await _context.VideoInfo
@@ -246,6 +258,12 @@ namespace Office.Server.Controllers
         [HttpGet("videos")]
         public IActionResult GetVideos()
         {
+            var rootError = GetVideoTvRootAvailabilityError();
+            if (rootError != null)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = rootError });
+            }
+
             SyncVideoLibraryWithDisk();
 
             var videos = _context.VideoInfo
@@ -282,9 +300,10 @@ namespace Office.Server.Controllers
         [HttpGet("apks")]
         public IActionResult GetApkFiles()
         {
-            if (!Directory.Exists(VideoTvRootPath))
+            var rootError = GetVideoTvRootAvailabilityError();
+            if (rootError != null)
             {
-                return Ok(Array.Empty<ApkFileDto>());
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = rootError });
             }
 
             var files = Directory
@@ -365,37 +384,18 @@ namespace Office.Server.Controllers
                 return BadRequest(new { message = "IP не указан." });
             }
 
-            try
+            var ip = NormalizeDeviceIp(request.Ip);
+            var result = await GetDeviceStatusResult(Guid.Empty, ip, GetActualVersion());
+            await UpdateDeviceVersion(result);
+
+            return Ok(new
             {
-                var ip = NormalizeDeviceIp(request.Ip);
-                var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromSeconds(15);
-
-                using var response = await client.GetAsync($"http://{ip}/?action=getIP");
-                if (!response.IsSuccessStatusCode)
-                {
-                    return Ok(new { ok = false, errorMessage = $"Устройство не отвечает: {response.StatusCode}" });
-                }
-
-                var versionFromDevice = (await response.Content.ReadAsStringAsync()).Trim();
-                var device = await _context.VideoDevices.FirstOrDefaultAsync(x => x.Ip.Trim() == ip);
-                if (device != null && device.Version != versionFromDevice)
-                {
-                    device.Version = versionFromDevice;
-                    await _context.SaveChangesAsync();
-                }
-
-                return Ok(new
-                {
-                    ok = true,
-                    serverVersion = GetActualVersion(),
-                    versionFromDevice
-                });
-            }
-            catch (Exception ex)
-            {
-                return Ok(new { ok = false, errorMessage = GetDeviceRequestErrorMessage(ex, "Приставка не ответила за 15 секунд.", "Не удалось проверить приставку.") });
-            }
+                ok = result.Ok,
+                status = result.Status,
+                serverVersion = result.ServerVersion,
+                versionFromDevice = result.VersionFromDevice,
+                errorMessage = result.ErrorMessage
+            });
         }
 
         [HttpPost("devices/status")]
@@ -657,19 +657,6 @@ namespace Office.Server.Controllers
                 return BadRequest(new { message = "APK файл не выбран." });
             }
 
-            var apkPath = GetSafeApkPath(request.ApkName);
-            if (apkPath == null || !System.IO.File.Exists(apkPath))
-            {
-                return NotFound(new { message = "APK файл не найден." });
-            }
-
-            var appSettings = GetAndroidAppSettings();
-            if (appSettings.ErrorMessage != null)
-            {
-                return Ok(new { ok = false, errorMessage = appSettings.ErrorMessage });
-            }
-
-            var adbPath = GetAdbPath();
             var ip = NormalizeDeviceIp(request.Ip);
             var host = ExtractHost(ip);
             if (string.IsNullOrWhiteSpace(host))
@@ -682,6 +669,24 @@ namespace Office.Server.Controllers
 
             try
             {
+                var apkPath = GetSafeApkPath(request.ApkName);
+                if (apkPath == null)
+                {
+                    return NotFound(new { message = "APK файл не найден." });
+                }
+
+                if (!System.IO.File.Exists(apkPath))
+                {
+                    return NotFound(new { message = $"APK файл не найден или недоступен: {request.ApkName}" });
+                }
+
+                var appSettings = GetAndroidAppSettings();
+                if (appSettings.ErrorMessage != null)
+                {
+                    return Ok(new { ok = false, errorMessage = appSettings.ErrorMessage });
+                }
+
+                var adbPath = GetAdbPath();
                 installApkPath = CopyApkToAdbSafeTempPath(apkPath);
 
                 var connectResult = await RunProcessAsync(adbPath, ["connect", adbTarget], TimeSpan.FromMinutes(5));
@@ -732,8 +737,24 @@ namespace Office.Server.Controllers
                     startOutput = startResult.Output
                 });
             }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "VideoDevices app update configuration error. Ip={Ip}, ApkName={ApkName}", request.Ip, request.ApkName);
+                return Ok(new { ok = false, errorMessage = ex.Message });
+            }
+            catch (IOException ex)
+            {
+                _logger.LogError(ex, "VideoDevices app update file access error. Ip={Ip}, ApkName={ApkName}", request.Ip, request.ApkName);
+                return Ok(new { ok = false, errorMessage = $"Не удалось получить доступ к APK файлу: {ex.Message}" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogError(ex, "VideoDevices app update access denied. Ip={Ip}, ApkName={ApkName}", request.Ip, request.ApkName);
+                return Ok(new { ok = false, errorMessage = $"Нет доступа к APK файлу: {ex.Message}" });
+            }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "VideoDevices app update unexpected error. Ip={Ip}, ApkName={ApkName}", request.Ip, request.ApkName);
                 return Ok(new { ok = false, errorMessage = $"Не удалось обновить приложение через ADB: {ex.Message}" });
             }
             finally
@@ -909,6 +930,34 @@ namespace Office.Server.Controllers
                 .Where(x => x.Number == 0)
                 .Select(x => (Guid?)x.Guid)
                 .FirstOrDefaultAsync();
+        }
+
+        private string? GetVideoTvRootAvailabilityError()
+        {
+            if (string.IsNullOrWhiteSpace(VideoTvRootPath))
+            {
+                const string message = "Не настроен путь к каталогу ВидеоТВ.";
+                _logger.LogError(message);
+                return message;
+            }
+
+            try
+            {
+                if (!Directory.Exists(VideoTvRootPath))
+                {
+                    var message = $"Каталог ВидеоТВ недоступен: '{VideoTvRootPath}'. Проверьте путь и права учетной записи приложения на сетевую шару.";
+                    _logger.LogError("VideoTV root path is unavailable: {VideoTvRootPath}", VideoTvRootPath);
+                    return message;
+                }
+
+                _ = Directory.EnumerateFileSystemEntries(VideoTvRootPath).FirstOrDefault();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to access VideoTV root path: {VideoTvRootPath}", VideoTvRootPath);
+                return $"Каталог ВидеоТВ недоступен: '{VideoTvRootPath}'. {ex.Message}";
+            }
         }
 
         private void SyncVideoLibraryWithDisk()
@@ -1137,9 +1186,121 @@ namespace Office.Server.Controllers
 
         private string GetAdbPath()
         {
-            return string.IsNullOrWhiteSpace(_configuration["VideoDevices:AdbPath"])
-                ? "adb"
-                : _configuration["VideoDevices:AdbPath"]!;
+            var configuredPath = _configuration["VideoDevices:AdbPath"];
+            var adbPath = ResolveAdbPath(configuredPath);
+            _logger.LogInformation("Resolved ADB path: {AdbPath}", adbPath);
+            return adbPath;
+        }
+
+        private string ResolveAdbPath(string? configuredPath)
+        {
+            foreach (var candidate in GetAdbPathCandidates(configuredPath))
+            {
+                if (System.IO.File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            var configuredValue = string.IsNullOrWhiteSpace(configuredPath) ? "adb" : configuredPath.Trim();
+            throw new InvalidOperationException(
+                "Не найден adb.exe. " +
+                "Укажите полный путь в настройке VideoDevices:AdbPath " +
+                "(например, C:\\Android\\platform-tools\\adb.exe) " +
+                "или установите Android Platform Tools на сервер и добавьте adb.exe в PATH. " +
+                $"Текущее значение настройки: '{configuredValue}'.");
+        }
+
+        private static IEnumerable<string> GetAdbPathCandidates(string? configuredPath)
+        {
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var candidate in GetConfiguredAdbCandidates(configuredPath))
+            {
+                if (seen.Add(candidate))
+                {
+                    yield return candidate;
+                }
+            }
+
+            foreach (var candidate in GetPathExecutableCandidates("adb"))
+            {
+                if (seen.Add(candidate))
+                {
+                    yield return candidate;
+                }
+            }
+
+            var baseDirectory = AppContext.BaseDirectory;
+            foreach (var candidate in new[]
+            {
+                Path.Combine(baseDirectory, "adb.exe"),
+                Path.Combine(baseDirectory, "platform-tools", "adb.exe"),
+                BuildSdkAdbPath(Environment.GetEnvironmentVariable("ANDROID_SDK_ROOT")),
+                BuildSdkAdbPath(Environment.GetEnvironmentVariable("ANDROID_HOME")),
+                BuildSdkAdbPath(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Android", "Sdk"),
+                BuildSdkAdbPath(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Android", "platform-tools"),
+                BuildSdkAdbPath(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Android", "platform-tools")
+            }.Where(x => !string.IsNullOrWhiteSpace(x)))
+            {
+                if (seen.Add(candidate!))
+                {
+                    yield return candidate!;
+                }
+            }
+        }
+
+        private static IEnumerable<string> GetConfiguredAdbCandidates(string? configuredPath)
+        {
+            var value = string.IsNullOrWhiteSpace(configuredPath) ? "adb" : configuredPath.Trim();
+
+            if (Path.IsPathRooted(value))
+            {
+                yield return EnsureExeSuffix(value);
+                yield break;
+            }
+
+            if (value.Contains(Path.DirectorySeparatorChar) || value.Contains(Path.AltDirectorySeparatorChar))
+            {
+                yield return Path.GetFullPath(EnsureExeSuffix(Path.Combine(AppContext.BaseDirectory, value)));
+                yield break;
+            }
+
+            foreach (var candidate in GetPathExecutableCandidates(value))
+            {
+                yield return candidate;
+            }
+        }
+
+        private static IEnumerable<string> GetPathExecutableCandidates(string executableName)
+        {
+            var fileName = EnsureExeSuffix(executableName);
+            var pathValue = Environment.GetEnvironmentVariable("PATH");
+            if (string.IsNullOrWhiteSpace(pathValue))
+            {
+                yield break;
+            }
+
+            foreach (var directory in pathValue
+                .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                yield return Path.Combine(directory, fileName);
+            }
+        }
+
+        private static string EnsureExeSuffix(string path)
+        {
+            return Path.HasExtension(path) ? path : $"{path}.exe";
+        }
+
+        private static string? BuildSdkAdbPath(string? rootPath, params string[] extraSegments)
+        {
+            if (string.IsNullOrWhiteSpace(rootPath))
+            {
+                return null;
+            }
+
+            return Path.Combine(new[] { rootPath }.Concat(extraSegments).Concat(["adb.exe"]).ToArray());
         }
 
         private AndroidAppSettings GetAndroidAppSettings()
@@ -1248,6 +1409,7 @@ namespace Office.Server.Controllers
             process.StartInfo = new ProcessStartInfo
             {
                 FileName = fileName,
+                WorkingDirectory = AppContext.BaseDirectory,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,

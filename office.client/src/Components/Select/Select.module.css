@@ -1,8 +1,5 @@
 .selectWrapper {
-    position: relative;
-    width: 100%;
-    height: 50px;
-    min-height: 50px;
+    box-sizing: border-box;
 }
 
 .sizeMedium {
@@ -13,34 +10,27 @@
     grid-column: span 1;
 }
 
-.label {
-    position: absolute;
-    top: -10px;
-    left: 12px;
-    background-color: var(--select-label-background, var(--color-surface));
-    padding: 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-}
-
 .select {
     width: 100%;
     height: 100%;
-    padding-left: 12px;
-    border-radius: 8px;
+    padding-left: var(--space-3);
+    border-radius: var(--outlined-field-radius, var(--radius-control));
     border: 1px solid var(--color-border);
-    font-size: 16px;
-    transition: all 0.05s ease;
+    font-size: var(--font-size-body);
+    transition: border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard), background-color var(--duration-fast) var(--easing-standard);
     background-color: var(--color-surface);
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    text-align: left;
     padding-right: 36px;
 }
 
 .select:focus {
-    border: 2px solid var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.select:focus-visible {
     outline: none;
 }
 
@@ -63,43 +53,46 @@
 .customControl {
     width: 100%;
     height: 100%;
-    padding-left: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    font-size: 16px;
+    padding-left: var(--space-3);
+    border-radius: var(--outlined-field-radius, var(--radius-control));
+    border: 0;
+    font-size: var(--font-size-body);
     display: flex;
     align-items: center;
     background-color: var(--color-surface);
     cursor: pointer;
     padding-right: 36px;
-    transition: all 0.05s ease;
+    text-align: left;
+    transition: border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard), background-color var(--duration-fast) var(--easing-standard);
 }
 
 .customControl:focus {
-    border: 2px solid var(--color-primary);
     outline: none;
 }
 
-.selectWrapper:focus-within .customControl,
-.customControl.open {
-    border: 2px solid var(--color-primary);
+.customControl:focus-visible {
     outline: none;
 }
 
 .value {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .icon {
     position: absolute;
-    right: 12px;
+    right: var(--space-3);
     top: 50%;
     transform: translateY(-50%) rotate(0deg);
     transform-origin: center;
     color: var(--color-text-muted);
     pointer-events: none;
-    font-size: 22px;
-    transition: transform 180ms ease;
+    font-size: var(--icon-size-lg);
+    transition: transform var(--duration-normal) var(--easing-standard);
 }
 
 .customControl.open .icon {
@@ -112,7 +105,6 @@
         color-mix(in srgb, var(--color-surface-muted) 30%, var(--color-transparent)),
         color-mix(in srgb, var(--color-surface) 10%, var(--color-transparent))
     );
-    border-color: var(--color-surface-muted);
     color: var(--color-text-subtle);
     cursor: not-allowed;
 }
@@ -139,9 +131,9 @@
     right: 0;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-    box-shadow: 0 6px 18px var(--color-overlay);
-    z-index: 40;
+    border-radius: var(--radius-control);
+    box-shadow: var(--shadow-md);
+    z-index: var(--z-modal-dropdown);
     max-height: 210px;
     overflow: auto;
 }
@@ -151,45 +143,55 @@
     top: 0;
     z-index: 2;
     background: var(--color-surface);
-    padding: 8px;
+    padding: var(--space-2);
     border-bottom: 1px solid var(--color-border);
 }
 
 .searchInput {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-    height: 36px;
-    padding: 0 10px;
-    font-size: 14px;
+    border-radius: var(--radius-control);
+    height: var(--control-height-sm);
+    padding: 0 var(--space-3);
+    font-size: var(--font-size-compact);
     background-color: var(--color-surface);
     color: var(--color-text);
 }
 
 .searchInput:focus {
-    border: 2px solid var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.searchInput:focus-visible {
     outline: none;
 }
 
 .option {
-    padding: 10px 12px;
+    width: 100%;
+    min-height: var(--control-height-md);
+    padding: var(--space-2) var(--space-3);
+    border: 0;
+    background: transparent;
+    color: var(--color-text);
+    font: inherit;
+    text-align: left;
     cursor: pointer;
-    transition: all 0.25s linear;
+    transition: background-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
 }
 
 .option:hover:not(.optionSelected) {
-    background: var(--color-surface-muted);
+    background: var(--color-hover);
 }
 
 .optionSelected {
-    background: var(--color-primary-soft);
-    color: var(--color-white);
+    background: var(--color-selected);
+    color: var(--color-text);
 }
 
 .emptyState {
-    padding: 10px 12px;
+    padding: var(--space-3);
     color: var(--color-text);
-    font-size: 14px;
+    font-size: var(--font-size-compact);
 }
 
 @media (max-width: 900px) {

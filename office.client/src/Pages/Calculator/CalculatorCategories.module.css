@@ -1,6 +1,6 @@
 .calculatorCategories_wrapper {
     width: 100%;
-    gap: 15px;
+    gap: 16px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
 }
@@ -8,6 +8,6 @@
 @media screen and (max-width: 500px) {
     .calculatorCategories_wrapper {
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
     }
 }

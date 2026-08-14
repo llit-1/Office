@@ -8,7 +8,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Location")]
     public class TTController : ControllerBase
     {
         private static readonly Guid[] TradePointTypeGuids =

@@ -1,4 +1,5 @@
 import Checkbox from "../../../Components/Checkbox/Checkbox";
+import Button from "../../../Components/Button/Button";
 import Modal from "../../../Components/Modal/Modal";
 import Select from "../../../Components/Select/Select";
 import type { ApkFile, BulkUpdateStatus, Device } from "../videoDevices.types";
@@ -55,12 +56,12 @@ export default function BulkUpdateModal({
             Выбрано {selectedDevices.length} из {outdatedDevices.length}
           </span>
           <div className={styles.bulkUpdateSelectionActions}>
-            <button type="button" className={styles.secondaryButton} onClick={() => onSelectAll(true)} disabled={updating}>
+            <Button size="sm" variant="secondary" onClick={() => onSelectAll(true)} disabled={updating}>
               Выбрать все
-            </button>
-            <button type="button" className={styles.secondaryButton} onClick={() => onSelectAll(false)} disabled={updating}>
+            </Button>
+            <Button size="sm" variant="secondary" onClick={() => onSelectAll(false)} disabled={updating}>
               Снять все
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -138,17 +139,17 @@ export default function BulkUpdateModal({
         )}
 
         <div className={styles.modalActions}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={updating}>
+          <Button variant="secondary" onClick={onClose} disabled={updating}>
             Отмена
-          </button>
-          <button
-            type="button"
-            className={styles.primaryButton}
+          </Button>
+          <Button
+            variant="primary"
             onClick={onUpdate}
-            disabled={!selectedApkName || selectedDevices.length === 0 || updating}
+            disabled={!selectedApkName || selectedDevices.length === 0}
+            loading={updating}
           >
             {updating ? "Обновление..." : "Обновить выбранные"}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

@@ -1,0 +1,49 @@
+.wrapper {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: var(--fti-bg, var(--color-surface-muted));
+  color: var(--fti-fg, var(--color-file-other));
+}
+
+.icon { width: 22px !important; height: 22px !important; }
+
+.badge {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  padding: 4px 4px;
+  border-radius: var(--radius-sm);
+  background: var(--fti-fg, var(--color-file-other));
+  color: var(--color-on-media);
+  font-family: var(--font-body);
+  font-size: var(--font-size-caption);
+  font-weight: 800;
+  letter-spacing: .02em;
+  line-height: 1.35;
+}
+
+.wrapper[data-kind="folder"] { --fti-bg: color-mix(in srgb, var(--color-file-folder) 12%, var(--color-surface)); --fti-fg: var(--color-file-folder); }
+.wrapper[data-kind="pdf"] { --fti-bg: color-mix(in srgb, var(--color-file-pdf) 12%, var(--color-surface)); --fti-fg: var(--color-file-pdf); }
+.wrapper[data-kind="word"] { --fti-bg: color-mix(in srgb, var(--color-file-word) 12%, var(--color-surface)); --fti-fg: var(--color-file-word); }
+.wrapper[data-kind="excel"] { --fti-bg: color-mix(in srgb, var(--color-file-excel) 12%, var(--color-surface)); --fti-fg: var(--color-file-excel); }
+.wrapper[data-kind="powerpoint"] { --fti-bg: color-mix(in srgb, var(--color-file-pdf) 12%, var(--color-surface)); --fti-fg: var(--color-file-pdf); }
+.wrapper[data-kind="image"] { --fti-bg: color-mix(in srgb, var(--color-file-image) 12%, var(--color-surface)); --fti-fg: var(--color-file-image); }
+.wrapper[data-kind="video"] { --fti-bg: color-mix(in srgb, var(--color-file-video) 12%, var(--color-surface)); --fti-fg: var(--color-file-video); }
+.wrapper[data-kind="audio"] { --fti-bg: color-mix(in srgb, var(--color-file-video) 12%, var(--color-surface)); --fti-fg: var(--color-file-video); }
+.wrapper[data-kind="archive"] { --fti-bg: color-mix(in srgb, var(--color-file-archive) 12%, var(--color-surface)); --fti-fg: var(--color-file-archive); }
+.wrapper[data-kind="text"] { --fti-bg: color-mix(in srgb, var(--color-file-text) 12%, var(--color-surface)); --fti-fg: var(--color-file-text); }
+.wrapper[data-kind="code"] { --fti-bg: color-mix(in srgb, var(--color-file-code) 12%, var(--color-surface)); --fti-fg: var(--color-file-code); }
+.wrapper[data-kind="other"] { --fti-bg: var(--color-surface-muted); --fti-fg: var(--color-file-other); }
+
+:global([data-theme="dark"]) .wrapper {
+  background: color-mix(in srgb, var(--fti-fg, var(--color-file-other)) 22%, var(--color-surface));
+  color: color-mix(in srgb, var(--fti-fg, var(--color-file-other)) 65%, var(--color-on-media));
+}
+:global([data-theme="dark"]) .badge {
+  background: color-mix(in srgb, var(--fti-fg, var(--color-file-other)) 70%, var(--color-text));
+}

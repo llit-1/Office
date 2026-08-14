@@ -108,6 +108,63 @@ namespace Office.Server.DbContexts.RKNETDB
                 .HasForeignKey(x => x.OfficeUserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<OfficeKnowledgeSectionRole>()
+                .HasKey(x => new { x.SectionId, x.OfficeRoleId });
+            modelBuilder.Entity<OfficeKnowledgeSectionRole>()
+                .HasOne(x => x.Section)
+                .WithMany(x => x.Roles)
+                .HasForeignKey(x => x.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<OfficeKnowledgeSectionRole>()
+                .HasOne(x => x.OfficeRole)
+                .WithMany()
+                .HasForeignKey(x => x.OfficeRoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OfficeKnowledgeSectionCover>()
+                .HasOne(x => x.Section)
+                .WithOne(x => x.Cover)
+                .HasForeignKey<OfficeKnowledgeSectionCover>(x => x.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OfficeKnowledgeDocument>()
+                .HasIndex(x => x.SectionId);
+            modelBuilder.Entity<OfficeKnowledgeDocument>()
+                .HasOne(x => x.Section)
+                .WithMany(x => x.Documents)
+                .HasForeignKey(x => x.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OfficeKnowledgeFavorite>()
+                .HasKey(x => new { x.OfficeUserId, x.DocumentId });
+            modelBuilder.Entity<OfficeKnowledgeFavorite>()
+                .HasOne(x => x.OfficeUser)
+                .WithMany()
+                .HasForeignKey(x => x.OfficeUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeKnowledgeFavorite>()
+                .HasOne(x => x.Document)
+                .WithMany()
+                .HasForeignKey(x => x.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OfficeKnowledgeHistory>()
+                .HasOne(x => x.OfficeUser)
+                .WithMany()
+                .HasForeignKey(x => x.OfficeUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeKnowledgeHistory>()
+                .HasOne(x => x.Document)
+                .WithMany()
+                .HasForeignKey(x => x.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<OfficeKnowledgeIndexError>()
+                .HasOne(x => x.Section)
+                .WithMany()
+                .HasForeignKey(x => x.SectionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             base.OnModelCreating(modelBuilder);
         }
         public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; }//пользователь
@@ -150,5 +207,12 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<VideoDevice> VideoDevices { get; set; }
         public DbSet<VideoInfo> VideoInfo { get; set; }
         public DbSet<VideoOrientation> VideoOrientation { get; set; }
+        public DbSet<OfficeKnowledgeSection> OfficeKnowledgeSections { get; set; }
+        public DbSet<OfficeKnowledgeSectionCover> OfficeKnowledgeSectionCovers { get; set; }
+        public DbSet<OfficeKnowledgeSectionRole> OfficeKnowledgeSectionRoles { get; set; }
+        public DbSet<OfficeKnowledgeDocument> OfficeKnowledgeDocuments { get; set; }
+        public DbSet<OfficeKnowledgeFavorite> OfficeKnowledgeFavorites { get; set; }
+        public DbSet<OfficeKnowledgeHistory> OfficeKnowledgeHistory { get; set; }
+        public DbSet<OfficeKnowledgeIndexError> OfficeKnowledgeIndexErrors { get; set; }
     }
 }

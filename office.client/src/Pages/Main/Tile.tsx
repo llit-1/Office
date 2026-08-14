@@ -1,5 +1,5 @@
 import styles from "./Tile.module.css";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../Store";
 import type { MenuPart } from "../../menuParts/menuParts";
@@ -14,8 +14,8 @@ const Tile = ({ partData }: { partData: MenuPart }) => {
 
   if (hasAccess) {
     return (
-      <button
-        type="button"
+      <Link
+        to={partData.path}
         className={styles.tile}
         onMouseEnter={() => {
           void preloadRouteForPath(partData.path);
@@ -25,13 +25,15 @@ const Tile = ({ partData }: { partData: MenuPart }) => {
           void preloadRouteForPath(partData.path);
           void preloadImage(partData.img);
         }}
-        onClick={() => {
+        onClick={(event) => {
+          if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
           void navigateWithPreloadedRoute(navigate, partData.path);
         }}
       >
         <img src={partData.img} alt={partData.name} />
         <p>{partData.name}</p>
-      </button>
+      </Link>
     );
   }
 };

@@ -1,16 +1,17 @@
 .calculator_tile {
     height: 50px;
-    color: var(--color-white);
-    background-color: var(--color-primary);
-    padding: 10px;
-    font-family: "Akrobat";
+    color: var(--color-on-primary-solid);
+    background-color: var(--color-primary-solid);
+    padding: 12px;
+    font-family: var(--font-heading);
+    letter-spacing: normal;
     font-weight: 600;
     display: flex;
     align-items: center;
     justify-content: center;
     text-align: center;
-    transition: all 0.2s linear;
-    border-radius: 8px;
+    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear, opacity 0.2s linear, box-shadow 0.2s linear, transform 0.2s linear;
+    border-radius: var(--radius-control);
 }
 
 .calculator_tile:hover {

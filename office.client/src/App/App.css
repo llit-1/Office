@@ -8,7 +8,41 @@
 html,
 body,
 #root {
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
+    font-weight: var(--font-weight-body);
+    letter-spacing: var(--letter-spacing-body);
+}
+
+html {
+    color-scheme: light;
+}
+
+html:has([data-theme="dark"]),
+[data-theme="dark"] {
+    color-scheme: dark;
+}
+
+strong,
+b {
+    font-weight: var(--font-weight-body-emphasis);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    font-variation-settings: normal;
+    letter-spacing: normal;
+}
+
+/* Uppercase interface labels use the portal's display typeface. */
+.text-uppercase,
+[data-text-case="uppercase"] {
+    font-family: var(--font-uppercase);
+    font-variation-settings: normal;
 }
 
 body {
@@ -16,11 +50,45 @@ body {
     background-color: var(--color-bg);
 }
 
+:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring-color);
+    outline-offset: var(--focus-ring-offset);
+}
+
+::selection {
+    background: var(--color-selection-bg);
+    color: var(--color-selection-text);
+}
+
 button,
 input,
 textarea,
 select {
     font: inherit;
+}
+
+/* MUI sets Roboto directly on many controls, so it does not inherit from body. */
+.MuiButtonBase-root,
+.MuiInputBase-root,
+.MuiFormLabel-root,
+.MuiTypography-root,
+.MuiMenuItem-root,
+.MuiTableCell-root,
+.MuiTooltip-tooltip,
+.MuiAlert-message {
+    font-family: var(--font-body) !important;
+    letter-spacing: var(--letter-spacing-body) !important;
+}
+
+.MuiTypography-h1,
+.MuiTypography-h2,
+.MuiTypography-h3,
+.MuiTypography-h4,
+.MuiTypography-h5,
+.MuiTypography-h6 {
+    font-family: var(--font-heading) !important;
+    font-variation-settings: normal !important;
+    letter-spacing: normal !important;
 }
 
 #root {
@@ -60,7 +128,7 @@ main {
     color: var(--color-text);
     width: 100%;
     height: 100%;
-    padding: 10px;
+    padding: var(--page-padding);
     overflow: auto;
 }
 
@@ -73,7 +141,9 @@ main {
     padding-left: 20px;
     font-size: 14px;
     color: var(--color-text);
-    font-family: Akrobat;
+    font-family: var(--font-heading);
+    font-variation-settings: normal;
+    letter-spacing: normal;
     display: flex;
     justify-content: start;
     align-items: center;
@@ -90,17 +160,51 @@ select:disabled {
 }
 
 input[type="date"],
-input[type="month"] {
+input[type="time"],
+input[type="month"],
+input[type="datetime-local"] {
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  -webkit-min-logical-width: 0;
   display: block;
+  box-sizing: border-box;
   color-scheme: light;
   -webkit-appearance: none;
   appearance: none;
 }
 
+[type="date"]::-webkit-date-and-time-value,
+[type="time"]::-webkit-date-and-time-value,
+[type="month"]::-webkit-date-and-time-value,
+[type="datetime-local"]::-webkit-date-and-time-value {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+}
+
+[type="date"]::-webkit-datetime-edit,
+[type="time"]::-webkit-datetime-edit,
+[type="month"]::-webkit-datetime-edit,
+[type="datetime-local"]::-webkit-datetime-edit {
+  min-width: 0;
+  overflow: hidden;
+}
+
+[type="date"]::-webkit-calendar-picker-indicator,
+[type="time"]::-webkit-calendar-picker-indicator,
+[type="month"]::-webkit-calendar-picker-indicator,
+[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  flex: 0 0 auto;
+}
+
 [data-theme="dark"] input[type="date"],
-[data-theme="dark"] input[type="month"] {
+[data-theme="dark"] input[type="time"],
+[data-theme="dark"] input[type="month"],
+[data-theme="dark"] input[type="datetime-local"] {
   color-scheme: dark;
 }

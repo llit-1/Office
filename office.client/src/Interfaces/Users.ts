@@ -37,6 +37,7 @@ export interface OfficeUser {
   position: string | null;
 
   actual: number;
+  defaultLocations: number;
 
   factoryPersonId: number | null;
   personalitiesGuid: Guid | null;

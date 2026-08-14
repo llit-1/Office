@@ -1,5 +1,5 @@
 import type { DeviceStats } from "../videoDevices.types";
-import styles from "../VideoDevices.module.css";
+import dashboard from "../../../styles/entity-dashboard.module.css";
 
 type DeviceStatsCardsProps = {
   stats: DeviceStats;
@@ -7,22 +7,22 @@ type DeviceStatsCardsProps = {
 
 export default function DeviceStatsCards({ stats }: DeviceStatsCardsProps) {
   return (
-    <div className={styles.statsGrid}>
-      <div className={`${styles.statsCard} ${styles.statsCardTotal}`}>
-        <span className={styles.statsValue}>{stats.total}</span>
-        <span className={styles.statsLabel}>устройств</span>
+    <div className={`${dashboard.metricsGrid} ${dashboard.metricsGridFour}`}>
+      <div className={dashboard.metricCard}>
+        <span className={dashboard.metricLabel}>Всего</span>
+        <strong className={dashboard.metricValue}>{stats.total}</strong>
       </div>
-      <div className={`${styles.statsCard} ${styles.statsCardOnline}`}>
-        <span className={styles.statsValue}>{stats.online}</span>
-        <span className={styles.statsLabel}>онлайн</span>
+      <div className={dashboard.metricCard}>
+        <span className={dashboard.metricLabel}>Онлайн</span>
+        <strong className={dashboard.metricValue}>{stats.online}</strong>
       </div>
-      <div className={`${styles.statsCard} ${styles.statsCardErrors}`}>
-        <span className={styles.statsValue}>{stats.errors}</span>
-        <span className={styles.statsLabel}>ошибки</span>
+      <div className={dashboard.metricCard}>
+        <span className={dashboard.metricLabel}>Ошибки</span>
+        <strong className={dashboard.metricValue}>{stats.errors}</strong>
       </div>
-      <div className={`${styles.statsCard} ${styles.statsCardUpdates}`}>
-        <span className={styles.statsValue}>{stats.needUpdate}</span>
-        <span className={styles.statsLabel}>требуют обновления</span>
+      <div className={dashboard.metricCard}>
+        <span className={dashboard.metricLabel}>Требуют обновления</span>
+        <strong className={dashboard.metricValue}>{stats.needUpdate}</strong>
       </div>
     </div>
   );

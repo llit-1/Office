@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 import { useNotifications } from "@toolpad/core";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import ArchiveOutlinedIcon from "@mui/icons-material/ArchiveOutlined";
+import ArrowForwardRoundedIcon from "@mui/icons-material/ArrowForwardRounded";
+import CheckRoundedIcon from "@mui/icons-material/CheckRounded";
+import NotificationsNoneRoundedIcon from "@mui/icons-material/NotificationsNoneRounded";
+import PersonOutlineRoundedIcon from "@mui/icons-material/PersonOutlineRounded";
 import Checkbox from "../../Components/Checkbox/Checkbox";
+import Button from "../../Components/Button/Button";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import type { OfficeNotification, UserDataApiNotification } from "../../Interfaces/UserData";
 import { callApi, get, post } from "../../Services/api";
@@ -41,6 +47,7 @@ const Notifications = () => {
   const [archivedLoaded, setArchivedLoaded] = useState(false);
   const [archivedLoading, setArchivedLoading] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [processingNotificationId, setProcessingNotificationId] = useState<number | null>(null);
 
   const fallbackNotifications = [
     ...newNotificationsFromStore,
@@ -186,19 +193,27 @@ const Notifications = () => {
   };
 
   const handleAcknowledge = async (notificationId: number) => {
-    await acknowledgeNotification(notificationId);
+    setProcessingNotificationId(notificationId);
+    try {
+      await acknowledgeNotification(notificationId);
+    } finally {
+      setProcessingNotificationId(null);
+    }
   };
 
   const handleNavigateToNotificationTarget = async (
     notificationId: number,
     targetPath: string,
   ) => {
-    const isAcknowledged = await acknowledgeNotification(notificationId);
-    if (!isAcknowledged) {
-      return;
+    setProcessingNotificationId(notificationId);
+    try {
+      const isAcknowledged = await acknowledgeNotification(notificationId);
+      if (isAcknowledged) {
+        navigate(targetPath);
+      }
+    } finally {
+      setProcessingNotificationId(null);
     }
-
-    navigate(targetPath);
   };
 
   const activeNotificationsSource = activeLoaded
@@ -213,6 +228,15 @@ const Notifications = () => {
   return (
     <div className={styles.notifications_wrapper}>
       <div className={styles.notifications_toolbar}>
+        <div className={styles.notificationsSummary}>
+          <span className={styles.summaryIcon} aria-hidden="true">
+            <NotificationsNoneRoundedIcon />
+          </span>
+          <div>
+            <strong>{activeNotificationsSource.length}</strong>
+            <span>активных уведомлений</span>
+          </div>
+        </div>
         <Checkbox
           size="sm"
           checked={showArchived}
@@ -224,14 +248,19 @@ const Notifications = () => {
 
       {showArchived && archivedLoading && (
         <div className={styles.archivedLoader}>
-          <LoadingSpinner />
-          <span>Загружаем архивные уведомления...</span>
+          <LoadingSpinner label="Загружаем архивные уведомления…" />
         </div>
       )}
 
       {displayedNotifications.length === 0 ? (
         <div className={styles.empty_state}>
-          {showArchived ? "Уведомлений нет." : "Новых уведомлений нет."}
+          <NotificationsNoneRoundedIcon aria-hidden="true" />
+          <strong>{showArchived ? "Уведомлений нет" : "Новых уведомлений нет"}</strong>
+          <span>
+            {showArchived
+              ? "Здесь появятся активные и архивные уведомления."
+              : "Когда появится что-то важное, мы покажем это здесь."}
+          </span>
         </div>
       ) : (
         displayedNotifications.map((item) => {
@@ -240,32 +269,55 @@ const Notifications = () => {
             : null;
 
           return (
-            <div
+            <article
               className={`${styles.notification_item} ${
                 item.status === 2 ? styles.notification_item_archived : ""
               }`}
               key={item.id}
             >
-              <span>{formatNotificationDate(item.dateTime)}</span>
-              <span>{item.officeNotificationType.name}</span>
-              <span>{getNotificationEntityPreview(item)}</span>
+              <span className={styles.notificationIcon} aria-hidden="true">
+                {item.status === 2 ? <ArchiveOutlinedIcon /> : <NotificationsNoneRoundedIcon />}
+              </span>
+
+              <div className={styles.notificationContent}>
+                <div className={styles.notificationHeading}>
+                  <strong title={item.officeNotificationType.name}>
+                    {item.officeNotificationType.name}
+                  </strong>
+                  {item.status === 2 ? (
+                    <span className={styles.archivedLabel}>В архиве</span>
+                  ) : null}
+                </div>
+                <div className={styles.notificationMeta}>
+                  <span title={getNotificationEntityPreview(item)}>
+                    <PersonOutlineRoundedIcon aria-hidden="true" />
+                    {getNotificationEntityPreview(item)}
+                  </span>
+                  <time dateTime={item.dateTime}>{formatNotificationDate(item.dateTime)}</time>
+                </div>
+              </div>
+
               <div className={styles.actions}>
                 {item.status !== 2 ? (
-                  <button
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     type="button"
-                    className={styles.secondary_button}
+                    leadingIcon={<CheckRoundedIcon />}
+                    loading={processingNotificationId === item.id}
                     onClick={() => void handleAcknowledge(item.id)}
                   >
                     Ознакомлен
-                  </button>
-                ) : (
-                  <span className={styles.archivedLabel}>В архиве</span>
-                )}
+                  </Button>
+                ) : null}
 
                 {accessRequestData && item.typeId === 1 ? (
-                  <button
+                  <Button
+                    variant="primary"
+                    size="sm"
                     type="button"
-                    className={styles.action_button}
+                    trailingIcon={<ArrowForwardRoundedIcon />}
+                    loading={processingNotificationId === item.id}
                     onClick={() => {
                       if (item.status === 2) {
                         navigate(`/Users/Edit/${accessRequestData.officeUserId}`);
@@ -279,10 +331,10 @@ const Notifications = () => {
                     }}
                   >
                     Перейти
-                  </button>
+                  </Button>
                 ) : null}
               </div>
-            </div>
+            </article>
           );
         })
       )}

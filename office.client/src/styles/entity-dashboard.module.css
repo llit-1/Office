@@ -1,0 +1,387 @@
+.section {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.toolbar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.toolbarGroup,
+.searchGroup,
+.actionGroup,
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.toolbarGroup,
+.searchGroup {
+  flex: 1 1 auto;
+}
+
+.filterGroup {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 0 0 auto;
+}
+
+.search {
+  width: 240px;
+  min-width: 180px;
+  height: var(--control-height-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.search input {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.primaryButton,
+.secondaryButton,
+.filterButton,
+.sortSelect {
+  height: var(--control-height-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-compact);
+  font-weight: var(--font-weight-control);
+  white-space: nowrap;
+}
+
+.primaryButton,
+.secondaryButton,
+.filterButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.primaryButton,
+.filterButton.filterButtonActive {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.primaryButton:hover,
+.filterButton.filterButtonActive:hover {
+  border-color: var(--color-primary-hover);
+  background: var(--color-primary-hover);
+}
+
+.secondaryButton,
+.filterButton,
+.sortSelect {
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.secondaryButton:hover,
+.filterButton:hover:not(.filterButtonActive),
+.sortSelect:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.filterButton:disabled {
+  border-color: var(--color-border);
+  background: var(--color-disabled-surface);
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.sortSelect {
+  min-width: 190px;
+  outline: 0;
+  cursor: pointer;
+}
+
+.metricsGrid {
+  width: 100%;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.metricsGridThree {
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
+}
+
+.metricsGridFour {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.metricCard {
+  min-height: 58px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: var(--space-2) var(--space-3);
+  box-shadow: var(--shadow-sm);
+}
+
+.metricLabel {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.metricValue {
+  color: var(--color-text);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.cardsGrid {
+  --entity-card-min-width: 190px;
+
+  width: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--entity-card-min-width)), 1fr));
+  grid-auto-rows: 124px;
+  gap: var(--space-3);
+  overflow: auto;
+  align-items: start;
+  padding-right: var(--space-1);
+}
+
+.card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-1);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  padding: var(--space-3);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.card:hover {
+  border-color: var(--color-primary-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.cardSuccess {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-success) 12%, var(--color-surface)) 0%, var(--color-surface) 54%, color-mix(in srgb, var(--color-success) 5%, var(--color-surface)) 100%);
+  border-color: color-mix(in srgb, var(--color-success) 46%, var(--color-border));
+}
+
+.cardDanger {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-danger) 16%, var(--color-surface)) 0%, var(--color-surface) 54%, color-mix(in srgb, var(--color-danger) 7%, var(--color-surface)) 100%);
+  border-color: color-mix(in srgb, var(--color-danger) 48%, var(--color-border));
+}
+
+.cardWarning {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-warning) 16%, var(--color-surface)) 0%, var(--color-surface) 54%, color-mix(in srgb, var(--color-warning) 7%, var(--color-surface)) 100%);
+  border-color: color-mix(in srgb, var(--color-warning) 48%, var(--color-border));
+}
+
+.cardInactive {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-inactive) 30%, var(--color-surface)) 0%, color-mix(in srgb, var(--color-inactive) 18%, var(--color-surface)) 56%, color-mix(in srgb, var(--color-inactive-strong) 28%, var(--color-surface)) 100%);
+  border-color: color-mix(in srgb, var(--color-inactive-strong) 52%, var(--color-border));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-inactive-light) 22%, transparent);
+}
+
+.cardActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-left: auto;
+}
+
+.cardActionButton {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-surface-muted) 70%, transparent);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.cardActionButton:hover {
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+  color: var(--color-primary);
+}
+
+.cardActionButton:disabled {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--color-inactive-light) 28%, var(--color-surface));
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
+}
+
+.statusDot {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border) 24%, transparent);
+}
+
+.statusSuccess {
+  background: var(--color-success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 24%, transparent);
+}
+
+.statusDanger {
+  background: var(--color-danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-danger) 24%, transparent);
+}
+
+.statusWarning {
+  background: var(--color-warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-warning) 24%, transparent);
+}
+
+.statusInactive {
+  background: var(--color-inactive);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-inactive) 28%, transparent);
+}
+
+.emptyState {
+  width: 100%;
+  min-height: 220px;
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-subtle);
+  padding: var(--space-4);
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbarGroup,
+  .filterGroup,
+  .toolbarEnd {
+    width: 100%;
+  }
+
+  .filterGroup,
+  .toolbarEnd {
+    justify-content: flex-start;
+  }
+
+  .metricsGridFour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 586px) {
+  .toolbarGroup,
+  .searchGroup,
+  .actionGroup,
+  .toolbarEnd {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .search,
+  .primaryButton,
+  .secondaryButton,
+  .sortSelect {
+    width: 100%;
+  }
+
+  .filterGroup {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filterButton {
+    min-width: 0;
+    padding-inline: var(--space-2);
+  }
+
+  .metricsGridThree {
+    grid-template-columns: 1fr;
+  }
+
+  .metricsGridFour {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cardsGrid {
+    --entity-card-min-width: 100%;
+    grid-template-columns: 1fr;
+    grid-auto-rows: 124px;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+}

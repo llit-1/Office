@@ -1,9 +1,4 @@
 .inputWrapper {
-    position: relative;
-    width: 100%;
-    min-width: 0;
-    height: 50px;
-    min-height: 50px;
     box-sizing: border-box;
 }
 
@@ -16,36 +11,33 @@
     max-width: 170px;
 }
 
-.label {
-    position: absolute;
-    top: -10px;
-    left: 12px;
-    background-color: var(--input-label-background, var(--color-surface));
-    padding: 0 4px;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--color-text-muted);
-}
-
 .input {
     width: 100%;
     min-width: 0;
     max-width: 100%;
     height: 100%;
     box-sizing: border-box;
-    padding-left: 12px;
-    padding-right: 12px;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    font-size: 16px;
-    transition: all 0.05s ease;
+    padding-inline: var(--space-3);
+    border-radius: var(--outlined-field-radius, var(--radius-control));
+    border: 0;
+    font-size: var(--font-size-body);
+    transition: border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard), background-color var(--duration-fast) var(--easing-standard);
     background-color: var(--color-surface);
     color: var(--color-text);
 }
 
 .input:focus {
-    border: 2px solid var(--color-primary);
     outline: none;
+}
+
+.input:disabled {
+    background: var(--color-disabled-surface);
+    color: var(--color-disabled-text);
+}
+
+.input:read-only {
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 @media (max-width: 900px) {

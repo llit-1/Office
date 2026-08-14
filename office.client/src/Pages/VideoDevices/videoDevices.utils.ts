@@ -58,6 +58,14 @@ export function parseVideoNames(videoList: string) {
     .filter(Boolean);
 }
 
+export function resolveSelectedVideoName(selectedVideoName: string | undefined, availableVideoNames: string[]) {
+  const selected = selectedVideoName?.trim() ?? "";
+  if (!selected) return "";
+
+  const normalizedSelected = selected.toLocaleLowerCase();
+  return availableVideoNames.find((name) => name.trim().toLocaleLowerCase() === normalizedSelected) ?? selected;
+}
+
 export function normalizeDeviceIp(ip: string) {
   return ip.trim().replace(/[\\/\s]+$/g, "");
 }

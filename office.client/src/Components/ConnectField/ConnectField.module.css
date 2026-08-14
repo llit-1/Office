@@ -6,9 +6,9 @@
   border: 1px solid var(--color-border);
   gap: 8px;
   border-radius: var(--radius-md);
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: var(--color-transparent);
-  padding: 15px;
+  padding: 16px;
   min-width: 110px;
   justify-content: center;
   cursor: pointer;

@@ -1,14 +1,19 @@
 import { useMemo } from "react";
+import OpenInFullRoundedIcon from "@mui/icons-material/OpenInFullRounded";
+import CloseFullscreenRoundedIcon from "@mui/icons-material/CloseFullscreenRounded";
 import type { EChartsOption } from "echarts";
 import { LineChart } from "echarts/charts";
 import { DataZoomComponent, GridComponent, MarkAreaComponent, TooltipComponent } from "echarts/components";
 import * as echarts from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
 import ReactEChartsCore from "echarts-for-react/lib/core";
+import { useDispatch, useSelector } from "react-redux";
 import Modal from "../../../Components/Modal/Modal";
 import type { MaintenanceWindowItem, NormalizedHistoryPoint, SensorRow, SensorRuleSettings } from "../sensors.types";
-import { formatAxisDate, formatHumidityLabel, formatShortAxisDate, formatTemperatureLabel, periodOptions } from "../sensors.utils";
+import { formatAxisDate, formatShortAxisDate, formatTemperatureLabel, periodOptions } from "../sensors.utils";
 import styles from "../Sensors.module.css";
+import type { RootState } from "../../../Store";
+import { setSensorChartExpanded, setSensorChartLineWidth } from "../../../Store/preferencesSlice";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, CanvasRenderer]);
 
@@ -22,6 +27,12 @@ interface SensorHistoryModalProps {
   onPeriodChange: (hours: (typeof periodOptions)[number]["hours"]) => void;
   onClose: () => void;
 }
+
+type ChartStat = {
+  label: string;
+  value: string;
+  meta?: string;
+};
 
 function parseTimeToMinutes(value: string) {
   const [hours = "0", minutes = "0"] = value.slice(0, 5).split(":");
@@ -86,6 +97,40 @@ function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: Maint
   });
 }
 
+function formatDuration(totalMinutes: number) {
+  if (totalMinutes <= 0) {
+    return "0 мин";
+  }
+
+  const rounded = Math.round(totalMinutes);
+  const days = Math.floor(rounded / (24 * 60));
+  const hours = Math.floor((rounded % (24 * 60)) / 60);
+  const minutes = rounded % 60;
+  const parts: string[] = [];
+
+  if (days > 0) {
+    parts.push(`${days} д`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours} ч`);
+  }
+  if (minutes > 0 || parts.length === 0) {
+    parts.push(`${minutes} мин`);
+  }
+
+  return parts.join(" ");
+}
+
+function getOutOfRangeStatus(point: NormalizedHistoryPoint, sensorSettings: SensorRuleSettings | null, inMaintenance: boolean) {
+  if (!sensorSettings?.isEnabled || inMaintenance) {
+    return false;
+  }
+
+  const minRule = sensorSettings.minTemperature;
+  const maxRule = sensorSettings.maxTemperature;
+  return (minRule != null && point.temperature < minRule) || (maxRule != null && point.temperature > maxRule);
+}
+
 export default function SensorHistoryModal({
   sensor,
   sensorSettings,
@@ -96,6 +141,42 @@ export default function SensorHistoryModal({
   onPeriodChange,
   onClose,
 }: SensorHistoryModalProps) {
+  const dispatch = useDispatch();
+  const chartExpanded = useSelector((state: RootState) => state.preferences.sensorChartExpanded);
+  const chartLineWidth = useSelector((state: RootState) => state.preferences.sensorChartLineWidth);
+  const lineWidthOptions = [1, 1.5, 2, 3];
+  const currentLineWidthIndex = lineWidthOptions.findIndex((width) => width === chartLineWidth);
+
+  const chartColors = useMemo(() => {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const token = (name: string) => rootStyles.getPropertyValue(name).trim();
+
+    return {
+      tooltipLabel: token("--color-chart-tooltip-label"),
+      tooltipBackground: token("--color-chart-tooltip-bg"),
+      tooltipText: token("--color-chart-tooltip-text"),
+      axis: token("--color-chart-axis"),
+      axisLine: token("--color-chart-axis-line"),
+      grid: token("--color-chart-grid"),
+      series: token("--color-chart-series"),
+      seriesFill: token("--color-chart-series-fill"),
+      seriesFillSoft: token("--color-chart-series-fill-soft"),
+      point: token("--color-chart-point"),
+      warning: token("--color-chart-warning"),
+      danger: token("--color-chart-danger"),
+      maintenance: token("--color-chart-maintenance"),
+    };
+  }, []);
+
+  const handleLineWidthStep = (direction: -1 | 1) => {
+    const nextIndex = currentLineWidthIndex + direction;
+    if (nextIndex < 0 || nextIndex >= lineWidthOptions.length) {
+      return;
+    }
+
+    dispatch(setSensorChartLineWidth(lineWidthOptions[nextIndex]));
+  };
+
   const historyStats = useMemo(() => {
     if (normalizedHistory.length === 0) {
       return null;
@@ -110,17 +191,91 @@ export default function SensorHistoryModal({
       normalizedHistory[0],
     );
 
-    return { minPoint, maxPoint };
-  }, [normalizedHistory]);
+    const currentPoint = normalizedHistory[normalizedHistory.length - 1];
+    const averageTemperature =
+      normalizedHistory.reduce((sum, point) => sum + point.temperature, 0) / normalizedHistory.length;
+
+    const maintenanceFlags = normalizedHistory.map((point) => isPointInMaintenanceWindow(point.date, maintenanceWindows));
+    const violationFlags = normalizedHistory.map((point, index) =>
+      getOutOfRangeStatus(point, sensorSettings, maintenanceFlags[index]),
+    );
+
+    let outOfRangeMinutes = 0;
+    let maintenanceMinutes = 0;
+
+    for (let index = 0; index < normalizedHistory.length; index += 1) {
+      if (index === normalizedHistory.length - 1) {
+        continue;
+      }
+
+      const currentDate = new Date(normalizedHistory[index].date).getTime();
+      const nextDate = new Date(normalizedHistory[index + 1].date).getTime();
+      const intervalMinutes = Math.max((nextDate - currentDate) / 60000, 0);
+
+      if (violationFlags[index]) {
+        outOfRangeMinutes += intervalMinutes;
+      }
+
+      if (maintenanceFlags[index]) {
+        maintenanceMinutes += intervalMinutes;
+      }
+    }
+
+    const firstDate = new Date(normalizedHistory[0].date).getTime();
+    const lastDate = new Date(currentPoint.date).getTime();
+    const totalDurationMinutes = Math.max((lastDate - firstDate) / 60000, 0);
+    const outOfRangePercent = totalDurationMinutes > 0 ? (outOfRangeMinutes / totalDurationMinutes) * 100 : 0;
+    const maintenancePercent = totalDurationMinutes > 0 ? (maintenanceMinutes / totalDurationMinutes) * 100 : 0;
+
+    const cards: ChartStat[] = [
+      {
+        label: "Текущая температура",
+        value: formatTemperatureLabel(currentPoint.temperature),
+        meta: formatAxisDate(currentPoint.date),
+      },
+      {
+        label: "Минимум",
+        value: formatTemperatureLabel(minPoint.temperature),
+        meta: formatAxisDate(minPoint.date),
+      },
+      {
+        label: "Максимум",
+        value: formatTemperatureLabel(maxPoint.temperature),
+        meta: formatAxisDate(maxPoint.date),
+      },
+      {
+        label: "Среднее",
+        value: formatTemperatureLabel(averageTemperature),
+      },
+      {
+        label: "Вне нормы",
+        value: formatDuration(outOfRangeMinutes),
+        meta: `${outOfRangePercent.toFixed(1)}% периода`,
+      },
+      {
+        label: "Техработы",
+        value: formatDuration(maintenanceMinutes),
+        meta: `${maintenancePercent.toFixed(1)}% периода`,
+      },
+    ];
+
+    return {
+      minPoint,
+      maxPoint,
+      cards,
+      maintenanceFlags,
+      violationFlags,
+    };
+  }, [maintenanceWindows, normalizedHistory, sensorSettings]);
 
   const chartOption = useMemo<EChartsOption | null>(() => {
-    if (normalizedHistory.length === 0) {
+    if (normalizedHistory.length === 0 || historyStats == null) {
       return null;
     }
 
     const minRule = sensorSettings?.isEnabled ? sensorSettings.minTemperature : null;
     const maxRule = sensorSettings?.isEnabled ? sensorSettings.maxTemperature : null;
-    const maintenanceFlags = normalizedHistory.map((point) => isPointInMaintenanceWindow(point.date, maintenanceWindows));
+    const maintenanceFlags = historyStats.maintenanceFlags;
 
     const maintenanceMarkAreas: Array<[{ xAxis: string }, { xAxis: string }]> = [];
     for (let index = 0; index < normalizedHistory.length; index += 1) {
@@ -141,12 +296,7 @@ export default function SensorHistoryModal({
     const dangerSeriesData =
       minRule == null && maxRule == null
         ? []
-        : normalizedHistory.map((point, index) => {
-            const isOutOfRange =
-              (minRule != null && point.temperature < minRule) || (maxRule != null && point.temperature > maxRule);
-
-            return isOutOfRange && !maintenanceFlags[index] ? point.temperature : null;
-          });
+        : normalizedHistory.map((point, index) => (historyStats.violationFlags[index] ? point.temperature : null));
 
     const minThresholdSeriesData =
       minRule == null ? [] : normalizedHistory.map((_, index) => (maintenanceFlags[index] ? null : minRule));
@@ -166,11 +316,12 @@ export default function SensorHistoryModal({
       },
       tooltip: {
         trigger: "axis",
+        confine: true,
         axisPointer: {
           type: "cross",
           snap: true,
           label: {
-            backgroundColor: "#1f2937",
+            backgroundColor: chartColors.tooltipLabel,
             formatter: (params) => {
               if (params.axisDimension === "x") {
                 return formatAxisDate(String(params.value));
@@ -180,10 +331,10 @@ export default function SensorHistoryModal({
             },
           },
         },
-        backgroundColor: "rgba(15, 23, 42, 0.95)",
+        backgroundColor: chartColors.tooltipBackground,
         borderWidth: 0,
         textStyle: {
-          color: "#f8fafc",
+          color: chartColors.tooltipText,
           fontSize: 12,
         },
         padding: 12,
@@ -194,16 +345,10 @@ export default function SensorHistoryModal({
           }
 
           const point = normalizedHistory[items[0].dataIndex];
-          const rows = [
+          return [
             `<div style="margin-bottom:8px;font-weight:700;">${formatAxisDate(point.date)}</div>`,
             `<div>Температура: <b>${formatTemperatureLabel(point.temperature)}C</b></div>`,
-          ];
-
-          if (point.humidity !== null) {
-            rows.push(`<div>Влажность: <b>${formatHumidityLabel(point.humidity)}</b></div>`);
-          }
-
-          return rows.join("");
+          ].join("");
         },
       },
       xAxis: {
@@ -211,12 +356,12 @@ export default function SensorHistoryModal({
         boundaryGap: false,
         data: normalizedHistory.map((point) => point.date),
         axisLabel: {
-          color: "#6b7280",
+          color: chartColors.axis,
           formatter: (value: string) => formatShortAxisDate(value),
         },
         axisLine: {
           lineStyle: {
-            color: "#d1d5db",
+            color: chartColors.axisLine,
           },
         },
         axisTick: {
@@ -227,12 +372,12 @@ export default function SensorHistoryModal({
         type: "value",
         scale: true,
         axisLabel: {
-          color: "#6b7280",
+          color: chartColors.axis,
           formatter: (value: number) => formatTemperatureLabel(value),
         },
         splitLine: {
           lineStyle: {
-            color: "rgba(148, 163, 184, 0.2)",
+            color: chartColors.grid,
           },
         },
       },
@@ -255,8 +400,8 @@ export default function SensorHistoryModal({
           symbolSize: 5,
           sampling: historyPeriodHours >= 168 ? "lttb" : undefined,
           lineStyle: {
-            width: 3,
-            color: "#f97316",
+            width: chartLineWidth,
+            color: chartColors.series,
           },
           areaStyle: {
             color: {
@@ -266,38 +411,36 @@ export default function SensorHistoryModal({
               x2: 0,
               y2: 1,
               colorStops: [
-                { offset: 0, color: "rgba(249, 115, 22, 0.20)" },
-                { offset: 1, color: "rgba(249, 115, 22, 0.02)" },
+                { offset: 0, color: chartColors.seriesFill },
+                { offset: 1, color: chartColors.seriesFillSoft },
               ],
             },
           },
-          markPoint: historyStats
-            ? {
-                symbol: "circle",
-                symbolSize: 10,
-                itemStyle: {
-                  color: "#ffffff",
-                  borderWidth: 3,
-                },
-                label: {
-                  show: false,
-                },
-                data: [
-                  {
-                    name: "minimum",
-                    coord: [historyStats.minPoint.date, historyStats.minPoint.temperature],
-                    value: historyStats.minPoint.temperature,
-                    itemStyle: { borderColor: "#f59e0b" },
-                  },
-                  {
-                    name: "maximum",
-                    coord: [historyStats.maxPoint.date, historyStats.maxPoint.temperature],
-                    value: historyStats.maxPoint.temperature,
-                    itemStyle: { borderColor: "#ef4444" },
-                  },
-                ],
-              }
-            : undefined,
+          markPoint: {
+            symbol: "circle",
+            symbolSize: 10,
+            itemStyle: {
+              color: chartColors.point,
+              borderWidth: 3,
+            },
+            label: {
+              show: false,
+            },
+            data: [
+              {
+                name: "minimum",
+                coord: [historyStats.minPoint.date, historyStats.minPoint.temperature],
+                value: historyStats.minPoint.temperature,
+                itemStyle: { borderColor: chartColors.warning },
+              },
+              {
+                name: "maximum",
+                coord: [historyStats.maxPoint.date, historyStats.maxPoint.temperature],
+                value: historyStats.maxPoint.temperature,
+                itemStyle: { borderColor: chartColors.danger },
+              },
+            ],
+          },
           emphasis: {
             disabled: true,
           },
@@ -313,8 +456,8 @@ export default function SensorHistoryModal({
                 showSymbol: false,
                 z: 4,
                 lineStyle: {
-                  width: 3,
-                  color: "#dc2626",
+                  width: chartLineWidth,
+                  color: chartColors.danger,
                 },
                 data: dangerSeriesData,
               },
@@ -333,7 +476,7 @@ export default function SensorHistoryModal({
                 lineStyle: {
                   width: 1.5,
                   type: "dashed" as const,
-                  color: "#ef4444",
+                  color: chartColors.danger,
                 },
               },
             ]
@@ -351,7 +494,7 @@ export default function SensorHistoryModal({
                 lineStyle: {
                   width: 1.5,
                   type: "dashed" as const,
-                  color: "#ef4444",
+                  color: chartColors.danger,
                 },
               },
             ]
@@ -381,7 +524,7 @@ export default function SensorHistoryModal({
                     show: false,
                   },
                   itemStyle: {
-                    color: "rgba(59, 130, 246, 0.18)",
+                    color: chartColors.maintenance,
                   },
                   data: maintenanceMarkAreas as never,
                 },
@@ -389,8 +532,41 @@ export default function SensorHistoryModal({
             ]
           : []),
       ],
+      media: [
+        {
+          query: {
+            maxWidth: 520,
+          },
+          option: {
+            grid: {
+              left: 44,
+              right: 10,
+              top: 12,
+              bottom: 42,
+            },
+            tooltip: {
+              padding: 8,
+              textStyle: {
+                color: chartColors.tooltipText,
+                fontSize: 12,
+              },
+            },
+            xAxis: {
+              axisLabel: {
+                fontSize: 12,
+                hideOverlap: true,
+              },
+            },
+            yAxis: {
+              axisLabel: {
+                fontSize: 12,
+              },
+            },
+          },
+        },
+      ],
     };
-  }, [historyPeriodHours, historyStats, maintenanceWindows, normalizedHistory, sensorSettings]);
+  }, [chartColors, chartLineWidth, historyPeriodHours, historyStats, normalizedHistory, sensorSettings]);
 
   return (
     <Modal
@@ -398,56 +574,114 @@ export default function SensorHistoryModal({
       onClose={onClose}
       title={sensor ? `Температура: ${sensor.name}` : "Температура"}
       size="lg"
-      panelClassName={styles.chartModalPanel}
+      panelClassName={`${styles.chartModalPanel} ${chartExpanded ? styles.chartModalPanelExpanded : ""}`}
+      headerClassName={styles.chartModalHeader}
+      titleClassName={styles.chartModalTitle}
+      bodyClassName={`${styles.chartModalBody} ${chartExpanded ? styles.chartModalBodyExpanded : ""}`}
+      headerActions={
+        <button
+          type="button"
+          className={styles.chartHeaderButton}
+          onClick={() => dispatch(setSensorChartExpanded(!chartExpanded))}
+          aria-label={chartExpanded ? "Уменьшить окно" : "Расширить окно"}
+          title={chartExpanded ? "Уменьшить окно" : "Расширить окно"}
+        >
+          {chartExpanded ? <CloseFullscreenRoundedIcon fontSize="small" /> : <OpenInFullRoundedIcon fontSize="small" />}
+        </button>
+      }
     >
       {sensor && (
-        <>
+        <div className={`${styles.chartContent} ${chartExpanded ? styles.chartContentExpanded : ""}`}>
           <div className={styles.chartToolbar}>
             <div className={styles.chartMeta}>
               <span>{sensor.ip}</span>
               <span>Точек: {normalizedHistory.length}</span>
             </div>
 
-            <div className={styles.periodButtons}>
-              {periodOptions.map((option) => (
+            <div className={styles.chartControls}>
+              <div className={styles.lineWidthControls}>
+                <span className={styles.lineWidthLabel}>Линия</span>
                 <button
-                  key={option.hours}
                   type="button"
-                  className={`${styles.periodButton} ${historyPeriodHours === option.hours ? styles.periodButtonActive : ""}`}
-                  onClick={() => onPeriodChange(option.hours)}
+                  className={styles.lineWidthStepButton}
+                  onClick={() => handleLineWidthStep(-1)}
+                  title="Уменьшить толщину линии"
+                  aria-label="Уменьшить толщину линии"
+                  disabled={currentLineWidthIndex <= 0}
                 >
-                  {option.label}
+                  <span className={styles.lineWidthGlyph} aria-hidden="true">
+                    <span className={`${styles.lineWidthPreview} ${styles.lineWidthPreviewThin}`} />
+                  </span>
                 </button>
-              ))}
+                <button
+                  type="button"
+                  className={styles.lineWidthStepButton}
+                  onClick={() => handleLineWidthStep(1)}
+                  title="Увеличить толщину линии"
+                  aria-label="Увеличить толщину линии"
+                  disabled={currentLineWidthIndex >= lineWidthOptions.length - 1}
+                >
+                  <span className={styles.lineWidthGlyph} aria-hidden="true">
+                    <span className={`${styles.lineWidthPreview} ${styles.lineWidthPreviewThick}`} />
+                  </span>
+                </button>
+                {false ? lineWidthOptions.map((width) => (
+                  <button
+                    key={width}
+                    type="button"
+                    className={styles.lineWidthStepButton}
+                    onClick={() => dispatch(setSensorChartLineWidth(width))}
+                    title={`Толщина линии ${width}`}
+                    aria-label={`Толщина линии ${width}`}
+                  >
+                    {width}
+                  </button>
+                )) : null}
+              </div>
+
+              <div className={styles.periodButtons}>
+                {periodOptions.map((option) => (
+                  <button
+                    key={option.hours}
+                    type="button"
+                    className={`${styles.periodButton} ${historyPeriodHours === option.hours ? styles.periodButtonActive : ""}`}
+                    onClick={() => onPeriodChange(option.hours)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
           {historyStats && (
             <div className={styles.chartStats}>
-              <article className={styles.chartStatCard}>
-                <span className={styles.chartStatLabel}>Минимум</span>
-                <strong className={styles.chartStatValue}>{formatTemperatureLabel(historyStats.minPoint.temperature)}</strong>
-                <span className={styles.chartStatTime}>{formatAxisDate(historyStats.minPoint.date)}</span>
-              </article>
-
-              <article className={styles.chartStatCard}>
-                <span className={styles.chartStatLabel}>Максимум</span>
-                <strong className={styles.chartStatValue}>{formatTemperatureLabel(historyStats.maxPoint.temperature)}</strong>
-                <span className={styles.chartStatTime}>{formatAxisDate(historyStats.maxPoint.date)}</span>
-              </article>
+              {historyStats.cards.map((card) => (
+                <article key={card.label} className={styles.chartStatCard}>
+                  <span className={styles.chartStatLabel}>{card.label}</span>
+                  <strong className={styles.chartStatValue}>{card.value}</strong>
+                  {card.meta ? <span className={styles.chartStatTime}>{card.meta}</span> : null}
+                </article>
+              ))}
             </div>
           )}
 
           {historyLoading ? (
             <div className={styles.chartEmpty}>Загружаем график...</div>
           ) : chartOption ? (
-            <div className={styles.chartWrap}>
-              <ReactEChartsCore echarts={echarts} option={chartOption} notMerge lazyUpdate className={styles.chartCanvas} />
+            <div className={`${styles.chartWrap} ${chartExpanded ? styles.chartWrapExpanded : ""}`}>
+              <ReactEChartsCore
+                echarts={echarts}
+                option={chartOption}
+                notMerge
+                lazyUpdate
+                className={`${styles.chartCanvas} ${chartExpanded ? styles.chartCanvasExpanded : ""}`}
+              />
             </div>
           ) : (
             <div className={styles.chartEmpty}>За выбранный период нет данных.</div>
           )}
-        </>
+        </div>
       )}
     </Modal>
   );

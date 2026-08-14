@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import styles from "./HamburgerMenuMobile.module.css";
 import { menuParts } from "../menuParts/menuParts";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Drawer } from "@mui/material";
 import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
 import { preloadImage } from "../App/assetPreload";
+import { useSelector } from "react-redux";
+import type { RootState } from "../Store";
+import { getAvailableMenuParts } from "../App/access";
 
 interface HamburgerMenuMobileProps {
   isOpen: boolean;
@@ -18,13 +21,15 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const navigate = useNavigate();
   const location = useLocation();
+  const roles = useSelector((state: RootState) => state.userData.roles);
+  const availableMenuParts = useMemo(() => getAvailableMenuParts(menuParts, roles), [roles]);
 
   useEffect(() => {
-    const currentPart = menuParts.findIndex((part) =>
+    const currentPart = availableMenuParts.findIndex((part) =>
       location.pathname.startsWith(part.path)
     );
     if (currentPart !== -1) setActiveIndex(currentPart);
-  }, [location.pathname]);
+  }, [availableMenuParts, location.pathname]);
 
   const activeHandler = (index: number, path: string) => {
     setActiveIndex(index);
@@ -42,23 +47,29 @@ export const HamburgerMenuMobile: React.FC<HamburgerMenuMobileProps> = ({
       }}
     >
       <ul className={styles.menu}>
-        {menuParts.map((elem, index) => {
+        {availableMenuParts.map((elem, index) => {
           const Icon = elem.Icon;
 
           return (
             <li
               key={elem.path}
               className={index === activeIndex ? styles.active : ""}
-              onClick={() => activeHandler(index, elem.path)}
               onMouseEnter={() => {
                 void preloadRouteForPath(elem.path);
                 void preloadImage(elem.img);
               }}
             >
-              <div>
+              <Link
+                to={elem.path}
+                onClick={(event) => {
+                  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                  event.preventDefault();
+                  activeHandler(index, elem.path);
+                }}
+              >
                 <Icon className={styles.menuIcon} />
                 <p>{elem.name}</p>
-              </div>
+              </Link>
             </li>
           );
         })}

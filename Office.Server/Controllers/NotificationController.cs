@@ -1,12 +1,15 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using System.Security.Claims;
 
 namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class NotificationController : ControllerBase
     {
         private readonly RKNETDBContext _rKNETDBContext;
@@ -19,6 +22,11 @@ namespace Office.Server.Controllers
         [HttpGet("getactivenotifications")]
         public async Task<ActionResult> GetActiveNotifications(int userId)
         {
+            if (!CanAccessUser(userId))
+            {
+                return Forbid();
+            }
+
             List<NotificationDto> officeNotifications = await _rKNETDBContext.OfficeNotifications
                 .Include(x => x.OfficeNotificationType)
                 .AsNoTracking()
@@ -44,6 +52,11 @@ namespace Office.Server.Controllers
         [HttpGet("getinactivenotifications")]
         public async Task<ActionResult> GetInactiveNotifications(int userId)
         {
+            if (!CanAccessUser(userId))
+            {
+                return Forbid();
+            }
+
             List<NotificationDto> officeNotifications = await _rKNETDBContext.OfficeNotifications
                 .Include(x => x.OfficeNotificationType)
                 .AsNoTracking()
@@ -95,8 +108,16 @@ namespace Office.Server.Controllers
         [HttpPost("setnotificationsstatusone")]
         public async Task<ActionResult> SetNotificationsStatusOne([FromBody] List<int> notificationIds)
         {
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId is null)
+            {
+                return Unauthorized();
+            }
+
+            var canManageUsers = User.IsInRole("Users");
             List<OfficeNotification> officeNotifications = await _rKNETDBContext.OfficeNotifications
-                .Where(x => notificationIds.Contains(x.Id))
+                .Where(x => notificationIds.Contains(x.Id) &&
+                    (x.OfficeUserId == currentUserId.Value || canManageUsers))
                 .ToListAsync();
 
             foreach (var item in officeNotifications)
@@ -119,9 +140,26 @@ namespace Office.Server.Controllers
                 return NotFound(new { message = "Notification is not found" });
             }
 
+            if (!CanAccessUser(officeNotification.OfficeUserId))
+            {
+                return Forbid();
+            }
+
             officeNotification.Status = 2;
             await _rKNETDBContext.SaveChangesAsync();
             return Ok();
+        }
+
+        private bool CanAccessUser(int userId)
+        {
+            var currentUserId = GetCurrentUserId();
+            return currentUserId == userId || User.IsInRole("Users");
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(value, out var userId) ? userId : null;
         }
 
         public class NotificationDto

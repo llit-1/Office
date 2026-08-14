@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@toolpad/core";
 import Select from "../../Components/Select/Select";
+import Button from "../../Components/Button/Button";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import Modal from "../../Components/Modal/Modal";
 import { get, getFriendlyErrorMessage } from "../../Services/api";
@@ -407,7 +408,7 @@ const StockSearchPage = () => {
   if (isLoading) {
     return (
       <div className={styles.loaderWrapper}>
-        <LoadingSpinner />
+        <LoadingSpinner size={96} label="Загружаем поиск…" />
       </div>
     );
   }
@@ -483,12 +484,12 @@ const StockSearchPage = () => {
         </div>
 
         <div className={styles.actions}>
-          <button className={`${styles.actionButton} ${styles.searchButton}`} disabled={isSearching} onClick={() => void handleSearch()}>
+          <Button variant="primary" loading={isSearching} onClick={() => void handleSearch()}>
             {isSearching ? "Поиск..." : "Поиск"}
-          </button>
-          <button className={`${styles.actionButton} ${styles.clearButton}`} disabled={isSearching} onClick={clearFilters}>
+          </Button>
+          <Button variant="secondary" disabled={isSearching} onClick={clearFilters}>
             Очистить
-          </button>
+          </Button>
         </div>
       </div>
 

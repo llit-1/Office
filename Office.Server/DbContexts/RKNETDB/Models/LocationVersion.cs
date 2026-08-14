@@ -23,6 +23,12 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("OBD")]
         public int? OBD { get; set; }
 
+        [Column("ENTITYGUID")]
+        public Guid? EntityGuid { get; set; }
+
+        [ForeignKey(nameof(EntityGuid))]
+        public Entity? Entity { get; set; }
+
         [Column("VERSIONSTARTDATE")]
         public DateTime? VersionStartDate { get; set; }
 

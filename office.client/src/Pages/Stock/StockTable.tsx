@@ -11,6 +11,7 @@ import { del, get, post, put } from "../../Services/api";
 import Modal from "../../Components/Modal/Modal";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
 import { Toggle } from "../../Components/Toggle/Toggle";
 import { useNotifications } from "@toolpad/core";
 
@@ -328,7 +329,6 @@ const StockTable = () => {
         <div className={styles.modalContent}>
             <div className={styles.modalInputs}>
                 <Input
-                    labelVisible={false}
                     label="Название категории"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
@@ -344,13 +344,13 @@ const StockTable = () => {
 
             <div className={styles.modalButtons}>
                 { selectedCategory && (
-                    <button className={styles.deleteButton} onClick={() => setIsDeleteOpen(true)} disabled={isSaving}>Удалить</button>
+                    <Button variant="danger" onClick={() => setIsDeleteOpen(true)} disabled={isSaving}>Удалить</Button>
                 )}
 
                 { selectedCategory ? (
-                    <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>Сохранить</button>
+                    <Button variant="primary" onClick={handleSave} loading={isSaving}>Сохранить</Button>
                 ) : (
-                    <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>Создать</button>
+                    <Button variant="primary" onClick={handleSave} loading={isSaving}>Создать</Button>
                 )}
             </div>
         </div>

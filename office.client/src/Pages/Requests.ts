@@ -11,7 +11,10 @@ export const Auth = async (
   password: string
 ): Promise<AuthAnswer> => {
   try {
-    const data = await post<AuthAnswer>("/Authorization/login", { login, password });
+    const data = await post<AuthAnswer>("/Authorization/login", { login, password }, {
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    });
     return data;
   } catch (e: unknown) {
     throw parseError(e, "Ошибка отправки");

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import ConfirmModal from "../../../Components/ConfirmModal/ConfirmModal";
+import Button from "../../../Components/Button/Button";
 import Input from "../../../Components/Input/Input";
 import { MultiplySelect } from "../../../Components/MultiplySelect/MultiplySelect";
 import Modal from "../../../Components/Modal/Modal";
@@ -126,33 +127,32 @@ export default function SensorChatModal({
 
         <div className={`${styles.editActions} ${styles.chatEditActions}`}>
           {mode === "edit" && (
-            <button
-              type="button"
-              className={styles.editDeleteButton}
+            <Button
+              variant="danger"
+              className={styles.editDeleteAction}
               onClick={onDeleteClick}
               disabled={saving}
             >
               Удалить
-            </button>
+            </Button>
           )}
 
-          <button
-            type="button"
-            className={styles.editCancelButton}
+          <Button
+            variant="secondary"
             onClick={onClose}
             disabled={saving}
           >
             Отмена
-          </button>
+          </Button>
 
-          <button
-            type="button"
-            className={styles.editSaveButton}
+          <Button
+            variant="primary"
             onClick={onSave}
-            disabled={!canSave || saving}
+            disabled={!canSave}
+            loading={saving}
           >
             {saving ? "Сохраняем..." : mode === "create" ? "Создать" : "Сохранить"}
-          </button>
+          </Button>
         </div>
       </Modal>
 

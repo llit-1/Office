@@ -1,0 +1,89 @@
+.field {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    height: var(--control-height-lg);
+    min-height: var(--control-height-lg);
+    box-sizing: border-box;
+}
+
+.label {
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    padding: 0 var(--space-1);
+    color: var(--color-text-muted);
+    font-size: var(--font-size-compact);
+    font-weight: var(--font-weight-control);
+    z-index: 2;
+}
+
+.visuallyHiddenLabel {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.outline {
+    position: absolute;
+    inset: 0;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--outlined-field-radius, var(--radius-control));
+    box-sizing: border-box;
+    pointer-events: none;
+    transition: border-color var(--duration-fast) var(--easing-standard);
+    z-index: 1;
+}
+
+.outline legend {
+    width: auto;
+    max-width: calc(100% - 24px);
+    height: 1px;
+    margin-left: 8px;
+    padding: 0;
+    overflow: hidden;
+    font-size: var(--font-size-compact);
+    line-height: 0;
+    visibility: hidden;
+    white-space: nowrap;
+}
+
+.outline legend::after {
+    content: attr(data-label);
+    display: inline-block;
+    padding-inline: var(--space-2);
+}
+
+.outline .outlineLegendHidden {
+    width: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.outline .outlineLegendHidden::after {
+    padding: 0;
+}
+
+.field:focus-within .outline {
+    border-color: var(--color-primary);
+    border-width: 2px;
+}
+
+.disabled .label {
+    color: var(--color-disabled-text);
+}
+
+.disabled .outline,
+.disabled:focus-within .outline {
+    border-color: var(--color-border);
+    border-width: 1px;
+}

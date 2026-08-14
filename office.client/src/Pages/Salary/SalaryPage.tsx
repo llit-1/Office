@@ -8,6 +8,8 @@ import RemoveRoundedIcon from "@mui/icons-material/RemoveRounded";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
+import OutlinedField from "../../Components/OutlinedField/OutlinedField";
 import Select from "../../Components/Select/Select";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
@@ -344,16 +346,20 @@ const SalaryPage = () => {
                 />
 
                 <div className={`${styles.autocompleteField} ${styles.autocompleteFieldMedium}`}>
-                  <label className={styles.fieldLabel}>Сотрудник</label>
-                  <div className={styles.autocompleteWrapper}>
+                  <OutlinedField
+                    label="Сотрудник"
+                    htmlFor="salary-personality-search"
+                    className={styles.autocompleteWrapper}
+                  >
                     <input
+                      id="salary-personality-search"
                       className={styles.autocompleteInput}
                       value={personalityQuery}
                       onChange={(event) => handlePersonalityChange(event.target.value)}
                       placeholder="Введите ФИО"
                     />
                     <SearchOutlinedIcon className={styles.autocompleteIcon} />
-                  </div>
+                  </OutlinedField>
 
                   {(isPersonalityLoading || personalityItems.length > 0) && (
                     <div className={styles.autocompleteDropdown}>
@@ -378,10 +384,10 @@ const SalaryPage = () => {
               <Input label="Период с" type="date" value={dateFrom} onChange={(event) => handleDateFromChange(event.target.value)} size="small" wrapperClassName={styles.compactField} />
               <Input label="Период по" type="date" value={dateTo} onChange={(event) => handleDateToChange(event.target.value)} size="small" wrapperClassName={styles.compactField} />
               <Input label="Месяц" type="month" value={monthValue} onChange={(event) => handleMonthChange(event.target.value)} size="small" wrapperClassName={styles.compactField} />
-                
-                <button className={`${styles.primaryButton} ${styles.showButton}`} type="button" onClick={loadTimeSheets} disabled={isTableLoading}>
+
+                <Button variant="primary" className={styles.showButton} onClick={loadTimeSheets} loading={isTableLoading}>
                   {isTableLoading ? "Загрузка..." : "Показать"}
-                </button>
+                </Button>
 
               </div>
 
@@ -399,7 +405,7 @@ const SalaryPage = () => {
 
             </div>
 
-            
+
           </>
         )}
       </section>
@@ -410,9 +416,9 @@ const SalaryPage = () => {
             <p className={styles.sectionMeta}>Найдено записей: {rows.length}</p>
           </div>
 
-          <button className={styles.primaryButton} type="button" onClick={handleCalculateAll} disabled={isCalculating || rows.length === 0}>
+          <Button variant="primary" onClick={handleCalculateAll} disabled={rows.length === 0} loading={isCalculating}>
             {isCalculating ? "Расчет..." : "Рассчитать"}
-          </button>
+          </Button>
         </div>
 
         {isTableLoading ? (

@@ -5,7 +5,7 @@
     height: 100%;
     width: 100%;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .ul {
@@ -17,7 +17,7 @@
 .ul > li {
     border: none;
     height: fit-content;
-    padding: 5px;
+    padding: 4px;
     text-align: center;
 }
 

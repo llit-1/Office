@@ -4,11 +4,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using System.Security.Claims;
 
 namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class DataUpdateController : ControllerBase
     {
         private readonly RKNETDBContext _rKNETDBContext;
@@ -21,6 +23,17 @@ namespace Office.Server.Controllers
         [HttpGet("getdata")]
         public async Task<ActionResult> GetData(int userId)
         {
+            var currentUserId = GetCurrentUserId();
+            if (currentUserId is null)
+            {
+                return Unauthorized();
+            }
+
+            if (currentUserId.Value != userId && !User.IsInRole("Users"))
+            {
+                return Forbid();
+            }
+
             Data? data = await _rKNETDBContext.OfficeUser
                 .AsNoTracking()
                 .Where(x => x.Id == userId)
@@ -65,6 +78,12 @@ namespace Office.Server.Controllers
             }
 
             return Ok(data);
+        }
+
+        private int? GetCurrentUserId()
+        {
+            var value = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            return int.TryParse(value, out var userId) ? userId : null;
         }
     }
 

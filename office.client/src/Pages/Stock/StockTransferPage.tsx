@@ -2,8 +2,10 @@
 import { useNotifications } from "@toolpad/core";
 import { useSelector } from "react-redux";
 import Select from "../../Components/Select/Select";
+import Button from "../../Components/Button/Button";
 import Input from "../../Components/Input/Input";
 import Modal from "../../Components/Modal/Modal";
+import Textarea from "../../Components/Textarea/Textarea";
 import { get, getFriendlyErrorMessage } from "../../Services/api";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import styles from "./StockTransfer.module.css";
@@ -509,7 +511,7 @@ const StockTransferPage = () => {
   };
 
   if (isLoading) {
-    return <div className={styles.loaderWrapper}><LoadingSpinner /></div>;
+    return <div className={styles.loaderWrapper}><LoadingSpinner size={96} label="Загружаем передачу…" /></div>;
   }
 
   return (
@@ -567,8 +569,8 @@ const StockTransferPage = () => {
       </div>
 
       <div className={`${styles.mainFields} ${styles.commentSection}`}>
-        <textarea
-          className={styles.commentInput}
+        <Textarea
+          label="Комментарий"
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="Пожалуйста, укажите номер заявки или другие данные по перемещению"
@@ -640,8 +642,8 @@ const StockTransferPage = () => {
       </div>
 
       <div className={styles.buttonsWrapper}>
-        <button className={styles.submitButton} onClick={clearAllFields}>Очистить</button>
-        <button className={`${styles.submitButton} ${styles.btnSend}`} onClick={() => void sendTransfer()}>Отправить</button>
+        <Button variant="secondary" onClick={clearAllFields}>Очистить</Button>
+        <Button variant="primary" onClick={() => void sendTransfer()}>Отправить</Button>
       </div>
 
       <Modal
@@ -678,8 +680,8 @@ const StockTransferPage = () => {
           />
 
           <div className={styles.addHolderModalButtons}>
-            <button className={`${styles.submitButton} ${styles.btnSend}`} disabled={!canAddHolder} onClick={handleAddHolder}>Добавить</button>
-            <button className={styles.submitButton} onClick={() => setIsAddHolderOpen(false)}>Закрыть</button>
+            <Button variant="primary" disabled={!canAddHolder} onClick={handleAddHolder}>Добавить</Button>
+            <Button variant="secondary" onClick={() => setIsAddHolderOpen(false)}>Закрыть</Button>
           </div>
         </div>
       </Modal>

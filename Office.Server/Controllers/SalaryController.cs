@@ -10,7 +10,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Salary")]
     public class SalaryController : ControllerBase
     {
         private static readonly Guid FactoryLocationTypeGuid = Guid.Parse("94AD659C-AF5B-4CA0-50AD-08DBDF6ABE84");
@@ -168,7 +168,7 @@ namespace Office.Server.Controllers
 
             if (!recalculateResponse.IsSuccess)
             {
-                return StatusCode(recalculateResponse.StatusCode, new { message = recalculateResponse.Message });
+                return StatusCode(MapUpstreamStatusCode(recalculateResponse.StatusCode), new { message = recalculateResponse.Message });
             }
 
             var timeSheet = await _context.TimeSheets
@@ -215,7 +215,7 @@ namespace Office.Server.Controllers
 
             if (!response.IsSuccess)
             {
-                return StatusCode(response.StatusCode, new { message = response.Message });
+                return StatusCode(MapUpstreamStatusCode(response.StatusCode), new { message = response.Message });
             }
 
             return Ok(new { calculated = distinctGuids.Count });
@@ -347,7 +347,7 @@ namespace Office.Server.Controllers
 
             if (!response.IsSuccess)
             {
-                return StatusCode(response.StatusCode, new { message = response.Message });
+                return StatusCode(MapUpstreamStatusCode(response.StatusCode), new { message = response.Message });
             }
 
             return NoContent();
@@ -363,7 +363,7 @@ namespace Office.Server.Controllers
             var response = await SendSalaryServiceRequestAsync(HttpMethod.Post, BuildSalaryApiUrl(relativePath), payload);
             if (!response.IsSuccess)
             {
-                return StatusCode(response.StatusCode, new { message = response.Message });
+                return StatusCode(MapUpstreamStatusCode(response.StatusCode), new { message = response.Message });
             }
 
             return Ok();
@@ -398,6 +398,13 @@ namespace Office.Server.Controllers
                     LoadError = "Ошибка обращения к сервису данных."
                 };
             }
+        }
+
+        private static int MapUpstreamStatusCode(int statusCode)
+        {
+            return statusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden
+                ? StatusCodes.Status502BadGateway
+                : statusCode;
         }
 
         private async Task<SalaryServiceResponse> SendSalaryServiceRequestAsync<T>(HttpMethod method, string url, T payload)

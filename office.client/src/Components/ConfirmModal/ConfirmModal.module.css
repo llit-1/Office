@@ -1,7 +1,7 @@
 .modalContent {
   display: flex;
   flex-direction: column;
-  gap: 26px;
+  gap: var(--space-6);
   align-items: center;
 }
 
@@ -12,54 +12,73 @@
 }
 
 .modalText {
-  font-size: 18px;
+  margin: 0;
+  font-size: var(--font-size-title-sm);
+  line-height: 1.45;
   text-align: center;
   color: var(--color-text);
 }
 
 .modalActions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   width: 100%;
   justify-content: space-between;
 }
 
 .modalButton {
-  padding: 8px 14px;
-  border-radius: 8px;
+  min-width: 96px;
+  min-height: var(--control-height-md);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-control);
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 700;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: background-color var(--duration-normal) var(--easing-standard), border-color var(--duration-normal) var(--easing-standard), color var(--duration-normal) var(--easing-standard);
 }
 
 .confirmPrimary {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  color: var(--color-white);
-  width: 70px;
-  height: 40px;
+  background: var(--color-primary-solid);
+  border-color: var(--color-primary-solid);
+  color: var(--color-on-primary-solid);
 }
 
 .confirmSecondary {
   background: var(--color-surface);
   border-color: var(--color-border);
   color: var(--color-text-muted);
-  width: 70px;
-  height: 40px;
 }
 
 .confirmPrimary:hover {
-    background-color: var(--color-primary-600);
-    border-color: var(--color-primary-600);
-    transform: translateY(-1px);
+    background-color: var(--color-primary-hover);
+    border-color: var(--color-primary-hover);
 }
 
 .confirmSecondary:hover {
     background-color: color-mix(in srgb, var(--color-surface-muted) 58%, var(--color-surface));
     border-color: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-border));
     color: var(--color-text);
-    transform: translateY(-1px);
+}
+
+@media (max-width: 480px) {
+  .modalContent {
+    gap: var(--space-4);
+  }
+
+  .modalText {
+    font-size: var(--font-size-body);
+  }
+
+  .modalActions {
+    align-items: stretch;
+  }
+
+  .modalButton {
+    min-width: 0;
+    flex: 1 1 0;
+  }
 }
 
 

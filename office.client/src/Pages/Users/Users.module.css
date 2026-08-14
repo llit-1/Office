@@ -4,7 +4,7 @@
 
 .tabAndSearchWrapper {
     composes: tabAndSearchShell from "../../styles/shared-search-layout.module.css";
-    padding-bottom: 10px;
+    padding-bottom: 12px;
 }
 
 .tt_wrapper {

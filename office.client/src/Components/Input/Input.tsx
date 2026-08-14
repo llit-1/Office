@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useId } from "react";
+import OutlinedField from "../OutlinedField/OutlinedField";
 import styles from "./Input.module.css";
 
 type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
@@ -12,13 +13,21 @@ type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ label, className, wrapperClassName, maxLength, labelVisible, size, ...rest }, ref) => {
+    const generatedId = useId();
+    const inputId = rest.id ?? generatedId;
     const wrapperSizeClass = size === "small" ? styles.sizeSmall : size === "medium" ? styles.sizeMedium : "";
+    const showLabel = labelVisible !== false;
 
     return (
-      <div className={`${styles.inputWrapper} ${wrapperSizeClass} ${wrapperClassName ?? ""}`}>
-        {labelVisible !== false && <label className={styles.label}>{label}</label>}
-        <input ref={ref} className={`${styles.input} ${className ?? ""}`} {...rest} maxLength={maxLength} />
-      </div>
+      <OutlinedField
+        label={label}
+        htmlFor={inputId}
+        labelVisible={showLabel}
+        disabled={rest.disabled}
+        className={`${styles.inputWrapper} ${wrapperSizeClass} ${wrapperClassName ?? ""}`}
+      >
+        <input id={inputId} ref={ref} className={`${styles.input} ${className ?? ""}`} {...rest} maxLength={maxLength} />
+      </OutlinedField>
     );
   },
 );

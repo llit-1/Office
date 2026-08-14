@@ -3,7 +3,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 .tabsWrap {
@@ -13,7 +13,7 @@
 .contentSection {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     min-height: 0;
 }
 
@@ -25,18 +25,18 @@
     width: 100%;
     display: grid;
     grid-template-columns: repeat(3, minmax(120px, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .metricCard {
     min-height: 58px;
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 2px;
+    gap: 4px;
     padding: 8px 12px;
     box-shadow: var(--shadow-sm);
 }
@@ -62,6 +62,15 @@
     min-height: 0;
 }
 
+.sensorsLoadingState {
+    width: 100%;
+    min-height: 280px;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    padding: var(--space-6);
+}
+
 .rulesTableToolbar {
     display: none;
 }
@@ -84,7 +93,7 @@
 .rulesTableCell {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
     min-width: 0;
 }
 
@@ -105,7 +114,7 @@
     width: 32px;
     height: 32px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
     display: inline-flex;
@@ -120,7 +129,7 @@
     justify-content: center;
     min-width: 92px;
     height: 28px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     padding: 0 12px;
     font-size: 12px;
     font-weight: 800;
@@ -133,22 +142,22 @@
 }
 
 .ruleStateDisabled {
-    background: color-mix(in srgb, #6b7280 14%, var(--color-surface));
-    color: #6b7280;
-    border: 1px solid color-mix(in srgb, #6b7280 36%, var(--color-border));
+    background: color-mix(in srgb, var(--color-inactive) 14%, var(--color-surface));
+    color: var(--color-inactive);
+    border: 1px solid color-mix(in srgb, var(--color-inactive) 36%, var(--color-border));
 }
 
 .rulesLayout {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 .rulesHeader {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 14px;
+    gap: 16px;
     flex-wrap: wrap;
 }
 
@@ -159,7 +168,7 @@
 .rulesSensorMeta {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 14px;
+    gap: 8px 16px;
     color: var(--color-text-muted);
     font-size: 14px;
     font-weight: 600;
@@ -168,18 +177,18 @@
 .rulesGrid {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 14px;
+    gap: 16px;
 }
 
 .ruleCard {
     border: 1px solid var(--color-border);
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     background: var(--color-surface);
     box-shadow: var(--shadow-sm);
     padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 .ruleCardHeader {
@@ -198,7 +207,7 @@
 }
 
 .ruleCardHeader p {
-    margin: 6px 0 0;
+    margin: 8px 0 0;
     color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.4;
@@ -225,7 +234,7 @@
 .ruleCardEmpty {
     min-height: 76px;
     border: 1px dashed var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-surface-muted) 50%, var(--color-surface));
     display: flex;
     align-items: center;
@@ -239,13 +248,13 @@
 .rulesModalLayout {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 
 .chatModalLayout {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
     flex: 1 1 auto;
     min-height: 0;
 }
@@ -254,7 +263,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-bottom: 10px;
+    padding-bottom: 12px;
 }
 
 .chatNameField {
@@ -265,7 +274,7 @@
 .chatSelectsGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+    gap: 16px;
     min-height: 0;
 }
 
@@ -301,10 +310,8 @@
 }
 
 .rulesSectionCard {
-    --input-label-background: var(--color-surface);
-    --select-label-background: var(--color-surface);
     border: 1px solid color-mix(in srgb, var(--color-border) 72%, var(--color-surface));
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     background:
         linear-gradient(
             180deg,
@@ -315,7 +322,7 @@
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .rulesSectionHeader h3 {
@@ -327,7 +334,7 @@
 }
 
 .rulesSectionHeader p {
-    margin: 6px 0 0;
+    margin: 8px 0 0;
     color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
@@ -336,7 +343,7 @@
 .rulesModalGrid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .rulesToggleField,
@@ -347,9 +354,9 @@
     gap: 12px;
     min-height: 50px;
     height: 50px;
-    padding: 0 14px;
+    padding: 0 16px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background:
         linear-gradient(
             135deg,
@@ -358,8 +365,11 @@
         );
 }
 
-.rulesToggleCard {
+.rulesModalGrid .rulesToggleCard {
+    box-sizing: border-box;
     width: 100%;
+    min-width: 0;
+    padding: 0 16px;
     text-align: left;
     justify-content: space-between;
     cursor: pointer;
@@ -368,18 +378,6 @@
 
 .rulesToggleCardWide {
     grid-column: 1 / -1;
-}
-
-.rulesToggleControl {
-    flex: 0 0 auto;
-    width: auto;
-    min-width: auto;
-    min-height: auto;
-    height: auto;
-    padding: 0;
-    margin-left: auto;
-    justify-content: flex-end;
-    background: transparent;
 }
 
 .rulesToggleCard:hover {
@@ -404,6 +402,12 @@
 .rulesToggleTitle {
     flex: 1 1 auto;
     min-width: 0;
+    position: static;
+    order: -1;
+    padding: 0;
+    background: transparent;
+    font-size: 14px;
+    line-height: 1.2;
 }
 
 .rulesToggleCopy span {
@@ -415,13 +419,13 @@
 .addRuleButton {
     height: 38px;
     border: 1px solid var(--color-primary);
-    border-radius: 8px;
-    background: var(--color-primary);
-    color: var(--color-white);
+    border-radius: var(--radius-control);
+    background: var(--color-primary-solid);
+    color: var(--color-on-primary-solid);
     padding: 0 12px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -430,13 +434,13 @@
 .addRuleButtonSecondary {
     height: 36px;
     border: 1px solid color-mix(in srgb, var(--color-primary) 34%, var(--color-border));
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
     color: var(--color-primary);
     padding: 0 12px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 14px;
     font-weight: 800;
     cursor: pointer;
@@ -446,20 +450,18 @@
 .addRuleButtonSecondary:hover {
     background: color-mix(in srgb, var(--color-primary) 13%, var(--color-surface));
     border-color: color-mix(in srgb, var(--color-primary) 46%, var(--color-border));
-    transform: translateY(-1px);
+    border-color: var(--color-primary-hover);
 }
 
 .ruleModalMaintenanceList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .ruleModalMaintenanceCard {
-    --input-label-background: var(--color-surface);
-    --select-label-background: var(--color-surface);
     border: 1px solid color-mix(in srgb, var(--color-border) 86%, var(--color-surface));
-    border-radius: 12px;
+    border-radius: var(--radius-card);
     background:
         linear-gradient(
             180deg,
@@ -469,7 +471,7 @@
     padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .ruleModalMaintenanceHeader {
@@ -495,10 +497,10 @@
     align-self: flex-start;
     max-width: 100%;
     border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface));
     color: color-mix(in srgb, var(--color-text) 72%, var(--color-primary));
-    padding: 5px 10px;
+    padding: 4px 12px;
     font-size: 12px;
     font-weight: 800;
     line-height: 1.3;
@@ -508,14 +510,14 @@
 .maintenanceList {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .maintenanceItem {
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-surface-muted) 45%, var(--color-surface));
-    padding: 12px 14px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -550,7 +552,7 @@
     width: 34px;
     height: 34px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
     display: inline-flex;
@@ -566,7 +568,7 @@
 .inlineRuleFields {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 12px;
 }
 
 .daysPicker {
@@ -590,7 +592,7 @@
 .dayChip {
     height: 38px;
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
     font-size: 13px;
@@ -605,15 +607,15 @@
 }
 
 .dayChipActive {
-    background: var(--color-primary);
+    background: var(--color-primary-solid);
     border-color: var(--color-primary);
-    color: var(--color-white);
+    color: var(--color-on-primary-solid);
     box-shadow: 0 8px 16px color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .dayChipActive:hover {
     border-color: var(--color-primary);
-    background: color-mix(in srgb, var(--color-primary) 90%, #ffffff 10%);
+    background: color-mix(in srgb, var(--color-primary) 90%, var(--color-on-media) 10%);
     color: var(--color-white);
 }
 
@@ -640,7 +642,7 @@
     align-items: center;
     gap: 8px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     padding: 0 12px;
     color: var(--color-text-muted);
@@ -658,19 +660,19 @@
 
 .filterBar {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
     justify-content: flex-end;
     flex: 0 0 auto;
 }
 
 .addSensorButton {
-    height: 42px;
+    height: var(--control-height-md);
     border: 1px solid var(--color-primary);
-    border-radius: 8px;
-    background: var(--color-primary);
-    color: var(--color-white);
-    padding: 0 14px;
+    border-radius: var(--radius-control);
+    background: var(--color-primary-solid);
+    color: var(--color-on-primary-solid);
+    padding: 0 16px;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -682,13 +684,13 @@
 
 .addSensorButton:hover {
     filter: brightness(0.98);
-    transform: translateY(-1px);
+    border-color: var(--color-primary-hover);
 }
 
 .filterButton {
     height: 42px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
     padding: 0 12px;
@@ -699,9 +701,9 @@
 }
 
 .filterButtonActive {
-    background: var(--color-primary);
+    background: var(--color-primary-solid);
     border-color: var(--color-primary);
-    color: var(--color-white);
+    color: var(--color-on-primary-solid);
 }
 
 .sensorsGrid {
@@ -712,17 +714,17 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--sensor-card-min-width)), 1fr));
     grid-auto-rows: 112px;
-    gap: 10px;
+    gap: 12px;
 }
 
 .sensorCard {
     width: 100%;
     height: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text);
-    padding: 10px 12px;
+    padding: 12px 12px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -735,7 +737,7 @@
 }
 
 .sensorCard:hover {
-    transform: translateY(-1px);
+    border-color: var(--color-primary-hover);
     box-shadow: var(--shadow-md);
 }
 
@@ -743,7 +745,7 @@
     width: 28px;
     height: 28px;
     border: 1px solid transparent;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-surface-muted) 70%, var(--color-transparent));
     color: var(--color-text);
     display: inline-flex;
@@ -763,8 +765,8 @@
 .cardActionButtonDisabled,
 .cardActionButtonDisabled:hover {
     border-color: transparent;
-    background: color-mix(in srgb, #9ca3af 28%, var(--color-surface));
-    color: #9ca3af;
+    background: color-mix(in srgb, var(--color-inactive-light) 28%, var(--color-surface));
+    color: var(--color-inactive-light);
     cursor: not-allowed;
     transform: none;
 }
@@ -802,12 +804,12 @@
 .sensorCardInactive {
     background: linear-gradient(
         135deg,
-        color-mix(in srgb, #6b7280 30%, var(--color-surface)) 0%,
-        color-mix(in srgb, #6b7280 18%, var(--color-surface)) 56%,
-        color-mix(in srgb, #4b5563 28%, var(--color-surface)) 100%
+        color-mix(in srgb, var(--color-inactive) 30%, var(--color-surface)) 0%,
+        color-mix(in srgb, var(--color-inactive) 18%, var(--color-surface)) 56%,
+        color-mix(in srgb, var(--color-inactive-strong) 28%, var(--color-surface)) 100%
     );
-    border-color: color-mix(in srgb, #4b5563 52%, var(--color-border));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, #9ca3af 22%, transparent);
+    border-color: color-mix(in srgb, var(--color-inactive-strong) 52%, var(--color-border));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-inactive-light) 22%, transparent);
 }
 
 .sensorCardHeader {
@@ -818,6 +820,8 @@
 
 .sensorTitle {
     margin: 0;
+    font-family: var(--font-heading);
+    letter-spacing: normal;
     font-size: 16px;
     line-height: 1.18;
     font-weight: 700;
@@ -862,7 +866,7 @@
 .missingDataBadge {
     width: 18px;
     height: 18px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     border: 1px solid color-mix(in srgb, var(--color-danger) 42%, var(--color-border));
     background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
     color: var(--color-danger);
@@ -882,7 +886,7 @@
     right: 12px;
     width: 10px;
     height: 10px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     background: var(--color-border);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-border) 24%, var(--color-transparent));
 }
@@ -903,8 +907,8 @@
 }
 
 .statusDotInactive {
-    background: #6b7280;
-    box-shadow: 0 0 0 2px color-mix(in srgb, #6b7280 28%, var(--color-transparent));
+    background: var(--color-inactive);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-inactive) 28%, var(--color-transparent));
 }
 
 .emptyState {
@@ -914,7 +918,7 @@
     align-items: center;
     justify-content: center;
     border: 1px dashed var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-subtle);
     font-weight: 700;
@@ -926,16 +930,46 @@
     max-width: min(980px, calc(100vw - 20px));
 }
 
+.chartModalBody {
+    min-width: 0;
+}
+
+.chartModalTitle {
+    min-width: 0;
+}
+
+.chartModalPanelExpanded {
+    width: min(1720px, calc(100vw - 12px));
+    max-width: min(1720px, calc(100vw - 12px));
+    max-height: calc(100vh - 12px);
+}
+
+.chartModalBodyExpanded {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chartContent {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.chartContentExpanded {
+    flex: 1 1 auto;
+}
+
 .editForm {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 16px;
 }
 
 .activityField {
     height: 50px;
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-surface-muted) 32%, var(--color-surface));
 }
 
@@ -945,8 +979,8 @@
     display: grid;
     grid-template-columns: 132px minmax(0, 1fr);
     align-items: center;
-    gap: 14px;
-    padding: 0 14px;
+    gap: 16px;
+    padding: 0 16px;
     border: 0;
     border-radius: inherit;
     background: transparent;
@@ -991,68 +1025,18 @@
 }
 
 .activityStateInactive {
-    color: #6b7280;
+    color: var(--color-inactive);
 }
 
 .editActions {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 18px;
+    gap: 12px;
+    margin-top: 20px;
 }
 
-.editCancelButton,
-.editSaveButton,
-.editDeleteButton {
-    min-width: 120px;
-    height: 40px;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    padding: 0 16px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.editCancelButton {
-    background: var(--color-surface);
-    color: var(--color-text-muted);
-}
-
-.editDeleteButton {
+.editDeleteAction {
     margin-right: auto;
-    background: color-mix(in srgb, var(--color-danger) 10%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
-    color: var(--color-danger);
-}
-
-.editSaveButton {
-    background: var(--color-primary);
-    border-color: var(--color-primary);
-    color: var(--color-white);
-}
-
-.editCancelButton:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-surface-muted) 58%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-text-muted) 26%, var(--color-border));
-}
-
-.editDeleteButton:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface));
-    border-color: color-mix(in srgb, var(--color-danger) 58%, var(--color-border));
-    color: color-mix(in srgb, var(--color-danger) 88%, var(--color-text));
-}
-
-.editSaveButton:hover:not(:disabled) {
-    background: var(--color-primary-600);
-    border-color: var(--color-primary-600);
-}
-
-.editSaveButton:disabled,
-.editCancelButton:disabled,
-.editDeleteButton:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
 }
 
 .chartToolbar {
@@ -1060,7 +1044,15 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 16px;
+}
+
+.chartControls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .chartMeta {
@@ -1072,18 +1064,96 @@
     font-weight: 600;
 }
 
+.chartHeaderButton {
+    width: 34px;
+    height: 34px;
+    border: 0;
+    border-radius: var(--radius-control);
+    background: transparent;
+    color: var(--color-text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.chartHeaderButton:hover {
+    background: color-mix(in srgb, var(--color-surface-muted) 62%, var(--color-surface));
+    color: var(--color-text);
+}
+
+.lineWidthControls {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.lineWidthLabel {
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.lineWidthStepButton {
+    width: 34px;
+    height: 28px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-control);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+}
+
+.lineWidthStepButton:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+    color: var(--color-primary);
+}
+
+.lineWidthStepButton:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.lineWidthGlyph {
+    width: 16px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.lineWidthPreview {
+    width: 16px;
+    border-radius: var(--radius-pill);
+    background: currentColor;
+}
+
+.lineWidthPreviewThin {
+    height: 2px;
+}
+
+.lineWidthPreviewThick {
+    height: 5px;
+}
+
 .chartStats {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-    margin-bottom: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .chartStatCard {
     border: 1px solid var(--color-border);
-    border-radius: 10px;
+    border-radius: var(--radius-control);
     background: color-mix(in srgb, var(--color-surface-muted) 62%, var(--color-surface));
-    padding: 10px 12px;
+    padding: 8px 12px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -1098,28 +1168,36 @@
 
 .chartStatValue {
     color: var(--color-text);
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 800;
-    line-height: 1;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.chartStatSubValue {
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
 }
 
 .chartStatTime {
     color: var(--color-text-muted);
-    font-size: 12px;
-    font-weight: 700;
+    font-size: var(--font-size-caption);
+    font-weight: 600;
     line-height: 1.2;
 }
 
 .periodButtons {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     flex-wrap: wrap;
 }
 
 .periodButton {
     height: 36px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-muted);
     padding: 0 12px;
@@ -1129,23 +1207,35 @@
 }
 
 .periodButtonActive {
-    background: var(--color-primary);
+    background: var(--color-primary-solid);
     border-color: var(--color-primary);
-    color: var(--color-white);
+    color: var(--color-on-primary-solid);
 }
 
 .chartWrap {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     overflow: hidden;
+}
+
+.chartWrapExpanded {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
 }
 
 .chartCanvas {
     width: 100%;
     height: 420px;
     display: block;
+}
+
+.chartCanvasExpanded {
+    height: 100% !important;
+    min-height: 620px;
+    flex: 1 1 auto;
 }
 
 .chartEmpty {
@@ -1155,7 +1245,7 @@
     align-items: center;
     justify-content: center;
     border: 1px dashed var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface);
     color: var(--color-text-subtle);
     font-weight: 700;
@@ -1164,6 +1254,54 @@
 }
 
 @media screen and (max-width: 586px) {
+    .chartModalPanel,
+    .chartModalPanelExpanded {
+        width: calc(100vw - 20px);
+        max-width: calc(100vw - 20px);
+        height: calc(100vh - 20px);
+        max-height: calc(100vh - 20px);
+        height: calc(100dvh - 20px);
+        max-height: calc(100dvh - 20px);
+        border-radius: var(--radius-control);
+    }
+
+    .chartModalHeader {
+        flex: 0 0 auto;
+        gap: 8px;
+        min-height: 48px;
+        padding: 8px 12px 8px 12px;
+    }
+
+    .chartModalTitle {
+        overflow: hidden;
+        font-size: 16px;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .chartModalBody,
+    .chartModalBodyExpanded {
+        display: block;
+        overflow-x: hidden;
+        overflow-y: auto;
+        padding: 12px;
+        padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+        overscroll-behavior-y: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .chartHeaderButton {
+        display: none;
+    }
+
+    .chartContent,
+    .chartContentExpanded {
+        display: flex;
+        flex: none;
+        min-width: 0;
+    }
+
     .metricsGrid {
         grid-template-columns: 1fr;
     }
@@ -1217,15 +1355,15 @@
     }
 
     .chatModalBody {
-        padding: 10px;
+        padding: 12px;
     }
 
     .chatModalLayout {
-        gap: 10px;
+        gap: 12px;
     }
 
     .rulesSectionCard {
-        padding: 10px;
+        padding: 12px;
     }
 
     .chatSelectHeader {
@@ -1239,9 +1377,7 @@
         grid-template-columns: 1fr;
     }
 
-    .chatEditActions .editDeleteButton,
-    .chatEditActions .editCancelButton,
-    .chatEditActions .editSaveButton {
+    .chatEditActions > button {
         width: 100%;
         min-width: 0;
         margin-right: 0;
@@ -1263,8 +1399,8 @@
     .activityFieldButton {
         grid-template-columns: 1fr;
         align-items: flex-start;
-        gap: 10px;
-        padding: 12px 14px;
+        gap: 12px;
+        padding: 12px 16px;
     }
 
     .activityToggleRow {
@@ -1279,15 +1415,107 @@
     }
 
     .chartToolbar {
+        position: sticky;
+        top: -10px;
+        z-index: 3;
+        order: 0;
         flex-direction: column;
         align-items: stretch;
+        gap: 8px;
+        margin: 0 0 var(--space-3);
+        padding: var(--space-2) 0 var(--space-3);
+        border-bottom: 1px solid var(--color-border);
+        background: var(--color-surface);
+    }
+
+    .chartControls {
+        width: 100%;
+        align-items: stretch;
+        justify-content: stretch;
+    }
+
+    .chartMeta {
+        justify-content: space-between;
+        gap: 8px;
+        min-width: 0;
+        font-size: 12px;
+    }
+
+    .chartMeta > span:first-child {
+        overflow: hidden;
+        min-width: 0;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .lineWidthControls {
+        display: none;
+    }
+
+    .periodButtons {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        width: 100%;
+        gap: 4px;
+    }
+
+    .periodButton {
+        width: 100%;
+        min-width: 0;
+        height: 38px;
+        padding: 0 4px;
+        font-size: 12px;
+        font-weight: 700;
     }
 
     .chartStats {
-        grid-template-columns: 1fr;
+        order: 2;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin: 12px 0 0;
     }
 
-    .chartCanvas {
-        height: 340px;
+    .chartStatCard {
+        min-width: 0;
+        padding: 8px 8px;
+    }
+
+    .chartStatLabel {
+        font-size: var(--font-size-caption);
+    }
+
+    .chartStatValue {
+        font-size: 15px;
+    }
+
+    .chartStatTime {
+        overflow: hidden;
+        font-size: var(--font-size-caption);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .chartWrap,
+    .chartWrapExpanded,
+    .chartEmpty {
+        order: 1;
+        flex: none;
+        min-width: 0;
+    }
+
+    .chartWrapExpanded {
+        display: block;
+    }
+
+    .chartCanvas,
+    .chartCanvasExpanded {
+        width: 100%;
+        height: clamp(280px, 44dvh, 360px) !important;
+        min-height: 0;
+        touch-action: pan-y pinch-zoom;
+    }
+
+    .chartEmpty {
+        min-height: clamp(240px, 40dvh, 320px);
     }
 }

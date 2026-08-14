@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { Button, TextField } from "@mui/material";
+import { Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { useNotifications } from "@toolpad/core";
 import styles from "./Login.module.css";
 import { Auth } from "../Requests";
 import type { AuthAnswer } from "../../Interfaces/AuthAnswer";
+import Input from "../../Components/Input/Input";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import { Modal } from "../../Components/Modal/Modal";
 import { login } from "../../Store/authSlice";
@@ -133,34 +134,28 @@ const Login = () => {
 
       <div className={styles.login_formWrapper}>
         <form className={styles.login_form} onSubmit={handlerAuth}>
-          <TextField
+          <Input
+            label="Логин"
             required
-            className={`${styles.form_input_text} ${styles.authInput}`}
+            wrapperClassName={styles.form_input_text}
             type="text"
             autoComplete="username"
             value={loginState}
-            label="Логин"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setLoginState(e.target.value)
             }
-            variant="outlined"
-            size="medium"
-            slotProps={{ inputLabel: { shrink: true } }}
           />
 
-          <TextField
+          <Input
+            label="Пароль"
             required
-            className={`${styles.form_input_text} ${styles.authInput}`}
+            wrapperClassName={styles.form_input_text}
             type="password"
             autoComplete="current-password"
             value={password}
-            slotProps={{ inputLabel: { shrink: true } }}
-            label="Пароль"
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setPassword(e.target.value)
             }
-            variant="outlined"
-            size="medium"
           />
 
           <Button
