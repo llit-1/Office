@@ -4,11 +4,13 @@ import { useForm, Controller } from "react-hook-form";
 import Webcam from "react-webcam";
 import Cropper from "react-easy-crop";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
 import Select from "../../Components/Select/Select";
 import { get, post, put, callApi } from "../../Services/api";
 import { FactoryPersonWithNav } from "../../Interfaces/Users";
 import styles from "./FactoryPerson.module.css";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
+import useLoadingPresence from "../../Components/LoadingSpinner/useLoadingPresence";
 import Modal from "../../Components/Modal/Modal";
 import { useDispatch } from "react-redux";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
@@ -19,6 +21,30 @@ interface Option {
   name: string;
   citizenshipTypeId?: number;
 }
+
+const normalizeOptions = (value: unknown): Option[] => {
+  const list = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray((value as { data?: unknown }).data)
+      ? (value as { data: unknown[] }).data
+      : [];
+
+  return list.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const option = item as Record<string, unknown>;
+    const id = Number(option.id ?? option.Id);
+    const name = String(option.name ?? option.Name ?? "").trim();
+    if (!Number.isFinite(id) || !name) return [];
+
+    return [{
+      id,
+      name,
+      citizenshipTypeId: option.citizenshipTypeId != null
+        ? Number(option.citizenshipTypeId)
+        : undefined,
+    }];
+  });
+};
 
 interface PersonalityFactoryEditModel {
   factoryPerson?: FactoryPersonWithNav | null;
@@ -49,8 +75,9 @@ export default function FactoryPersonForm() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
+  const loadingPresence = useLoadingPresence(loading);
 
-  const { register, handleSubmit, control, setValue, watch, reset } = useForm<Partial<FactoryPersonWithNav>>();
+  const { register, handleSubmit, control, setValue, getValues, watch, reset } = useForm<Partial<FactoryPersonWithNav>>();
 
   const [isSecurity, setIsSecurity] = useState(false);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -210,7 +237,63 @@ export default function FactoryPersonForm() {
     }
   }, [id, isEdit, dispatch, reset]);
 
-  // Загрузка участков
+  const loadWorkshops = async (nextDepartmentId: number | undefined) => {
+    setOptions(o => ({ ...o, workshops: [], jobTitles: [] }));
+    setDisabled(d => ({ ...d, workshop: true, job: true }));
+    setValue("factoryWorkshop", undefined);
+    setValue("factoryJobTitle", undefined);
+
+    if (!nextDepartmentId) {
+      return;
+    }
+
+    const res = await callApi(get<Option[]>(`/PersonalityFactory/workshops/${nextDepartmentId}`));
+    const workshops = normalizeOptions(res.ok ? res.data : []);
+    setOptions(o => ({ ...o, workshops }));
+    setDisabled(d => ({ ...d, workshop: workshops.length === 0 }));
+  };
+
+  const loadJobTitles = async (
+    nextDepartmentId: number | undefined,
+    nextWorkshopId: number | undefined,
+  ) => {
+    setOptions(o => ({ ...o, jobTitles: [] }));
+    setDisabled(d => ({ ...d, job: true }));
+    setValue("factoryJobTitle", undefined);
+
+    if (!nextDepartmentId || !nextWorkshopId) {
+      return;
+    }
+
+    const res = await callApi(
+      get<Option[]>(
+        `/PersonalityFactory/jobtitles?department=${nextDepartmentId}&workshop=${nextWorkshopId}`,
+      ),
+    );
+    const jobTitles = normalizeOptions(res.ok ? res.data : []);
+    setOptions(o => ({ ...o, jobTitles }));
+    setDisabled(d => ({ ...d, job: jobTitles.length === 0 }));
+
+    if (jobTitles.length === 1) {
+      setValue("factoryJobTitle", jobTitles[0].id, { shouldDirty: true });
+    }
+  };
+
+  const handleDepartmentChange = (nextDepartmentId: number | undefined) => {
+    void loadWorkshops(nextDepartmentId);
+  };
+
+  const handleWorkshopChange = (nextWorkshopId: number | undefined) => {
+    const currentDepartmentId = getValues("factoryDepartment");
+    const nextDepartmentId = currentDepartmentId ? Number(currentDepartmentId) : undefined;
+    void loadJobTitles(nextDepartmentId, nextWorkshopId);
+  };
+
+  /*
+   * Зависимые списки загружаются непосредственно обработчиками Select.
+   * Это гарантирует, что запрос отправляется в тот же момент, когда пользователь
+   * выбирает значение, независимо от синхронизации watch() в react-hook-form.
+   */
   useEffect(() => {
     if (isInitializingRef.current) return;
     if (!departmentId) {
@@ -218,30 +301,8 @@ export default function FactoryPersonForm() {
       setDisabled(d => ({ ...d, workshop: true, job: true }));
       setValue("factoryWorkshop", undefined);
       setValue("factoryJobTitle", undefined);
-      return;
     }
-    callApi(get<Option[]>(`/PersonalityFactory/workshops/${departmentId}`)).then(res => {
-      setOptions(o => ({ ...o, workshops: res.ok && res.data ? res.data : [] }));
-      setDisabled(d => ({ ...d, workshop: !res.ok || !res.data?.length }));
-    });
   }, [departmentId, setValue]);
-
-  const workshopId = watch("factoryWorkshop");
-
-  // Управление доступностью должности при выборе участка
-  useEffect(() => {
-    if (isInitializingRef.current) return;
-    if (!workshopId) {
-      setDisabled(d => ({ ...d, job: true }));
-      setValue("factoryJobTitle", undefined);
-      return;
-    }
-    // Загружаем должности для выбранного участка и отдела
-    callApi(get<Option[]>(`/PersonalityFactory/jobtitles?department=${departmentId}&workshop=${workshopId}`)).then(res => {
-      setOptions(o => ({ ...o, jobTitles: res.ok && res.data ? res.data : [] }));
-      setDisabled(d => ({ ...d, job: !res.ok || !res.data?.length }));
-    });
-  }, [workshopId, departmentId, setValue]);
 
   // Загрузка гражданств
   useEffect(() => {
@@ -276,14 +337,35 @@ export default function FactoryPersonForm() {
     return digits.slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
   };
 
-  const renderNumberSelect = (field: { value: unknown; onChange: (value: unknown) => void }, opts: Option[], label: string, dis?: boolean) => (
+  const getSelectPlaceholder = (label: string, dis?: boolean) => {
+    if (dis && label === "Участок") return "Сначала выберите отдел";
+    if (dis && label === "Должность") return "Сначала выберите участок";
+    if (dis && label === "Гражданство") return "Сначала выберите тип гражданства";
+    return `Выберите: ${label.toLocaleLowerCase("ru-RU")}`;
+  };
+
+  const renderNumberSelect = (
+    field: { value: unknown; onChange: (value: unknown) => void },
+    opts: Option[],
+    label: string,
+    dis?: boolean,
+    onValueChange?: (value: number | undefined) => void,
+  ) => (
     <Select
+      key={`${label}-${dis ? "disabled" : "enabled"}-${opts.map((option) => option.id).join("-")}`}
       label={label}
       {...field}
       value={field.value != null ? String(field.value) : ""}
-      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => field.onChange(e.target.value !== "" ? Number(e.target.value) : undefined)}
+      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+        const value = e.target.value !== "" ? Number(e.target.value) : undefined;
+        field.onChange(value);
+        onValueChange?.(value);
+      }}
       options={opts.map(o => ({ value: String(o.id), label: o.name }))}
       disabled={dis}
+      placeholder={getSelectPlaceholder(label, dis)}
+      search
+      portal={false}
     />
   );
 
@@ -322,6 +404,18 @@ export default function FactoryPersonForm() {
     }
   };
 
+  if (loadingPresence.visible) {
+    return (
+      <div className={styles.formLoadingState}>
+        <LoadingSpinner
+          size={96}
+          label={isEdit ? "Загружаем данные сотрудника…" : "Подготавливаем форму сотрудника…"}
+          exiting={loadingPresence.exiting}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.pageWrapper}>
       <form onSubmit={handleSubmit(onSubmit)} className={styles.formWrapper}>
@@ -344,8 +438,8 @@ export default function FactoryPersonForm() {
               <Input label="Паспорт" disabled={isSecurity} {...register("passport")} onChange={e => setValue("passport", e.target.value)}/>
               <Input label="Дата выдачи паспорта" type="date" {...register("passportDate")}/>
 
-              <Controller name="factoryDepartment" control={control} render={({ field }) => renderNumberSelect(field, options.departments, "Отдел")}/>
-              <Controller name="factoryWorkshop" control={control} render={({ field }) => renderNumberSelect(field, options.workshops, "Участок", disabled.workshop)}/>
+              <Controller name="factoryDepartment" control={control} render={({ field }) => renderNumberSelect(field, options.departments, "Отдел", false, handleDepartmentChange)}/>
+              <Controller name="factoryWorkshop" control={control} render={({ field }) => renderNumberSelect(field, options.workshops, "Участок", disabled.workshop, handleWorkshopChange)}/>
               <Controller name="factoryJobTitle" control={control} render={({ field }) => renderNumberSelect(field, options.jobTitles, "Должность", disabled.job)}/>
             </div>
 
@@ -497,9 +591,7 @@ export default function FactoryPersonForm() {
           </Modal>
         )}
         <div className={styles.userEditFooter}>
-          <button type="submit" className={styles.saveButton}>
-            {saving ? <LoadingSpinner size={24} color="white"/> : (isEdit ? "Сохранить" : "Добавить")}
-          </button>
+          <Button type="submit" variant="primary" loading={saving}>{isEdit ? "Сохранить" : "Добавить"}</Button>
         </div>
       </form>
 

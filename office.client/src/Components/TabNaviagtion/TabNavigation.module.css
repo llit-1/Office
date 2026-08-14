@@ -1,24 +1,25 @@
-﻿.selectorTable {
+.selectorTable {
     height: 40px;
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
 }
 
 .selectorTable_text {
+    font-family: var(--font-uppercase);
     font-size: 16px;
     font-weight: 600;
     width: fit-content;
     text-align: center;
     display: flex;
-    padding: 0px 10px;
+    padding: 0px 12px;
     align-items: center;
     justify-content: center;
     height: 100%;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background-color: var(--color-surface);
     cursor: pointer;
-    margin-bottom: 5px;
+    margin-bottom: 4px;
     color: var(--color-text);
     text-transform: uppercase;
     transition: background-color 0.25s linear;

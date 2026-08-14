@@ -9,7 +9,7 @@
     flex-direction: row;
     height: 100%;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
 }
 
 .stockTableSubCategories, .stockTableItems {
@@ -17,9 +17,9 @@
     display: flex;
     flex-direction: column;
     background-color: var(--color-surface);
-    border-radius: 8px;
-    padding: 10px;
-    gap: 10px;
+    border-radius: var(--radius-control);
+    padding: 12px;
+    gap: 12px;
     height: 100%;
 }
 
@@ -28,8 +28,8 @@
     overflow: auto;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-right: 6px;
+    gap: 12px;
+    padding-right: 8px;
 }
 
 .stockTableSubCategoriesItem {
@@ -37,14 +37,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 10px;
+    padding: 16px 12px;
     background-color: var(--color-bg);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 16px;
     cursor: pointer;
     font-weight: 600;
     position: relative;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
 }
 
 .name {
@@ -55,19 +55,19 @@
     display: flex;
     justify-content: start;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     position: absolute;
     top: 10px;
     right: 10px;
     overflow: hidden;
     background-color: var(--color-surface-muted);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     padding: 4px;
     width: 28px;
     height: 28px;
     box-sizing: border-box;
     text-wrap: nowrap;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
 }
 
 .settingsText {
@@ -90,7 +90,7 @@
     font-size: 32px;
     align-items: center;
     line-height: 19px;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
 }
 
 .addCategory:hover {
@@ -112,8 +112,8 @@
 }
 
 .active {
-    background-color: var(--color-primary);
-    color: var(--color-white);
+    background-color: var(--color-primary-solid);
+    color: var(--color-on-primary-solid);
 }
 
 .active .settingsCard {
@@ -133,22 +133,22 @@
     width: 100%;
     display: flex;
     align-items: center;
-    padding: 15px 10px;
+    padding: 16px 12px;
     background-color: var(--color-bg);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 16px;
     cursor: pointer;
     font-weight: 600;
     position: relative;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
     justify-content: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .stockTableItemsBody {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .item {
@@ -156,14 +156,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 10px;
+    padding: 16px 12px;
     background-color: var(--color-bg);
     font-size: 16px;
     cursor: pointer;
     font-weight: 600;
     position: relative;
-    transition: all 0.2s ease-in-out;
-    border-radius: 8px;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
+    border-radius: var(--radius-control);
 }
 
 .gettingStarted {
@@ -172,7 +172,7 @@
     justify-content: center;
     align-items: center;
     height: 100%;
-    gap: 25px;
+    gap: 24px;
 }
 
 .gettingStarted > p {
@@ -212,11 +212,11 @@
     color: var(--color-white);
     border: none;
     padding: 8px 16px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
 }
 
 .deleteButton:hover {
@@ -278,7 +278,7 @@
     }
 
     .stockTableSubCategoriesItem {
-        padding: 14px 10px;
+        padding: 16px 12px;
         font-size: 15px;
     }
 
@@ -296,9 +296,9 @@
     }
 
     .gettingStarted {
-        padding: 20px 10px;
+        padding: 20px 12px;
         text-align: center;
-        gap: 18px;
+        gap: 20px;
     }
 
     .gettingStarted > p {

@@ -2,8 +2,31 @@
 
 :root{
   /* Typography */
-  --font-sans: "Akrobat", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --font-body: "Roboto Condensed Variable", "Roboto Condensed", "Arial Narrow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Akrobat", "Roboto Condensed Variable", "Arial Narrow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-uppercase: var(--font-heading);
+  --letter-spacing-body: normal;
+  --font-weight-body: 350;
+  --font-weight-body-emphasis: 500;
+  --font-weight-heading: 600;
+  --font-weight-control: 600;
+  /* Compatibility alias for components that use the generic interface font. */
+  --font-sans: var(--font-body);
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", "Courier New", monospace;
+
+  /* Type scale */
+  --font-size-caption: 12px;
+  --font-size-compact: 14px;
+  --font-size-body: 16px;
+  --font-size-title-sm: 18px;
+  --font-size-title-md: 24px;
+  --font-size-title-lg: 28px;
+  --line-height-caption: 16px;
+  --line-height-compact: 20px;
+  --line-height-body: 22px;
+  --line-height-title-sm: 24px;
+  --line-height-title-md: 28px;
+  --line-height-title-lg: 32px;
 
   /* Colors */
   --color-primary-600: var(--color-primary-hover);
@@ -19,23 +42,76 @@
   --color-handcontrol-hover: var(--color-primary-hover);
   --color-photo-border-red: var(--color-danger);
   --color-photo-border-green: var(--color-success-light);
+  /* Brand loader keeps the bakery product natural in both interface themes. */
+  --color-loader-dough: #f4d5a1;
+  --color-loader-bread: #dc8428;
+  --color-loader-bread-light: #ffd28a;
+  --color-loader-detail: #fff6e5;
+  --color-loader-crust: #a94b13;
 
   /* Radiuses */
   --radius-sm: 4px;
   --radius-md: 8px;
+  --radius-control: 8px;
+  --radius-card: 12px;
   --radius-lg: 16px;
+  --radius-pill: 999px;
 
   /* Spacing scale */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
-  --space-5: 24px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* Layout */
+  --page-padding: var(--space-4);
+  --page-padding-compact: var(--space-2);
+  --content-max-width: 1600px;
+  --header-height: 60px;
+  --footer-height: 25px;
+
+  /* Control sizes */
+  --control-height-sm: 36px;
+  --control-height-md: 40px;
+  --control-height-lg: 48px;
+  --touch-target-min: 44px;
+
+  /* Icon sizes */
+  --icon-size-sm: 16px;
+  --icon-size-md: 20px;
+  --icon-size-lg: 24px;
+  --icon-size-state: 56px;
+
+  /* Focus */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --focus-ring-color: color-mix(in srgb, var(--color-primary) 78%, var(--color-text) 22%);
+
+  /* Motion */
+  --duration-fast: 140ms;
+  --duration-normal: 200ms;
+  --duration-slow: 240ms;
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Layers */
+  --z-content: 0;
+  --z-sticky: 20;
+  --z-dropdown: 200;
+  --z-modal: 1000;
+  --z-modal-dropdown: 2000;
+  --z-toast: 3000;
 
   /* Elevation / shadows */
-  --shadow-sm: 0 1px 2px rgba(16,24,40,0.05);
-  --shadow-md: 0 4px 12px rgba(16,24,40,0.08);
-  --shadow-lg: 0 12px 30px rgba(16,24,40,0.12);
+  --shadow-sm: 0 1px 2px var(--color-shadow-sm);
+  --shadow-md: 0 4px 12px var(--color-shadow-md);
+  --shadow-lg: 0 12px 30px var(--color-shadow-lg);
 }
 
 /* Utility helpers */
@@ -59,8 +135,24 @@
   background: var(--color-surface);
   color: var(--color-text);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   box-shadow: var(--shadow-sm);
+}
+
+/* Единый тонкий скроллбар для Firefox (в том числе без системных стрелок) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-strong) var(--color-surface-muted);
+}
+
+/* Chromium поддерживает scrollbar-width, но при его использовании игнорирует
+   ::-webkit-scrollbar-button. Возвращаем ему WebKit-режим, оставляя thin для Firefox. */
+@supports selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
 }
 
 /* 🔹 Сам трек скролла */
@@ -69,20 +161,63 @@
   height: 8px; /* для горизонтальной */
 }
 
+/* Убираем все варианты системных кнопок-стрелок в Chromium/WebKit */
+*::-webkit-scrollbar-button,
+*::-webkit-scrollbar-button:single-button,
+*::-webkit-scrollbar-button:vertical:decrement,
+*::-webkit-scrollbar-button:vertical:increment,
+*::-webkit-scrollbar-button:vertical:start:decrement,
+*::-webkit-scrollbar-button:vertical:end:increment,
+*::-webkit-scrollbar-button:horizontal:decrement,
+*::-webkit-scrollbar-button:horizontal:increment,
+*::-webkit-scrollbar-button:horizontal:start:decrement,
+*::-webkit-scrollbar-button:horizontal:end:increment,
+*::-webkit-scrollbar-button:start:decrement,
+*::-webkit-scrollbar-button:end:increment {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  inline-size: 0 !important;
+  block-size: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
 /* 🔹 "Поле" под скроллом */
 *::-webkit-scrollbar-track {
   background: var(--color-surface-muted);
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
 }
 
 /* 🔹 Сам ползунок */
 *::-webkit-scrollbar-thumb {
   background-color: var(--color-border-strong);
-  border-radius: 10px;
-  transition: background-color 0.2s ease;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--duration-normal) var(--easing-standard);
 }
 
 /* 🔹 При наведении — тёмнее */
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--color-text-subtle);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --page-padding: var(--page-padding-compact);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

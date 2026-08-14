@@ -1,6 +1,5 @@
 * {
-    font-family: "Akrobat";
-    font-weight: 300;
+    font-family: var(--font-body);
 }
 
 .calculate_wrapper {
@@ -13,7 +12,7 @@
 .calculate_about {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     justify-content: center;
     align-items: center;
 }
@@ -22,7 +21,7 @@
     background-color: var(--color-primary);
     width: 200px;
     text-align: center;
-    padding: 5px;
+    padding: 4px;
     font-weight: 600;
 }
 
@@ -46,8 +45,8 @@
     background: var(--color-surface);
     height: fit-content;
     padding: 20px;
-    border-radius: 8px;
-    gap: 6px;
+    border-radius: var(--radius-control);
+    gap: 8px;
     display: flex;
     flex-direction: column;
     height: auto;
@@ -59,7 +58,7 @@
 
 .headerRow {
     background-color: var(--color-primary-soft) !important;
-    padding: 10px 6px !important;
+    padding: 12px 8px !important;
 }
 
 .headerRow div {
@@ -73,9 +72,8 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding-right: 6px;
-  margin-right: -12px; 
+  gap: 4px;
+  padding-right: var(--space-2);
 }
 
 .calculate_inner_tbody::-webkit-scrollbar {
@@ -85,12 +83,12 @@
 
 .calculate_inner_tbody::-webkit-scrollbar-track {
   background: var(--color-surface-muted); /* светлый фон */
-  border-radius: 8px;
+  border-radius: var(--radius-control);
 }
 
 .calculate_inner_tbody::-webkit-scrollbar-thumb {
   background-color: var(--color-border-strong);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   transition: background-color 0.2s ease;
 }
 
@@ -134,8 +132,8 @@
 
     gap: 20px;
     background: var(--color-bg);
-    padding: 6px;
-    border-radius: 8px;
+    padding: 8px;
+    border-radius: var(--radius-control);
     align-items: center;
 }
 
@@ -148,12 +146,12 @@
     max-width: 60px;
     justify-self: center;
     margin-left: 4px;
-    padding: 6px 0;
-    border-radius: 8px;
+    padding: 8px 0;
+    border-radius: var(--radius-control);
     border: 1px solid var(--color-primary);
     text-align: center;
     font-size: 16px;
-    transition: all 0.1s ease;
+    transition: background-color 0.1s var(--easing-standard), border-color 0.1s var(--easing-standard), color 0.1s var(--easing-standard), opacity 0.1s var(--easing-standard), box-shadow 0.1s var(--easing-standard), transform 0.1s var(--easing-standard);
 }
 
 .newRow input:focus-visible {

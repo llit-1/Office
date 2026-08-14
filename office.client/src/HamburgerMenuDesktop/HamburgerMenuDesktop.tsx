@@ -2,7 +2,7 @@ import styles from "./HamburgerMenuDesktop.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { menuParts } from "../menuParts/menuParts";
 import { useSelector } from "react-redux";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import type { RootState } from "../Store";
 import { getAvailableMenuParts } from "../App/access";
 import { navigateWithPreloadedRoute, preloadRouteForPath } from "../App/routes";
@@ -51,17 +51,24 @@ const HamburgerMenuDesktop: React.FC<HamburgerMenuProps> = ({
           <li
             key={elem.path}
             className={index === activeIndex ? styles.active : ""}
-            onClick={() => activeHandler(index, elem.path)}
             onMouseEnter={() => {
               void preloadRouteForPath(elem.path);
               void preloadImage(elem.img);
             }}
             title={!isMenuOpen ? elem.name : undefined}
           >
-            <div className={styles.menuItemInner}>
+            <Link
+              to={elem.path}
+              className={styles.menuItemInner}
+              onClick={(event) => {
+                if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                event.preventDefault();
+                activeHandler(index, elem.path);
+              }}
+            >
               <Icon className={styles.menuIcon} />
               <p className={styles.visible_text}>{elem.name}</p>
-            </div>
+            </Link>
           </li>
         );
       })}

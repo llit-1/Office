@@ -109,7 +109,7 @@ export const protectedRoutes: AppRouteConfig[] = [
   { path: "/Roles/Edit/:id", page: "Users/RoleEdit", role: "Users" },
   { path: "Settings", page: "Settings/Settings" },
   { path: "VideoDevices", page: "VideoDevices/VideoDevices", role: "VideoDevices" },
-  { path: "Sensors", page: "Sensors/Sensors" },
+  { path: "Sensors", page: "Sensors/Sensors", role: "Sensors" },
   { path: "Help", page: "Help/Help" },
   { path: "FactoryNX", page: "FactoryNX/FactoryNX", role: "FactoryNX" },
   { path: "Orders", page: "Orders/Orders", role: ["OrdersTT", "OrdersTTAdmin"] },
@@ -119,8 +119,11 @@ export const protectedRoutes: AppRouteConfig[] = [
   { path: "/Stock", page: "Stock/Stock", role: "Stock" },
   { path: "/Stock/:tab", page: "Stock/Stock", role: "Stock" },
   { path: "/StockTable", page: "Stock/StockTable", role: "Stock" },
+    { path: "/DeliveryMenu/stops", page: "DeliveryMenu/DeliveryMenuPage", role: ["MenuAuditor", "MenuAdmin"] },
+    { path: "/DeliveryMenu/:groupId?", page: "DeliveryMenu/DeliveryMenuPage", role: ["MenuMarketing", "MenuAuditor", "MenuAdmin", "Menu"] },
   { path: "/Salary", page: "Salary/SalaryPage", role: "Salary" },
   { path: "/Salary/Settings", page: "Salary/SalarySettingsPage", role: "Salary" },
+  { path: "/KnowledgeLibrary", page: "KnowledgeLibrary/KnowledgeLibrary", role: ["KnowledgeLibrary", "KnowledgeLibraryAdmin"] },
   { path: "Notifications", page: "Notifications/Notifications" },
   { path: "*", page: "NotFound/NotFound" },
 ];
@@ -160,9 +163,11 @@ const resolvedRoutes = flattenRoutes([...protectedRoutes, ...publicRoutes]).sort
 );
 
 export function preloadRouteForPath(pathname: string): Promise<{ default: ComponentType }> | null {
+  // Путь может содержать query/hash — для сопоставления маршрута они не нужны.
+  const cleanPath = pathname.split(/[?#]/)[0] || pathname;
   const matchedRoute = resolvedRoutes.find((route) => {
     if (route.fullPath === "*") return false;
-    return Boolean(matchPath({ path: route.fullPath, end: true }, pathname));
+    return Boolean(matchPath({ path: route.fullPath, end: true }, cleanPath));
   });
 
   if (matchedRoute) {
@@ -180,9 +185,4 @@ export async function navigateWithPreloadedRoute(
 ): Promise<void> {
   await preloadRouteForPath(path);
   navigate(path, options);
-}
-
-export function warmRouteModuleCache(): Promise<Array<{ default: ComponentType }>> {
-  const uniquePages = Array.from(new Set(resolvedRoutes.map((route) => route.page)));
-  return Promise.all(uniquePages.map((page) => preloadPage(page)));
 }

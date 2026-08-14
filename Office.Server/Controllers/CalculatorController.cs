@@ -15,7 +15,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize]
+    [Authorize(Roles = "Calculator")]
     public class CalculatorController : ControllerBase
     {
         private readonly RKNETDBContext _rKNETDBContext;

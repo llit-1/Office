@@ -1,0 +1,32 @@
+.textareaWrapper {
+    height: auto;
+    min-height: 100px;
+}
+
+.textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 100px;
+    box-sizing: border-box;
+    padding: var(--space-3);
+    border: 0;
+    border-radius: var(--outlined-field-radius, var(--radius-control));
+    outline: none;
+    resize: vertical;
+    background: var(--color-surface);
+    color: var(--color-text);
+    font: inherit;
+    font-size: var(--font-size-body);
+    line-height: 1.4;
+}
+
+.textarea:disabled {
+    background: var(--color-disabled-surface);
+    color: var(--color-disabled-text);
+}
+
+.textarea:read-only {
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
+}

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Provider, useDispatch, useSelector } from "react-redux";
 import { BrowserRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -16,12 +16,13 @@ import {
   protectedRoutes,
   publicRoutes,
   renderConfiguredRoute,
-  warmRouteModuleCache,
 } from "./App/routes";
-import { preloadImage } from "./App/assetPreload";
-import { menuParts } from "./menuParts/menuParts";
-import LoadingSpinner from "./Components/LoadingSpinner/LoadingSpinner";
+import StartupScreen from "./Components/StartupScreen/StartupScreen";
+import "@fontsource-variable/roboto-condensed";
 import "./styles/design-tokens.css";
+
+const bootStartedAt = (window as Window & { __officeBootStartedAt?: number }).__officeBootStartedAt
+  ?? performance.now();
 
 try {
   const savedTheme = localStorage.getItem("theme");
@@ -40,6 +41,8 @@ function StartupChecker() {
   const location = useLocation();
   const token = useSelector((s: RootState) => s.auth.token);
   const initialized = useSelector((s: RootState) => s.auth.initialized);
+  const [startupError, setStartupError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     if (initialized) {
@@ -47,28 +50,37 @@ function StartupChecker() {
     }
 
     let cancelled = false;
+    let retryTimer: number | null = null;
 
     const bootstrapSession = async () => {
       if (token) {
         setAccessToken(token);
+        setStartupError(null);
         dispatch(setAuthInitialized(true));
         return;
       }
 
-      if (location.pathname === "/Login") {
-        setAccessToken(null);
-        dispatch(clearUserData());
-        dispatch(logout());
-        dispatch(setAuthInitialized(true));
+      let session;
+      try {
+        session = await refreshSession();
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        setStartupError("Сервер временно недоступен. Сессия сохранена, повторяем подключение…");
+        retryTimer = window.setTimeout(() => {
+          setRetryAttempt((current) => current + 1);
+        }, 5_000);
         return;
       }
 
-      const session = await refreshSession();
       if (cancelled) {
         return;
       }
 
       if (session?.responseCode === 1 && session.token) {
+        setStartupError(null);
         setAccessToken(session.token);
         dispatch(
           login({
@@ -85,48 +97,61 @@ function StartupChecker() {
       dispatch(clearUserData());
       dispatch(logout());
       dispatch(setAuthInitialized(true));
-      navigate("/Login", { replace: true });
+      setStartupError(null);
+      if (location.pathname !== "/Login") {
+        navigate("/Login", { replace: true });
+      }
     };
 
     void bootstrapSession();
 
     return () => {
       cancelled = true;
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+      }
     };
-  }, [dispatch, initialized, location.pathname, navigate, token]);
+  }, [dispatch, initialized, location.pathname, navigate, retryAttempt, token]);
 
-  return null;
+  if (!startupError) {
+    return initialized
+      ? null
+      : <StartupScreen message="Проверяем сессию…" startedAt={bootStartedAt} />;
+  }
+
+  return (
+    <StartupScreen
+      message={startupError}
+      error
+      onRetry={() => {
+        setStartupError(null);
+        setRetryAttempt((current) => current + 1);
+      }}
+    />
+  );
 }
 
 function RouteFallback() {
-  return (
-    <div style={{ display: "grid", placeItems: "center", minHeight: "40vh" }}>
-      <LoadingSpinner />
-    </div>
-  );
+  return <StartupScreen message="Загружаем раздел…" />;
 }
 
 function withRouteSuspense(element: ReactNode) {
   return <Suspense fallback={<RouteFallback />}>{element}</Suspense>;
 }
 
-async function bootstrapStaticAssets() {
-  const tileImages = menuParts.map((part) => part.img).filter(Boolean);
-  await Promise.all(tileImages.map((src) => preloadImage(src)));
-}
-
 const initialPath = window.location.pathname === "/" || window.location.pathname === ""
   ? "/Main"
   : window.location.pathname;
 
-void Promise.all([
-  warmUpFonts(),
-  preloadRouteForPath(initialPath) ?? Promise.resolve(),
-  bootstrapStaticAssets(),
-]).finally(() => {
-  createRoot(document.getElementById("root")!).render(
+const root = createRoot(document.getElementById("root")!);
+
+function renderApplication() {
+  root.render(
     <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
+      <PersistGate
+        loading={<StartupScreen message="Восстанавливаем настройки…" startedAt={bootStartedAt} />}
+        persistor={persistor}
+      >
         <BrowserRouter>
           <NotificationsProvider
             slotProps={{
@@ -148,6 +173,21 @@ void Promise.all([
       </PersistGate>
     </Provider>,
   );
+}
 
-  void warmRouteModuleCache();
-});
+root.render(<StartupScreen message="Загружаем интерфейс…" startedAt={bootStartedAt} />);
+
+void Promise.all([
+  warmUpFonts(),
+  preloadRouteForPath(initialPath) ?? Promise.resolve(),
+])
+  .then(renderApplication)
+  .catch(() => {
+    root.render(
+      <StartupScreen
+        message="Не удалось загрузить интерфейс. Проверьте соединение и попробуйте ещё раз."
+        error
+        onRetry={() => window.location.reload()}
+      />,
+    );
+  });

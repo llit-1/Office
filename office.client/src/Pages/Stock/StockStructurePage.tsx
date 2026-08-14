@@ -8,6 +8,7 @@ import { del, get, post, put } from "../../Services/api";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import Modal from "../../Components/Modal/Modal";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import styles from "./Stock.module.css";
 
@@ -202,16 +203,22 @@ const StockStructurePage = () => {
           )}
         </div>
 
-        <Toggle
-          label="Только активные"
-          checked={onlyActive}
-          onChange={(value) => setOnlyActive(Boolean(value))}
-          containerClassName={styles.filterToggle}
-          labelClassName={styles.filterToggleLabel}
-        />
+        <label className={styles.activeFilter} htmlFor="stock-only-active">
+          <span className={styles.activeFilterLabel}>Только активные</span>
+          <input
+            id="stock-only-active"
+            className={styles.activeFilterInput}
+            type="checkbox"
+            checked={onlyActive}
+            onChange={(event) => setOnlyActive(event.target.checked)}
+          />
+          <span className={styles.activeFilterTrack} aria-hidden="true">
+            <span className={styles.activeFilterThumb} />
+          </span>
+        </label>
       </div>
 
-      {isLoading ? <div className={styles.loaderWrapper}><LoadingSpinner /></div> : (
+      {isLoading ? <div className={styles.loaderWrapper}><LoadingSpinner size={96} label="Загружаем структуру склада…" /></div> : (
         <div className={styles.contentWrapper}>
           <div className={`${styles.card} ${styles.addCard}`} onClick={openCreateModal}>
             +
@@ -263,7 +270,6 @@ const StockStructurePage = () => {
         <div className={styles.modalContent}>
           <div className={styles.modalInputs}>
             <Input
-              labelVisible={false}
               label="Название категории"
               value={formName}
               onChange={(e) => setFormName(e.target.value)}
@@ -279,13 +285,13 @@ const StockStructurePage = () => {
 
           <div className={styles.modalButtons}>
             {selectedCategory && (
-              <button className={styles.deleteButton} onClick={() => setIsDeleteOpen(true)} disabled={isSaving}>Удалить</button>
+              <Button variant="danger" onClick={() => setIsDeleteOpen(true)} disabled={isSaving}>Удалить</Button>
             )}
 
             {selectedCategory ? (
-              <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>Сохранить</button>
+              <Button variant="primary" onClick={handleSave} loading={isSaving}>Сохранить</Button>
             ) : (
-              <button className={styles.saveButton} onClick={handleSave} disabled={isSaving}>Создать</button>
+              <Button variant="primary" onClick={handleSave} loading={isSaving}>Создать</Button>
             )}
           </div>
         </div>

@@ -4,6 +4,7 @@ import { useDispatch } from "react-redux";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import CustomSelect from "./CustomSelect";
+import Button from "../../Components/Button/Button";
 
 const Orders = () => {
   const dispatch = useDispatch();
@@ -52,7 +53,7 @@ const Orders = () => {
             <CustomSelect options={ttOptions} value={ttFilter} onChange={setTtFilter} />
             <CustomSelect options={periodOptions} value={periodFilter} onChange={setPeriodFilter} />
           </div>
-          <button className={styles.createOrderBtn} onClick={() => setState(!state)}>Создать заказ</button>
+          <Button variant="primary" onClick={() => setState(!state)}>Создать заказ</Button>
         </div>
 
         <div className={`${styles.orderList} ${state ? styles.orderListExpanded : ""}`}>

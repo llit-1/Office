@@ -1,4 +1,5 @@
 import Modal from "../../../Components/Modal/Modal";
+import Button from "../../../Components/Button/Button";
 import Select from "../../../Components/Select/Select";
 import type { ApkFile, Device } from "../videoDevices.types";
 import styles from "../VideoDevices.module.css";
@@ -57,12 +58,12 @@ export default function UpdateAppModal({
         )}
 
         <div className={styles.modalActions}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose} disabled={updatingApp}>
+          <Button variant="secondary" onClick={onClose} disabled={updatingApp}>
             Отмена
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={onUpdate} disabled={!selectedApkName || updatingApp}>
+          </Button>
+          <Button variant="primary" onClick={onUpdate} disabled={!selectedApkName} loading={updatingApp}>
             {updatingApp ? "Обновление..." : "Обновить"}
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>

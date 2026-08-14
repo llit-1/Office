@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNotifications } from "@toolpad/core";
 import { useDispatch } from "react-redux";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
-import { callApi, get, post, put } from "../../Services/api";
+import { callApi, del, get, post, put } from "../../Services/api";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import SensorChatsTab from "./components/SensorChatsTab";
 import SensorEditModal from "./components/SensorEditModal";
-import SensorHistoryModal from "./components/SensorHistoryModal";
+import SensorRuleModal, { type RuleModalState } from "./components/SensorRuleModal";
 import SensorRulesTab from "./components/SensorRulesTab";
 import SensorsCardsTab from "./components/SensorsCardsTab";
 import type {
@@ -15,12 +15,29 @@ import type {
   SensorFormState,
   SensorHistoryPoint,
   SensorRow,
+  SensorRuleRow,
   SensorRuleSettings,
 } from "./sensors.types";
-import { defaultSensorFormState, normalizeHistory, periodOptions } from "./sensors.utils";
+import {
+  defaultSensorFormState,
+  defaultRuleSettingsFormState,
+  normalizeHistory,
+  periodOptions,
+  toApiTimeValue,
+  toMaintenanceWindowFormState,
+  toRuleSettingsFormState,
+} from "./sensors.utils";
 import styles from "./Sensors.module.css";
 
+const SensorHistoryModal = lazy(() => import("./components/SensorHistoryModal"));
+
 const tabs = ["Датчики", "Правила", "Чаты"];
+
+const emptyRuleModalState = (roomId = ""): RuleModalState => ({
+  roomId,
+  ...defaultRuleSettingsFormState,
+  maintenanceWindows: [],
+});
 
 export default function Sensors() {
   const dispatch = useDispatch();
@@ -28,6 +45,7 @@ export default function Sensors() {
 
   const [activeTab, setActiveTab] = useState(0);
   const [sensors, setSensors] = useState<SensorRow[]>([]);
+  const [ruleRows, setRuleRows] = useState<SensorRuleRow[]>([]);
   const [sensorsLoading, setSensorsLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
@@ -41,6 +59,12 @@ export default function Sensors() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedSensorSettings, setSelectedSensorSettings] = useState<SensorRuleSettings | null>(null);
   const [selectedSensorMaintenanceWindows, setSelectedSensorMaintenanceWindows] = useState<MaintenanceWindowItem[]>([]);
+  const [ruleModalOpen, setRuleModalOpen] = useState(false);
+  const [ruleModalSaving, setRuleModalSaving] = useState(false);
+  const [ruleDeleteConfirmOpen, setRuleDeleteConfirmOpen] = useState(false);
+  const [ruleEditingSensor, setRuleEditingSensor] = useState<SensorRow | null>(null);
+  const [ruleForm, setRuleForm] = useState<RuleModalState>(emptyRuleModalState());
+  const [initialMaintenanceWindows, setInitialMaintenanceWindows] = useState<MaintenanceWindowItem[]>([]);
 
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
@@ -62,12 +86,22 @@ export default function Sensors() {
     return true;
   };
 
+  const loadRuleRows = async () => {
+    const result = await callApi(get<SensorRuleRow[]>("/Sensors/rules"), { notifications });
+    if (!result.ok) {
+      return false;
+    }
+
+    setRuleRows(result.data);
+    return true;
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
-      const ok = await loadSensors();
-      if (!ok && !cancelled) {
+      const [sensorsOk] = await Promise.all([loadSensors(), loadRuleRows()]);
+      if (!sensorsOk && !cancelled) {
         setSensorsLoading(false);
       }
     };
@@ -237,10 +271,160 @@ export default function Sensors() {
     }
 
     closeSensorModal();
-    await loadSensors();
+    await Promise.all([loadSensors(), loadRuleRows()]);
   };
 
   const canSaveSensor = sensorForm.name.trim().length > 0 && sensorForm.ip.trim().length > 0;
+
+  const canSaveRule = useMemo(() => {
+    if (!ruleForm.roomId) {
+      return false;
+    }
+
+    if (
+      ruleForm.violationDelayMinutes.trim().length === 0 ||
+      ruleForm.repeatDelayMinutes.trim().length === 0 ||
+      ruleForm.recoveryDelayMinutes.trim().length === 0
+    ) {
+      return false;
+    }
+
+    return ruleForm.maintenanceWindows.every((window) => {
+      if (!window.name.trim() || !window.startTime.trim() || !window.endTime.trim()) {
+        return false;
+      }
+
+      if (window.scheduleType === "weekly" && window.daysOfWeekMask < 1) {
+        return false;
+      }
+
+      if (window.scheduleType === "one_time" && (!window.startDate || !window.endDate)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [ruleForm]);
+
+  const closeRuleModal = () => {
+    if (ruleModalSaving) {
+      return;
+    }
+
+    setRuleModalOpen(false);
+    setRuleDeleteConfirmOpen(false);
+    setRuleEditingSensor(null);
+    setRuleForm(emptyRuleModalState());
+    setInitialMaintenanceWindows([]);
+  };
+
+  const openRuleModal = async (sensor: SensorRow) => {
+    setRuleEditingSensor(sensor);
+    setRuleDeleteConfirmOpen(false);
+    setRuleModalOpen(true);
+
+    const [settingsResult, maintenanceResult] = await Promise.all([
+      callApi(get<SensorRuleSettings>(`/Sensors/${sensor.id}/settings`), { notifications }),
+      callApi(get<MaintenanceWindowItem[]>(`/Sensors/${sensor.id}/maintenance-windows`), { notifications }),
+    ]);
+
+    if (!settingsResult.ok || !maintenanceResult.ok) {
+      closeRuleModal();
+      return;
+    }
+
+    setInitialMaintenanceWindows(maintenanceResult.data);
+    setRuleForm({
+      roomId: String(sensor.id),
+      ...toRuleSettingsFormState(settingsResult.data),
+      maintenanceWindows: maintenanceResult.data.map(toMaintenanceWindowFormState),
+    });
+  };
+
+  const handleSaveRule = async () => {
+    if (!ruleEditingSensor || !canSaveRule || ruleModalSaving) {
+      return;
+    }
+
+    setRuleModalSaving(true);
+
+    const roomId = Number(ruleForm.roomId);
+    const settingsPayload = {
+      minTemperature: ruleForm.minTemperature.trim() === "" ? null : Number(ruleForm.minTemperature),
+      maxTemperature: ruleForm.maxTemperature.trim() === "" ? null : Number(ruleForm.maxTemperature),
+      violationDelayMinutes: Number(ruleForm.violationDelayMinutes),
+      repeatDelayMinutes: Number(ruleForm.repeatDelayMinutes),
+      recoveryDelayMinutes: Number(ruleForm.recoveryDelayMinutes),
+      isEnabled: ruleForm.isEnabled,
+    };
+
+    const settingsResult = await callApi(put(`/Sensors/${roomId}/settings`, settingsPayload), { notifications });
+    if (!settingsResult.ok) {
+      setRuleModalSaving(false);
+      return;
+    }
+
+    const currentIds = new Set<number>();
+    for (const window of ruleForm.maintenanceWindows) {
+      const payload = {
+        name: window.name.trim(),
+        scheduleType: window.scheduleType,
+        daysOfWeekMask: window.scheduleType === "weekly" ? window.daysOfWeekMask : null,
+        startTime: toApiTimeValue(window.startTime),
+        endTime: toApiTimeValue(window.endTime),
+        startDate: window.scheduleType === "one_time" ? window.startDate : null,
+        endDate: window.scheduleType === "one_time" ? window.endDate : null,
+        isEnabled: window.isEnabled,
+      };
+
+      const result =
+        window.id != null
+          ? await callApi(put<MaintenanceWindowItem>(`/Sensors/maintenance-windows/${window.id}`, payload), { notifications })
+          : await callApi(post<MaintenanceWindowItem>(`/Sensors/${roomId}/maintenance-windows`, payload), { notifications });
+
+      if (!result.ok) {
+        setRuleModalSaving(false);
+        return;
+      }
+
+      currentIds.add(result.data.id);
+    }
+
+    for (const window of initialMaintenanceWindows) {
+      if (currentIds.has(window.id)) {
+        continue;
+      }
+
+      const deleteResult = await callApi(del(`/Sensors/maintenance-windows/${window.id}`), { notifications });
+      if (!deleteResult.ok) {
+        setRuleModalSaving(false);
+        return;
+      }
+    }
+
+    notifications.show("Правило сохранено", { severity: "success", autoHideDuration: 3000 });
+    setRuleModalSaving(false);
+    closeRuleModal();
+    await Promise.all([loadSensors(), loadRuleRows()]);
+  };
+
+  const handleDeleteRule = async () => {
+    if (!ruleEditingSensor || ruleModalSaving) {
+      return;
+    }
+
+    setRuleModalSaving(true);
+    const result = await callApi(del(`/Sensors/${ruleEditingSensor.id}/settings`), { notifications });
+    if (!result.ok) {
+      setRuleModalSaving(false);
+      return;
+    }
+
+    notifications.show("Правило удалено", { severity: "success", autoHideDuration: 3000 });
+    setRuleModalSaving(false);
+    closeRuleModal();
+    await Promise.all([loadSensors(), loadRuleRows()]);
+  };
 
   return (
     <div className={styles.page}>
@@ -259,6 +443,7 @@ export default function Sensors() {
           onStatusFilterChange={setStatusFilter}
           onCreateSensor={openCreateModal}
           onEditSensor={openEditModal}
+          onOpenRuleSettings={(sensor) => void openRuleModal(sensor)}
           onOpenChart={(sensor) => {
             setSelectedSensor(sensor);
             setHistoryPeriodHours(24);
@@ -281,20 +466,46 @@ export default function Sensors() {
         onSave={() => void handleSaveSensor()}
       />
 
-      <SensorHistoryModal
-        sensor={selectedSensor}
-        sensorSettings={selectedSensorSettings}
-        maintenanceWindows={selectedSensorMaintenanceWindows}
-        historyLoading={historyLoading}
-        normalizedHistory={normalizedHistory}
-        historyPeriodHours={historyPeriodHours}
-        onPeriodChange={setHistoryPeriodHours}
-        onClose={() => {
-          setSelectedSensor(null);
-          setSelectedSensorSettings(null);
-          setSelectedSensorMaintenanceWindows([]);
-          setHistoryPoints([]);
+      {selectedSensor && (
+        <Suspense fallback={null}>
+          <SensorHistoryModal
+            sensor={selectedSensor}
+            sensorSettings={selectedSensorSettings}
+            maintenanceWindows={selectedSensorMaintenanceWindows}
+            historyLoading={historyLoading}
+            normalizedHistory={normalizedHistory}
+            historyPeriodHours={historyPeriodHours}
+            onPeriodChange={setHistoryPeriodHours}
+            onClose={() => {
+              setSelectedSensor(null);
+              setSelectedSensorSettings(null);
+              setSelectedSensorMaintenanceWindows([]);
+              setHistoryPoints([]);
+            }}
+          />
+        </Suspense>
+      )}
+
+      <SensorRuleModal
+        isOpen={ruleModalOpen}
+        title={ruleEditingSensor ? `Правило: ${ruleEditingSensor.name}` : "Настройка правила"}
+        sensors={sensors}
+        rowsRoomIds={ruleRows.map((row) => row.roomId)}
+        editingRoomId={ruleEditingSensor?.id ?? null}
+        ruleForm={ruleForm}
+        saving={ruleModalSaving}
+        canSave={canSaveRule}
+        deleteConfirmOpen={ruleDeleteConfirmOpen}
+        onClose={closeRuleModal}
+        onSave={() => void handleSaveRule()}
+        onDelete={ruleEditingSensor?.hasAlertSettings ? () => void handleDeleteRule() : null}
+        onDeleteCancel={() => {
+          if (!ruleModalSaving) {
+            setRuleDeleteConfirmOpen(false);
+          }
         }}
+        onDeleteRequest={ruleEditingSensor?.hasAlertSettings ? () => setRuleDeleteConfirmOpen(true) : null}
+        onRuleFormChange={setRuleForm}
       />
     </div>
   );

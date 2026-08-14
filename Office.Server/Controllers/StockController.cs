@@ -18,6 +18,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Stock")]
     public class StockController : ControllerBase
     {
         private readonly RKNETDBContext _context;
@@ -38,7 +39,6 @@ namespace Office.Server.Controllers
             _configuration = configuration;
         }
 
-        [Authorize]
         [HttpGet("external/token")]
         public async Task<IActionResult> GetExternalWarehouseToken([FromQuery] bool forceRefresh = false)
         {
@@ -70,7 +70,7 @@ namespace Office.Server.Controllers
 
             if (!response.IsSuccessStatusCode)
             {
-                return StatusCode((int)response.StatusCode, new
+                return StatusCode(MapUpstreamStatusCode((int)response.StatusCode), new
                 {
                     message = "Не удалось получить токен внешней складской API.",
                     details = rawToken
@@ -94,6 +94,13 @@ namespace Office.Server.Controllers
             _memoryCache.Set(ExternalWarehouseTokenCacheKey, tokenCache, tokenCache.ExpiresAtUtc);
 
             return Ok(new { token });
+        }
+
+        private static int MapUpstreamStatusCode(int statusCode)
+        {
+            return statusCode is StatusCodes.Status401Unauthorized or StatusCodes.Status403Forbidden
+                ? StatusCodes.Status502BadGateway
+                : statusCode;
         }
 
         // Получить все категории (опционально только актуальные)

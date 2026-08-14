@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.PowerBi;
 using Office.Server.DbContexts.PowerBi.Models;
@@ -8,6 +9,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Sensors")]
     public class SensorsController : ControllerBase
     {
         private static readonly HashSet<string> AllowedScheduleTypes = new(StringComparer.OrdinalIgnoreCase)

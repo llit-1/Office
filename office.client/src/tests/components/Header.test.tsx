@@ -49,7 +49,11 @@ function renderHeader() {
         roles: [],
         loaded: false,
       },
-      preferences: { notificationSoundEnabled: true },
+      preferences: {
+        notificationSoundEnabled: true,
+        sensorChartExpanded: false,
+        sensorChartLineWidth: 3,
+      },
     },
   });
 

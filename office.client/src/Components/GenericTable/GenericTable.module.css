@@ -6,23 +6,23 @@
   --table-row-height: 48px;
   --table-row-font-size: 16px;
   --table-row-line-height: 38px;
-  --table-cell-padding: 5px 15px;
-  --table-row-spacing: 20px;
+  --table-cell-padding: var(--space-1) var(--space-4);
+  --table-row-spacing: var(--space-6);
 }
 
 .tableSearch {
   width: 240px;
   min-width: 180px;
-  height: 42px;
+  height: var(--control-height-md);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--color-surface);
-  padding: 0 12px;
+  padding: 0 var(--space-3);
   color: var(--color-text-muted);
-  margin-bottom: 10px;
+  margin-bottom: var(--space-3);
 }
 
 .tableSearch input {
@@ -32,7 +32,7 @@
   outline: 0;
   background: transparent;
   color: var(--color-text);
-  font-size: 16px;
+  font-size: var(--font-size-body);
 }
 
 .tableSearch input::placeholder {
@@ -41,26 +41,26 @@
 
 .density_compact {
   --table-row-height: 40px;
-  --table-row-font-size: 14px;
+  --table-row-font-size: var(--font-size-compact);
   --table-row-line-height: 30px;
-  --table-cell-padding: 4px 15px;
+  --table-cell-padding: var(--space-1) var(--space-4);
   --table-row-spacing: 14px;
 }
 
 .density_normal {
   --table-row-height: 48px;
-  --table-row-font-size: 16px;
+  --table-row-font-size: var(--font-size-body);
   --table-row-line-height: 38px;
-  --table-cell-padding: 5px 15px;
+  --table-cell-padding: var(--space-1) var(--space-4);
   --table-row-spacing: 20px;
 }
 
 .density_comfortable {
-  --table-row-height: 35px;
-  --table-row-font-size: 14px;
-  --table-row-line-height: 24px;
-  --table-cell-padding: 3px 15px;
-  --table-row-spacing: 12px;
+  --table-row-height: 56px;
+  --table-row-font-size: var(--font-size-body);
+  --table-row-line-height: 44px;
+  --table-cell-padding: var(--space-2) var(--space-4);
+  --table-row-spacing: var(--space-6);
 }
 
 .scrollableTbody::-webkit-scrollbar {
@@ -70,13 +70,13 @@
 
 .scrollableTbody::-webkit-scrollbar-track {
   background: var(--color-surface-muted);
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
 }
 
 .scrollableTbody::-webkit-scrollbar-thumb {
   background-color: var(--color-border-strong);
-  border-radius: 10px;
-  transition: background-color 0.2s ease;
+  border-radius: var(--radius-pill);
+  transition: background-color var(--duration-normal) var(--easing-standard);
 }
 
 .scrollableTbody::-webkit-scrollbar-thumb:hover {
@@ -99,10 +99,10 @@
 .table thead th {
   font-weight: 600;
   text-align: left;
-  padding: 10px 15px;
-  background: var(--color-primary-soft);
-  color: var(--color-white);
-  font-size: 15px;
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary-solid);
+  color: var(--color-on-primary-solid);
+  font-size: var(--font-size-compact);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -113,23 +113,25 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .headerLabel {
   overflow: hidden;
   text-overflow: ellipsis;
+  text-transform: uppercase;
+  font-size: var(--font-size-compact);
 }
 
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 
 .sortArrow {
-  font-size: 11px;
+  font-size: var(--font-size-caption);
   line-height: 1;
 }
 
@@ -141,20 +143,20 @@
   width: 24px;
   height: 24px;
   border: none;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.16);
-  color: var(--color-white);
-  transition: background-color 0.15s ease, transform 0.15s ease;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  color: var(--color-on-primary-solid);
+  transition: background-color var(--duration-fast) var(--easing-standard);
 }
 
 .filterButton:hover {
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.26);
+  background: color-mix(in srgb, currentColor 26%, transparent);
 }
 
 .filterButtonActive {
-  background: rgba(255, 255, 255, 0.34);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  background: color-mix(in srgb, currentColor 34%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
 }
 
 .filterButtonDot {
@@ -163,7 +165,7 @@
   right: 4px;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--color-filter-indicator);
 }
 
@@ -171,7 +173,7 @@
   position: fixed;
   width: 280px;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: var(--radius-card);
   background: var(--color-surface);
   color: var(--color-text);
   box-shadow: 0 16px 32px var(--color-overlay);
@@ -191,7 +193,8 @@
   gap: 8px;
   height: 40px;
   padding: 0 12px;
-  border-radius: 10px;
+  margin-bottom: 8px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-muted);
   color: var(--color-text-subtle);
 }
@@ -212,9 +215,9 @@
 .filterOption {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
-  padding: 8px 2px;
+  padding: 4px 4px;
   color: var(--color-text);
   font-weight: 500;
 }
@@ -255,24 +258,41 @@
 }
 
 .tableWrapper mark {
-  background: rgba(255, 224, 130, 0.85);
+  background: var(--color-highlight);
   color: inherit;
-  padding: 0 1px;
-  border-radius: 3px;
+  padding: 0 4px;
+  border-radius: var(--radius-sm);
 }
 
 .filterOptionsList {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   flex: 1;
   min-height: 0;
   max-height: 240px;
-  margin-top: 10px;
-  padding: 4px 2px;
+  margin-top: 4px;
+  padding: 4px 8px 4px 4px;
   overflow-y: auto;
   border-top: 1px solid var(--color-border-soft);
   border-bottom: 1px solid var(--color-border-soft);
+}
+
+.filterOptionsList::-webkit-scrollbar {
+  width: 5px;
+}
+
+.filterOptionsList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.filterOptionsList::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+}
+
+.filterOptionsList::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
 }
 
 .filterEmpty {
@@ -282,6 +302,8 @@
 }
 
 .columnsMenuTitle {
+  font-family: var(--font-heading);
+  letter-spacing: normal;
   font-size: 15px;
   font-weight: 700;
   color: var(--color-text);
@@ -289,7 +311,8 @@
 }
 
 .sectionTitle {
-  margin: 8px 0 10px;
+  margin: 8px 0 12px;
+  font-family: var(--font-heading);
   font-size: 13px;
   font-weight: 700;
   color: var(--color-text-subtle);
@@ -297,8 +320,135 @@
   letter-spacing: 0.04em;
 }
 
+.presetSection {
+  margin-bottom: 8px;
+}
+
+.presetControls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.presetSelect {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-control);
+  outline: none;
+  background-color: var(--color-surface-muted);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.presetSelect:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.presetActionButton {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-control);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-size: 18px;
+  transition: border-color 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.presetActionButton:hover:not(:disabled) {
+  cursor: pointer;
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border-soft));
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface-muted));
+}
+
+.presetActionButton:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 16%, transparent);
+  outline-offset: 1px;
+}
+
+.presetActionButton:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.presetDeleteButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border-soft));
+  background: color-mix(in srgb, var(--color-danger) 9%, var(--color-surface-muted));
+  color: var(--color-danger);
+}
+
+.presetEditor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.presetNameInput {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-control);
+  outline: none;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.presetNameInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 14%, transparent);
+}
+
+.presetNameInput::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.presetCreateButton {
+  height: 34px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--color-primary-solid);
+  color: var(--color-on-primary-solid);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.presetCreateButton:hover:not(:disabled) {
+  cursor: pointer;
+  background: var(--color-primary-600);
+}
+
+.presetCreateButton:disabled {
+  opacity: 0.45;
+}
+
+.presetError {
+  grid-column: 1 / -1;
+  color: var(--color-danger);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
 .densitySection {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .densityOptions {
@@ -312,7 +462,7 @@
   flex: 1;
   height: 34px;
   border: 1px solid var(--color-border-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-muted);
   color: var(--color-text);
   font: inherit;
@@ -323,19 +473,21 @@
 
 .densityOptionButton:hover {
   cursor: pointer;
-  background: var(--color-border-soft);
+  border-color: color-mix(in srgb, var(--color-primary) 42%, var(--color-border-soft));
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface-muted));
 }
 
-.densityOptionButtonActive {
-  border-color: var(--color-primary-soft);
-  background: color-mix(in srgb, var(--color-primary-soft) 18%, var(--color-surface) 82%);
-  color: var(--color-primary-soft);
+.densityOptionButtonActive,
+.densityOptionButtonActive:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-solid);
+  color: var(--color-on-primary-solid);
 }
 
 .filterMenuActions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
 }
 
@@ -343,11 +495,12 @@
 .filterSecondaryButton {
   min-width: 96px;
   height: 36px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   border: none;
   font: inherit;
-  font-weight: 600;
+  font-weight: 500;
   transition: background-color 0.15s ease, color 0.15s ease;
+  font-size: 14px;
 }
 
 .filterPrimaryButton {
@@ -363,12 +516,13 @@
 .filterSecondaryButton {
   background: var(--color-surface-muted);
   color: var(--color-text);
-  padding: 0px 10px;
+  padding: 0px 12px;
 }
 
 .filterSecondaryButton:hover {
   cursor: pointer;
-  background: var(--color-border-soft);
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface-muted));
+  color: var(--color-text);
 }
 
 .scrollableTbody {
@@ -493,6 +647,25 @@
   line-height: var(--table-row-line-height);
 }
 
+.rowLink {
+  display: block;
+  width: 100%;
+  height: var(--table-row-height);
+  min-width: 0;
+  padding: var(--table-cell-padding);
+  overflow: hidden;
+  box-sizing: border-box;
+  color: inherit;
+  line-height: var(--table-row-line-height);
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table tbody td.routedCell {
+  padding: 0;
+}
+
 .table tr:nth-child(even) {
   background-color: var(--color-overlay-soft);
 }
@@ -536,16 +709,17 @@
   background-color: var(--color-primary-soft);
   opacity: 0.8;
   bottom: 10px;
-  right: 82px;
-  border-radius: 50%;
+  right: 144px;
+  border-radius: var(--radius-pill);
   display: flex;
   justify-content: center;
   align-items: center;
   color: var(--color-white);
   font-weight: bold;
   font-size: 34px;
-  padding-bottom: 5px;
-  transition: all 0.15s linear;
+  padding-bottom: 4px;
+  transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear, opacity 0.15s linear, box-shadow 0.15s linear, transform 0.15s linear;
+  font-family: var(--font-heading);
 }
 
 .addButton:hover {
@@ -562,14 +736,53 @@
   width: 50px;
   height: 50px;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   background-color: var(--color-primary-soft);
   color: var(--color-white);
   opacity: 0.8;
-  transition: all 0.15s linear;
+  transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear, opacity 0.15s linear, box-shadow 0.15s linear, transform 0.15s linear;
+}
+
+.exportButton {
+  position: absolute;
+  right: 82px;
+  bottom: 10px;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--color-primary) 48%, var(--color-border));
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface);
+  color: var(--color-primary);
+  opacity: 0.92;
+  transition: background-color 0.15s linear, border-color 0.15s linear, color 0.15s linear, opacity 0.15s linear, box-shadow 0.15s linear, transform 0.15s linear;
+}
+
+.exportButton:hover:not(:disabled) {
+  cursor: pointer;
+  border-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 9%, var(--color-surface));
+  box-shadow: 0 2px 5px 2px var(--color-overlay);
+}
+
+.exportButton:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  outline-offset: 2px;
+}
+
+.exportButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.exportButton svg {
+  font-size: 1.35rem;
 }
 
 .settingsButton:hover {
@@ -592,7 +805,7 @@
   right: 11px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--color-filter-indicator);
 }
 
@@ -618,7 +831,7 @@
   width: 28px;
   height: 28px;
   border: 1px solid var(--color-border-soft);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--color-surface-muted);
   color: var(--color-text);
   font-size: 16px;

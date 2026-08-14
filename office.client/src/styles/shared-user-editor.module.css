@@ -8,58 +8,30 @@
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 .userEditFooter {
-  height: 40px;
   width: 100%;
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  gap: 10px;
-  max-height: 40px;
-  min-height: 40px;
-  color: var(--color-white);
+  gap: 12px;
+  min-height: var(--control-height-md);
 }
 
 .userEditFooter > button {
-  width: 100px;
-  height: 100%;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-  color: var(--color-white);
-}
-
-.saveButton {
-  background-color: var(--color-primary);
-  color: var(--color-white);
-}
-
-.saveButton:hover {
-  background-color: var(--color-primary-600);
-}
-
-.cancelButton {
-  background-color: var(--color-border);
-}
-
-.cancelButton:hover {
-  background-color: var(--color-surface-muted);
+  min-width: 120px;
 }
 
 .groups {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   justify-content: start;
   border: 1px solid var(--color-border);
-  padding: 15px;
-  border-radius: 8px;
+  padding: 16px;
+  border-radius: var(--radius-control);
   background-color: var(--color-surface);
   width: 100%;
 }
@@ -67,32 +39,22 @@
 .blockLabel {
   font-weight: 400;
   border: 1px solid var(--color-border);
-  padding: 0 0 6px 6px;
-  margin-bottom: 15px;
+  padding: 0 0 8px 8px;
+  margin-bottom: 16px;
   font-size: 24px;
   width: 100%;
   color: var(--color-text);
   background: var(--color-bg);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   text-align: center;
 }
 
 .userInfoBlock {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  border-radius: 8px;
+  gap: 16px;
+  border-radius: var(--radius-control);
   background-color: var(--color-surface);
-}
-
-.buttonDelete {
-  background-color: var(--color-danger);
-  color: var(--color-white);
-  transition: all 0.25s linear;
-}
-
-.buttonDelete:hover {
-  background-color: var(--color-danger-hover);
 }
 
 .confirmModalPanel {
@@ -126,6 +88,5 @@
 
   .userEditFooter > button {
     width: 100%;
-    min-height: 44px;
   }
 }

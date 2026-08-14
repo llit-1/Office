@@ -1,7 +1,11 @@
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import ShowChartRoundedIcon from "@mui/icons-material/ShowChartRounded";
+import Button from "../../../Components/Button/Button";
+import LoadingSpinner from "../../../Components/LoadingSpinner/LoadingSpinner";
 import type { SensorRow } from "../sensors.types";
 import styles from "../Sensors.module.css";
+import dashboard from "../../../styles/entity-dashboard.module.css";
 
 interface SensorsCardsTabProps {
   sensors: SensorRow[];
@@ -13,6 +17,7 @@ interface SensorsCardsTabProps {
   onStatusFilterChange: (value: "all" | "online" | "offline") => void;
   onCreateSensor: () => void;
   onEditSensor: (sensor: SensorRow) => void;
+  onOpenRuleSettings: (sensor: SensorRow) => void;
   onOpenChart: (sensor: SensorRow) => void;
 }
 
@@ -26,17 +31,18 @@ export default function SensorsCardsTab({
   onStatusFilterChange,
   onCreateSensor,
   onEditSensor,
+  onOpenRuleSettings,
   onOpenChart,
 }: SensorsCardsTabProps) {
   const onlineCount = sensors.filter((sensor) => sensor.actual !== 0).length;
   const offlineCount = sensors.filter((sensor) => sensor.actual === 0).length;
 
   return (
-    <section className={styles.contentSection}>
+    <section className={`${styles.contentSection} ${dashboard.section}`}>
       <div className={styles.tableSection}>
-        <div className={styles.controlsBar}>
-          <div className={styles.searchGroup}>
-            <label className={styles.search}>
+        <div className={dashboard.toolbar}>
+          <div className={dashboard.searchGroup}>
+            <label className={dashboard.search}>
               <SearchRoundedIcon fontSize="small" />
               <input
                 type="text"
@@ -46,29 +52,29 @@ export default function SensorsCardsTab({
               />
             </label>
 
-            <button type="button" className={styles.addSensorButton} onClick={onCreateSensor}>
+            <Button variant="primary" onClick={onCreateSensor}>
               Добавить датчик
-            </button>
+            </Button>
           </div>
 
-          <div className={styles.filterBar}>
+          <div className={dashboard.filterGroup}>
             <button
               type="button"
-              className={`${styles.filterButton} ${statusFilter === "all" ? styles.filterButtonActive : ""}`}
+              className={`${dashboard.filterButton} ${statusFilter === "all" ? dashboard.filterButtonActive : ""}`}
               onClick={() => onStatusFilterChange("all")}
             >
               Все
             </button>
             <button
               type="button"
-              className={`${styles.filterButton} ${statusFilter === "online" ? styles.filterButtonActive : ""}`}
+              className={`${dashboard.filterButton} ${statusFilter === "online" ? dashboard.filterButtonActive : ""}`}
               onClick={() => onStatusFilterChange("online")}
             >
               Активные
             </button>
             <button
               type="button"
-              className={`${styles.filterButton} ${statusFilter === "offline" ? styles.filterButtonActive : ""}`}
+              className={`${dashboard.filterButton} ${statusFilter === "offline" ? dashboard.filterButtonActive : ""}`}
               onClick={() => onStatusFilterChange("offline")}
             >
               Неактивные
@@ -76,50 +82,52 @@ export default function SensorsCardsTab({
           </div>
         </div>
 
-        <div className={styles.metricsGrid}>
-          <article className={styles.metricCard}>
-            <span>Всего</span>
-            <strong>{sensors.length}</strong>
+        <div className={`${dashboard.metricsGrid} ${dashboard.metricsGridThree}`}>
+          <article className={dashboard.metricCard}>
+            <span className={dashboard.metricLabel}>Всего</span>
+            <strong className={dashboard.metricValue}>{sensors.length}</strong>
           </article>
 
-          <article className={styles.metricCard}>
-            <span>Активны</span>
-            <strong>{onlineCount}</strong>
+          <article className={dashboard.metricCard}>
+            <span className={dashboard.metricLabel}>Активны</span>
+            <strong className={dashboard.metricValue}>{onlineCount}</strong>
           </article>
 
-          <article className={styles.metricCard}>
-            <span>Неактивны</span>
-            <strong>{offlineCount}</strong>
+          <article className={dashboard.metricCard}>
+            <span className={dashboard.metricLabel}>Неактивны</span>
+            <strong className={dashboard.metricValue}>{offlineCount}</strong>
           </article>
         </div>
 
         {sensorsLoading ? (
-          <div className={styles.emptyState}>Загружаем датчики...</div>
+          <div className={styles.sensorsLoadingState}>
+            <LoadingSpinner size={96} label="Загружаем датчики…" />
+          </div>
         ) : filteredSensors.length === 0 ? (
-          <div className={styles.emptyState}>По текущему фильтру датчики не найдены.</div>
+          <div className={dashboard.emptyState}>По текущему фильтру датчики не найдены.</div>
         ) : (
-          <div className={styles.sensorsGrid}>
+          <div className={dashboard.cardsGrid}>
             {filteredSensors.map((sensor) => {
               const stateClassName =
                 sensor.actual === 0
-                  ? styles.sensorCardInactive
+                  ? dashboard.cardInactive
                   : sensor.state === "OK"
-                    ? styles.sensorCardOnline
+                    ? dashboard.cardSuccess
                     : sensor.state === "Pending"
-                      ? styles.sensorCardPending
+                      ? dashboard.cardWarning
                       : sensor.state === "Warning"
-                        ? styles.sensorCardOffline
+                        ? dashboard.cardDanger
                         : "";
 
               const dotClassName =
                 sensor.actual === 0
-                  ? styles.statusDotInactive
+                  ? dashboard.statusInactive
                   : sensor.state === "OK"
-                    ? styles.statusDotOnline
+                    ? dashboard.statusSuccess
                     : sensor.state === "Pending"
-                      ? styles.statusDotPending
+                      ? dashboard.statusWarning
                       : sensor.state === "Warning"
-                        ? styles.statusDotOffline
+                        ? dashboard.statusDanger
                         : "";
 
               const isGraphDisabled = sensor.actual === 0;
@@ -127,7 +135,7 @@ export default function SensorsCardsTab({
               return (
                 <article
                   key={sensor.id}
-                  className={`${styles.sensorCard} ${stateClassName}`}
+                  className={`${dashboard.card} ${stateClassName}`}
                   onClick={() => onEditSensor(sensor)}
                   role="button"
                   tabIndex={0}
@@ -138,7 +146,7 @@ export default function SensorsCardsTab({
                     }
                   }}
                 >
-                  <span className={`${styles.statusDot} ${dotClassName}`} aria-hidden="true" />
+                  <span className={`${dashboard.statusDot} ${dotClassName}`} aria-hidden="true" />
 
                   <div className={styles.sensorCardHeader}>
                     <h3 className={styles.sensorTitle} title={sensor.name}>
@@ -151,12 +159,12 @@ export default function SensorsCardsTab({
                       {sensor.ip}
                     </span>
 
-                    <div className={styles.sensorCardActions}>
+                    <div className={dashboard.cardActions}>
                       {!sensor.hasAlertSettings && (
                         <span
                           className={styles.missingDataBadge}
-                          title="Нет данных по замерам"
-                          aria-label="Нет данных по замерам"
+                          title="Правило для датчика не настроено"
+                          aria-label="Правило для датчика не настроено"
                         >
                           !
                         </span>
@@ -164,7 +172,20 @@ export default function SensorsCardsTab({
 
                       <button
                         type="button"
-                        className={`${styles.cardActionButton} ${isGraphDisabled ? styles.cardActionButtonDisabled : ""}`}
+                        className={dashboard.cardActionButton}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onOpenRuleSettings(sensor);
+                        }}
+                        title="Открыть настройки правила"
+                        aria-label="Открыть настройки правила"
+                      >
+                        <SettingsRoundedIcon fontSize="small" />
+                      </button>
+
+                      <button
+                        type="button"
+                        className={dashboard.cardActionButton}
                         onClick={(event) => {
                           event.stopPropagation();
                           if (!isGraphDisabled) {

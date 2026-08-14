@@ -22,7 +22,7 @@ export class ApiError extends Error {
   }
 }
 
-interface AuthRequestConfig extends AxiosRequestConfig {
+export interface AuthRequestConfig extends AxiosRequestConfig {
   _retry?: boolean;
   skipAuthRefresh?: boolean;
   skipAuthRedirect?: boolean;
@@ -36,6 +36,11 @@ interface AuthInternalRequestConfig extends InternalAxiosRequestConfig {
 
 let accessToken: string | null = null;
 let refreshPromise: Promise<AuthAnswer> | null = null;
+let scheduledRefreshTimer: number | null = null;
+
+const AUTH_CHALLENGE_HEADER = "x-office-auth-challenge";
+const ACCESS_TOKEN_REFRESH_LEEWAY_MS = 60_000;
+const TRANSIENT_REFRESH_RETRY_MS = 30_000;
 
 function resolveApiBaseUrl() {
   const overrideUrl = import.meta.env.VITE_API_URL?.trim();
@@ -71,10 +76,12 @@ export function getAccessToken() {
 
 export function setAccessToken(token: string | null) {
   accessToken = token?.trim() ? token : null;
+  scheduleAccessTokenRefresh(accessToken);
 }
 
 export function clearAccessToken() {
   accessToken = null;
+  clearScheduledRefresh();
   try {
     localStorage.removeItem("token");
     localStorage.removeItem("authToken");
@@ -92,6 +99,130 @@ function redirectToLogin() {
   const loginPath = "/Login";
   if (window.location.pathname !== loginPath) {
     window.location.replace(loginPath);
+  }
+}
+
+export function isTerminalSessionRefreshError(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
+
+function hasOfficeAuthChallenge(error: AxiosError): boolean {
+  const headers = error.response?.headers;
+  const officeChallenge = typeof headers?.get === "function"
+    ? headers.get(AUTH_CHALLENGE_HEADER)
+    : headers?.[AUTH_CHALLENGE_HEADER];
+  if (String(officeChallenge ?? "") === "1") {
+    return true;
+  }
+
+  const authenticateHeader = typeof headers?.get === "function"
+    ? headers.get("www-authenticate")
+    : headers?.["www-authenticate"];
+  return String(authenticateHeader ?? "").toLowerCase().includes("bearer");
+}
+
+function clearScheduledRefresh() {
+  if (scheduledRefreshTimer !== null) {
+    window.clearTimeout(scheduledRefreshTimer);
+    scheduledRefreshTimer = null;
+  }
+}
+
+function decodeAccessTokenPayload(token: string): Record<string, unknown> | null {
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+    const payload = JSON.parse(window.atob(padded)) as unknown;
+    return payload && typeof payload === "object"
+      ? payload as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const ACCESS_TOKEN_ROLE_CLAIMS = [
+  "role",
+  "roles",
+  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role",
+  "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role",
+];
+
+function normalizeRoles(roles: readonly string[]) {
+  return Array.from(new Set(
+    roles
+      .map((role) => role.trim().toLocaleLowerCase())
+      .filter(Boolean),
+  )).sort();
+}
+
+export function getAccessTokenRoles(token: string | null = accessToken): string[] {
+  if (!token) return [];
+
+  const payload = decodeAccessTokenPayload(token);
+  if (!payload) return [];
+
+  const roles = ACCESS_TOKEN_ROLE_CLAIMS.flatMap((claimName) => {
+    const value = payload[claimName];
+    if (Array.isArray(value)) {
+      return value.filter((role): role is string => typeof role === "string");
+    }
+
+    return typeof value === "string" ? [value] : [];
+  });
+
+  const seen = new Set<string>();
+  return roles.filter((role) => {
+    const normalizedRole = role.trim().toLocaleLowerCase();
+    if (!normalizedRole || seen.has(normalizedRole)) return false;
+    seen.add(normalizedRole);
+    return true;
+  });
+}
+
+export function accessTokenRolesMatch(token: string | null, roles: readonly string[]) {
+  const tokenRoles = normalizeRoles(getAccessTokenRoles(token));
+  const expectedRoles = normalizeRoles(roles);
+  return tokenRoles.length === expectedRoles.length
+    && tokenRoles.every((role, index) => role === expectedRoles[index]);
+}
+
+function getAccessTokenExpirationMs(token: string): number | null {
+  const payload = decodeAccessTokenPayload(token);
+  return typeof payload?.exp === "number" ? payload.exp * 1000 : null;
+}
+
+function scheduleAccessTokenRefresh(token: string | null) {
+  clearScheduledRefresh();
+  if (!token) return;
+
+  const expiresAtMs = getAccessTokenExpirationMs(token);
+  if (expiresAtMs === null) return;
+
+  const delay = Math.max(0, expiresAtMs - Date.now() - ACCESS_TOKEN_REFRESH_LEEWAY_MS);
+  scheduledRefreshTimer = window.setTimeout(() => {
+    scheduledRefreshTimer = null;
+    void refreshAccessTokenInBackground();
+  }, delay);
+}
+
+async function refreshAccessTokenInBackground() {
+  try {
+    await requestSessionRefresh();
+  } catch (error) {
+    if (isTerminalSessionRefreshError(error)) {
+      clearAccessToken();
+      redirectToLogin();
+      return;
+    }
+
+    scheduledRefreshTimer = window.setTimeout(() => {
+      scheduledRefreshTimer = null;
+      void refreshAccessTokenInBackground();
+    }, TRANSIENT_REFRESH_RETRY_MS);
   }
 }
 
@@ -116,9 +247,13 @@ async function requestSessionRefresh(): Promise<AuthAnswer> {
 export async function refreshSession(): Promise<AuthAnswer | null> {
   try {
     return await requestSessionRefresh();
-  } catch {
-    clearAccessToken();
-    return null;
+  } catch (error) {
+    if (isTerminalSessionRefreshError(error)) {
+      clearAccessToken();
+      return null;
+    }
+
+    throw error;
   }
 }
 
@@ -170,7 +305,14 @@ api.interceptors.response.use(
     const data = error.response?.data as Record<string, unknown> | undefined;
     const originalRequest = error.config as AuthRequestConfig | undefined;
 
-    if (status === 401 && originalRequest && !originalRequest.skipAuthRefresh && !originalRequest._retry) {
+    const isAuthChallenge = status === 401 && hasOfficeAuthChallenge(error);
+
+    const shouldRefreshAuthorization = (isAuthChallenge || status === 403)
+      && originalRequest
+      && !originalRequest.skipAuthRefresh
+      && !originalRequest._retry;
+
+    if (shouldRefreshAuthorization) {
       originalRequest._retry = true;
 
       try {
@@ -178,13 +320,17 @@ api.interceptors.response.use(
         originalRequest.headers = originalRequest.headers ?? {};
         originalRequest.headers.Authorization = `Bearer ${session.token}`;
         return await api.request(originalRequest);
-      } catch {
-        clearAccessToken();
-        if (!originalRequest.skipAuthRedirect) {
-          redirectToLogin();
+      } catch (refreshError) {
+        if (isTerminalSessionRefreshError(refreshError)) {
+          clearAccessToken();
+          if (!originalRequest.skipAuthRedirect) {
+            redirectToLogin();
+          }
         }
+
+        return Promise.reject(refreshError);
       }
-    } else if (status === 401 && !originalRequest?.skipAuthRedirect) {
+    } else if (isAuthChallenge && !originalRequest?.skipAuthRedirect) {
       clearAccessToken();
       redirectToLogin();
     }
@@ -283,22 +429,27 @@ export async function callApi<T>(
   }
 }
 
-export async function get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+export async function get<T = unknown>(url: string, config?: AuthRequestConfig): Promise<T> {
   const res = await api.get<T>(url, config);
   return res as unknown as T;
 }
 
-export async function post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+export async function post<T = unknown>(url: string, data?: unknown, config?: AuthRequestConfig): Promise<T> {
   const res = await api.post<T>(url, data, config);
   return res as unknown as T;
 }
 
-export async function put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+export async function put<T = unknown>(url: string, data?: unknown, config?: AuthRequestConfig): Promise<T> {
   const res = await api.put<T>(url, data, config);
   return res as unknown as T;
 }
 
-export async function del<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
+export async function patch<T = unknown>(url: string, data?: unknown, config?: AuthRequestConfig): Promise<T> {
+  const res = await api.patch<T>(url, data, config);
+  return res as unknown as T;
+}
+
+export async function del<T = unknown>(url: string, config?: AuthRequestConfig): Promise<T> {
   const res = await api.delete<T>(url, config);
   return res as unknown as T;
 }

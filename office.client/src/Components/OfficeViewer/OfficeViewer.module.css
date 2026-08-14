@@ -1,0 +1,221 @@
+.state {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  padding: 32px;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.stateIcon { width: var(--icon-size-state) !important; height: var(--icon-size-state) !important; color: var(--color-primary); }
+.state p { margin: 0; max-width: 460px; font-size: 15px; }
+.stateAction {
+  padding: 9px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-control);
+  background: var(--color-primary-solid);
+  color: var(--color-on-primary-solid);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.scroller {
+  width: 100%;
+  height: 100%;
+  padding: 24px 16px 40px;
+  overflow: auto;
+  background: var(--color-document-surface);
+  box-sizing: border-box;
+}
+
+.hint {
+  max-width: 900px;
+  margin: 0 auto 12px;
+  padding: 9px 13px;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-control);
+  background: var(--color-primary-surface);
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.plainText {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px 40px;
+  border-radius: var(--radius-control);
+  background: var(--color-document-canvas);
+  color: var(--color-document-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 13.5px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: var(--shadow-md);
+}
+
+/* Word */
+.page {
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 56px 64px;
+  border-radius: var(--radius-sm);
+  background: var(--color-document-canvas);
+  color: var(--color-document-text);
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 15px;
+  line-height: 1.5;
+  box-shadow: var(--shadow-md);
+}
+.page :global(p) { margin: 0 0 10px; }
+.page :global(h1), .page :global(h2), .page :global(h3),
+.page :global(h4), .page :global(h5), .page :global(h6) {
+  margin: 20px 0 10px;
+  font-family: var(--font-heading, "Akrobat", sans-serif);
+  line-height: 1.25;
+}
+.page :global(h1) { font-size: 27px; }
+.page :global(h2) { font-size: 23px; }
+.page :global(h3) { font-size: 20px; }
+.page :global(h4), .page :global(h5), .page :global(h6) { font-size: 17px; }
+.page :global(.ov-center) { text-align: center; }
+.page :global(.ov-right) { text-align: right; }
+.page :global(.ov-justify) { text-align: justify; }
+.page :global(.ov-tab) { display: inline-block; width: 32px; }
+.page :global(.ov-link) { color: var(--color-document-link); text-decoration: underline; }
+.page :global(.ov-image) { max-width: 100%; height: auto; margin: 6px 0; }
+.page :global(.ov-list) { margin: 0 0 10px; padding-left: 26px; }
+.page :global(.ov-list li) { margin-bottom: 4px; }
+.page :global(.ov-nested) { list-style: none; margin-bottom: 0; }
+.page :global(.ov-nested > .ov-list) { margin-bottom: 0; padding-left: 20px; }
+.page :global(.ov-table) {
+  width: 100%;
+  margin: 12px 0;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.page :global(.ov-table td) {
+  padding: 6px 9px;
+  border: 1px solid var(--color-document-border);
+  vertical-align: top;
+}
+.page :global(.ov-table td p) { margin: 0 0 4px; }
+.page :global(.ov-table td p:last-child) { margin-bottom: 0; }
+
+/* Excel */
+.workbook {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.workbook .hint { margin: 10px 12px 0; max-width: none; }
+
+.sheetTabs {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+.sheetTab {
+  padding: 7px 14px;
+  flex: none;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sheetTab:hover { color: var(--color-primary-hover); }
+.sheetTabActive {
+  border-color: var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-primary-hover);
+}
+
+.gridScroller { flex: 1; min-height: 0; overflow: auto; }
+
+.grid {
+  border-collapse: separate;
+  border-spacing: 0;
+  /* Запасной вариант: реальный шрифт книги подставляется инлайном. */
+  font-family: Calibri, Carlito, "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  table-layout: fixed;
+  background: var(--color-document-canvas);
+}
+.grid th, .grid td {
+  padding: 0 3px;
+  border-right: 1px solid var(--ov-gridline, var(--color-document-gridline));
+  border-bottom: 1px solid var(--ov-gridline, var(--color-document-gridline));
+  overflow: hidden;
+  color: var(--color-document-text);
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  word-break: break-word;
+}
+.grid tbody tr:hover th { background: var(--color-primary-surface); color: var(--color-primary-hover); }
+
+.headColumn { width: 44px; }
+.hiddenColumn { visibility: collapse; }
+
+.columnHead, .rowHead, .corner {
+  position: sticky;
+  z-index: 2;
+  border-right: 1px solid var(--color-document-border);
+  border-bottom: 1px solid var(--color-document-border);
+  background: var(--color-document-surface);
+  color: var(--color-document-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: .03em;
+}
+.columnHead { top: 0; }
+.rowHead { left: 0; }
+.corner { top: 0; left: 0; z-index: 3; }
+
+@media (max-width: 780px) {
+  .scroller { padding: 12px 8px 28px; }
+  .page { padding: 26px 20px 34px; }
+  .plainText { padding: 20px; }
+}
+
+/*
+ * Лист книги и страница документа всегда светлые — цвета берутся из самого файла,
+ * инвертировать их нельзя (как и в просмотрщике PDF). Тёмной остаётся только подложка.
+ */
+.workbook { --ov-gridline: var(--color-document-gridline); }
+:global([data-theme="dark"]) .workbook,
+:global([data-theme="dark"]) .grid { background: var(--color-document-canvas); }
+:global([data-theme="dark"]) .grid th,
+:global([data-theme="dark"]) .grid td { color: var(--color-document-text); }
+:global([data-theme="dark"]) .columnHead,
+:global([data-theme="dark"]) .rowHead,
+:global([data-theme="dark"]) .corner { background: var(--color-document-surface); color: var(--color-document-muted); }
+:global([data-theme="dark"]) .sheetTabs { background: var(--color-document-surface); border-color: var(--color-document-border); }
+:global([data-theme="dark"]) .sheetTab { color: var(--color-document-muted); }
+:global([data-theme="dark"]) .sheetTabActive { background: var(--color-document-canvas); border-color: var(--color-document-border); color: var(--color-primary-hover); }
+
+:global([data-theme="dark"]) .scroller { background: var(--color-document-workspace); }
+:global([data-theme="dark"]) .state { color: var(--color-text-muted); }

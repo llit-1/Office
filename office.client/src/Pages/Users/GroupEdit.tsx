@@ -5,6 +5,7 @@ import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { useNavigate, useParams } from "react-router-dom";
 import styles from "./GroupEdit.module.css";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
+import Button from "../../Components/Button/Button";
 import Input from "../../Components/Input/Input";
 import { MultiplySelect } from "../../Components/MultiplySelect/MultiplySelect";
 import { useForm } from "react-hook-form";
@@ -188,7 +189,7 @@ export default function GroupEdit() {
   if (pageLoading) {
     return (
       <div className={styles.loadingSpinner}>
-        <LoadingSpinner />
+        <LoadingSpinner size={96} label="Загружаем группу…" />
       </div>
     );
   }
@@ -221,30 +222,27 @@ export default function GroupEdit() {
 
       <div className={styles.userEditFooter}>
         {!isCreate && (
-          <button
-            type="button"
+          <Button
+            variant="danger"
             onClick={onDelete}
-            className={styles.buttonDelete}
             disabled={saving}
           >
             {saving ? <LoadingSpinner size={24} color="white" /> : "Удалить"}
-          </button>
+          </Button>
         )}
 
-        <button
-          type="button"
-          className={styles.saveButton}
+        <Button
+          variant="primary"
           onClick={handleSubmit(onSubmit)}
-          disabled={saving || (!isDirty && !isCreate)}
+          disabled={!isDirty && !isCreate}
+          loading={saving}
         >
-          {saving ? (
-            <LoadingSpinner size={24} color="white" />
-          ) : isCreate ? (
+          {isCreate ? (
             "Создать"
           ) : (
             "Сохранить"
           )}
-        </button>
+        </Button>
       </div>
       <ConfirmModal
         isOpen={confirmOpen}

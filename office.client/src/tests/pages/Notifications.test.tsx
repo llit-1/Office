@@ -82,7 +82,11 @@ function renderNotifications() {
         roles: [],
         loaded: true,
       },
-      preferences: { notificationSoundEnabled: true },
+      preferences: {
+        notificationSoundEnabled: true,
+        sensorChartExpanded: false,
+        sensorChartLineWidth: 3,
+      },
     },
   });
 

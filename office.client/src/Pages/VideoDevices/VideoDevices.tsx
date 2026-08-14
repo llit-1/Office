@@ -17,6 +17,7 @@ import DeviceStatsCards from "./components/DeviceStatsCards";
 import ReplaceVideoModal from "./components/ReplaceVideoModal";
 import UpdateAppModal from "./components/UpdateAppModal";
 import styles from "./VideoDevices.module.css";
+import dashboard from "../../styles/entity-dashboard.module.css";
 import type {
   ApkFile,
   BulkUpdateStatus,
@@ -764,7 +765,7 @@ const VideoDevices = () => {
       </div>
 
       {activeTab === 0 && (
-        <>
+        <section className={dashboard.section}>
           <DeviceControls
             searchText={searchText}
             counts={counts}
@@ -783,10 +784,10 @@ const VideoDevices = () => {
 
           {devicesLoading ? (
             <div className={styles.loader}>
-              <LoadingSpinner />
+              <LoadingSpinner size={96} label="Загружаем устройства…" />
             </div>
           ) : (
-            <div className={styles.devicesGrid}>
+            <div className={dashboard.cardsGrid}>
               {sortedDevices.map((device) => (
                 <DeviceCard
                   key={device.guid}
@@ -802,10 +803,10 @@ const VideoDevices = () => {
                 />
               ))}
 
-              {sortedDevices.length === 0 && <div className={styles.emptyState}>По заданным фильтрам устройств нет</div>}
+              {sortedDevices.length === 0 && <div className={dashboard.emptyState}>По заданным фильтрам устройств нет</div>}
             </div>
           )}
-        </>
+        </section>
       )}
 
       {activeTab === 1 && (

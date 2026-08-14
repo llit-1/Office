@@ -1,13 +1,19 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import ArrowDownwardRoundedIcon from "@mui/icons-material/ArrowDownwardRounded";
 import ArrowUpwardRoundedIcon from "@mui/icons-material/ArrowUpwardRounded";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import FileDownloadRoundedIcon from "@mui/icons-material/FileDownloadRounded";
 import FilterListRoundedIcon from "@mui/icons-material/FilterListRounded";
+import SaveRoundedIcon from "@mui/icons-material/SaveRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import type { Cell, Feature, SheetData } from "write-excel-file/browser";
 import useWindowSize from "../../Hooks/useWindowSize";
 import Checkbox from "../Checkbox/Checkbox";
+import Button from "../Button/Button";
 import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
 import { highlightMatches, includesNormalized, normalizeSearchText } from "./searchUtils";
 import styles from "./GenericTable.module.css";
@@ -54,6 +60,7 @@ interface GenericTableProps<T extends WithId> {
   searchText?: string;
   onSearchTextChange?: (value: string) => void;
   searchPlaceholder?: string;
+  exportFileName?: string;
 }
 
 type RowDensity = "compact" | "normal" | "comfortable";
@@ -66,6 +73,30 @@ interface PersistedTableState {
   visibleColumnMode?: "default" | "custom";
   rowDensity?: RowDensity;
   filters: Record<string, string[]>;
+}
+
+interface TablePresetState {
+  sortColumnId: string | null;
+  sortOrder: "asc" | "desc";
+  orderedColumnIds: string[];
+  visibleColumnIds: string[];
+  visibleColumnMode: "default" | "custom";
+  rowDensity: RowDensity;
+}
+
+interface TablePreset {
+  id: string;
+  name: string;
+  state: TablePresetState;
+}
+
+interface PersistedTablePresets {
+  activePresetId: string | null;
+  presets: TablePreset[];
+}
+
+interface TablePresetStore extends PersistedTablePresets {
+  storageKey: string;
 }
 
 interface PopupPosition {
@@ -83,7 +114,7 @@ const TABLET_DEFAULT_VISIBLE_COLUMNS = 4;
 const ROW_DENSITY_OPTIONS: Array<{ value: RowDensity; label: string }> = [
   { value: "compact", label: "Компактно" },
   { value: "normal", label: "Обычно" },
-  { value: "comfortable", label: "Компактно+" },
+  { value: "comfortable", label: "Увеличено" },
 ];
 
 const RUSSIAN_COLLATOR = new Intl.Collator("ru", {
@@ -116,6 +147,94 @@ function readPersistedState(storageKey: string): PersistedTableState | null {
   } catch {
     return null;
   }
+}
+
+function isRowDensity(value: unknown): value is RowDensity {
+  return value === "compact" || value === "normal" || value === "comfortable";
+}
+
+function readTablePresets(storageKey: string): PersistedTablePresets {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return { activePresetId: null, presets: [] };
+
+    const parsed = JSON.parse(raw) as Partial<PersistedTablePresets>;
+    const presets = Array.isArray(parsed.presets)
+      ? parsed.presets.flatMap((candidate): TablePreset[] => {
+          if (!candidate || typeof candidate !== "object") return [];
+
+          const preset = candidate as Partial<TablePreset>;
+          const state = preset.state as Partial<TablePresetState> | undefined;
+          if (
+            typeof preset.id !== "string" ||
+            typeof preset.name !== "string" ||
+            !state ||
+            !Array.isArray(state.orderedColumnIds) ||
+            !Array.isArray(state.visibleColumnIds) ||
+            !isRowDensity(state.rowDensity)
+          ) {
+            return [];
+          }
+
+          return [{
+            id: preset.id,
+            name: preset.name,
+            state: {
+              sortColumnId: typeof state.sortColumnId === "string" ? state.sortColumnId : null,
+              sortOrder: state.sortOrder === "desc" ? "desc" : "asc",
+              orderedColumnIds: state.orderedColumnIds.filter((id): id is string => typeof id === "string"),
+              visibleColumnIds: state.visibleColumnIds.filter((id): id is string => typeof id === "string"),
+              visibleColumnMode: state.visibleColumnMode === "default" ? "default" : "custom",
+              rowDensity: state.rowDensity,
+            },
+          }];
+        })
+      : [];
+    const activePresetId =
+      typeof parsed.activePresetId === "string" && presets.some(({ id }) => id === parsed.activePresetId)
+        ? parsed.activePresetId
+        : null;
+
+    return { activePresetId, presets };
+  } catch {
+    return { activePresetId: null, presets: [] };
+  }
+}
+
+function createPresetId(): string {
+  return `preset-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getReactNodeText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) {
+    return node
+      .map(getReactNodeText)
+      .filter(Boolean)
+      .join(" ");
+  }
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) {
+    return getReactNodeText(node.props.children);
+  }
+  return "";
+}
+
+function normalizeExportValue(value: unknown): string | number | boolean | Date {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value;
+  if (Array.isArray(value)) return value.map((item) => String(item ?? "")).join(", ");
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+function sanitizeExportFileName(value: string): string {
+  const sanitized = value
+    .trim()
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .replace(/\s+/g, " ");
+  return sanitized || "table";
 }
 
 function normalizeFilterValue(value: string | number | null | undefined): string {
@@ -156,7 +275,7 @@ function getColumnResponsivePriority<T>(column: Column<T>, viewportBucket: Viewp
   return index;
 }
 
-function computePopupPosition(
+export function computePopupPosition(
   anchorRect: DOMRect,
   popupWidth: number,
   popupHeight: number,
@@ -165,6 +284,7 @@ function computePopupPosition(
   preferAbove = false,
 ): PopupPosition {
   const margin = 8;
+  const gap = 8;
   const preferredRightSpace = viewportWidth - anchorRect.left - margin;
   const preferredLeftSpace = anchorRect.right - margin;
 
@@ -174,22 +294,24 @@ function computePopupPosition(
       : anchorRect.right - popupWidth;
   left = Math.max(margin, Math.min(left, viewportWidth - popupWidth - margin));
 
-  const availableBelow = viewportHeight - anchorRect.bottom - margin;
-  const availableAbove = anchorRect.top - margin;
+  const availableBelow = Math.max(0, viewportHeight - anchorRect.bottom - gap - margin);
+  const availableAbove = Math.max(0, anchorRect.top - gap - margin);
+  const minimumUsableHeight = Math.min(180, popupHeight);
 
   const shouldOpenBelow = preferAbove
-    ? availableBelow > availableAbove && availableBelow >= popupHeight
-    : availableBelow >= popupHeight || availableBelow >= availableAbove;
+    ? availableAbove < minimumUsableHeight && availableBelow > availableAbove
+    : availableBelow >= minimumUsableHeight || availableBelow >= availableAbove;
 
-  let top = shouldOpenBelow ? anchorRect.bottom + 8 : anchorRect.top - popupHeight - 8;
-
-  const maxHeight = Math.max(180, viewportHeight - margin * 2);
-  top = Math.max(margin, Math.min(top, viewportHeight - Math.min(popupHeight, maxHeight) - margin));
+  const availableHeight = shouldOpenBelow ? availableBelow : availableAbove;
+  const renderedHeight = Math.min(popupHeight, availableHeight);
+  const top = shouldOpenBelow
+    ? anchorRect.bottom + gap
+    : Math.max(margin, anchorRect.top - gap - renderedHeight);
 
   return {
     left,
     top,
-    maxHeight: Math.max(180, viewportHeight - top - margin),
+    maxHeight: availableHeight,
   };
 }
 
@@ -209,6 +331,7 @@ function GenericTable<T extends WithId>({
   searchText,
   onSearchTextChange,
   searchPlaceholder = "Поиск...",
+  exportFileName,
 }: GenericTableProps<T>) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -222,7 +345,12 @@ function GenericTable<T extends WithId>({
   const { width: viewportWidth } = useWindowSize();
   const viewportBucket = getViewportBucket(viewportWidth);
   const persistedStateKey = `genericTable:${tableStateKey ?? location.pathname}:${viewportBucket}`;
+  const presetsStorageKey = `${persistedStateKey}:presets`;
   const persistedState = useMemo(() => readPersistedState(persistedStateKey), [persistedStateKey]);
+  const [presetStore, setPresetStore] = useState<TablePresetStore>(() => ({
+    storageKey: presetsStorageKey,
+    ...readTablePresets(presetsStorageKey),
+  }));
 
   const columnsWithId = useMemo(
     () =>
@@ -321,7 +449,29 @@ function GenericTable<T extends WithId>({
   const [filterMenuPosition, setFilterMenuPosition] = useState<PopupPosition | null>(null);
   const [columnsMenuOpen, setColumnsMenuOpen] = useState(false);
   const [columnsMenuPosition, setColumnsMenuPosition] = useState<PopupPosition | null>(null);
+  const [isPresetEditorOpen, setIsPresetEditorOpen] = useState(false);
+  const [newPresetName, setNewPresetName] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const normalizedHighlightQuery = useMemo(() => normalizeSearchText(highlightQuery), [highlightQuery]);
+
+  useEffect(() => {
+    setPresetStore({
+      storageKey: presetsStorageKey,
+      ...readTablePresets(presetsStorageKey),
+    });
+    setIsPresetEditorOpen(false);
+    setNewPresetName("");
+  }, [presetsStorageKey]);
+
+  useEffect(() => {
+    if (presetStore.storageKey !== presetsStorageKey) return;
+
+    const payload: PersistedTablePresets = {
+      activePresetId: presetStore.activePresetId,
+      presets: presetStore.presets,
+    };
+    localStorage.setItem(presetsStorageKey, JSON.stringify(payload));
+  }, [presetStore, presetsStorageKey]);
 
   useEffect(() => {
     const nextVisibleColumnMode: "default" | "custom" = (() => {
@@ -472,7 +622,9 @@ function GenericTable<T extends WithId>({
     const updateColumnsMenuPosition = () => {
       const button = settingsButtonRef.current;
       if (!button) return;
-      const estimatedColumnsMenuHeight = columnsWithId.length > 1 ? 320 : 176;
+      const estimatedColumnsMenuHeight = columnsWithId.length > 1
+        ? 250 + columnsWithId.length * 38 + (isPresetEditorOpen ? 50 : 0)
+        : 220 + (isPresetEditorOpen ? 50 : 0);
 
       const popupPosition = computePopupPosition(
         button.getBoundingClientRect(),
@@ -499,7 +651,30 @@ function GenericTable<T extends WithId>({
       window.removeEventListener("resize", updateColumnsMenuPosition);
       window.removeEventListener("scroll", handleColumnsMenuScroll, true);
     };
-  }, [columnsMenuOpen, columnsWithId.length]);
+  }, [columnsMenuOpen, columnsWithId.length, isPresetEditorOpen, presetStore.presets.length]);
+
+  useLayoutEffect(() => {
+    const menu = settingsMenuRef.current;
+    const button = settingsButtonRef.current;
+    if (!columnsMenuOpen || !columnsMenuPosition || !menu || !button || menu.offsetHeight <= 0) return;
+
+    const measuredPosition = computePopupPosition(
+      button.getBoundingClientRect(),
+      menu.offsetWidth || 280,
+      menu.offsetHeight,
+      window.innerWidth,
+      window.innerHeight,
+      true,
+    );
+
+    if (
+      measuredPosition.left !== columnsMenuPosition.left ||
+      measuredPosition.top !== columnsMenuPosition.top ||
+      measuredPosition.maxHeight !== columnsMenuPosition.maxHeight
+    ) {
+      setColumnsMenuPosition(measuredPosition);
+    }
+  }, [columnsMenuOpen, columnsMenuPosition]);
 
   const getCellValue = (row: T, column: Column<T>): React.ReactNode => {
     if (isKeyColumn(column)) return String(row[column.key] ?? "");
@@ -774,6 +949,112 @@ function GenericTable<T extends WithId>({
     });
   };
 
+  const activePreset = presetStore.presets.find(({ id }) => id === presetStore.activePresetId) ?? null;
+  const normalizedNewPresetName = newPresetName.trim();
+  const isPresetNameDuplicate = presetStore.presets.some(
+    ({ name }) => name.localeCompare(normalizedNewPresetName, "ru", { sensitivity: "base" }) === 0,
+  );
+
+  const capturePresetState = (): TablePresetState => ({
+    sortColumnId,
+    sortOrder,
+    orderedColumnIds: [...orderedColumnIds],
+    visibleColumnIds: [...visibleColumnIds],
+    visibleColumnMode,
+    rowDensity,
+  });
+
+  const applyDefaultTableLayout = () => {
+    const defaultVisible =
+      defaultVisibleColumnIds.length > 0
+        ? defaultVisibleColumnIds
+        : defaultOrderedColumnIds.slice(0, 1);
+
+    setSortColumnId(defaultVisible[0] ?? defaultOrderedColumnIds[0] ?? null);
+    setSortOrder("asc");
+    setOrderedColumnIds(defaultOrderedColumnIds);
+    setVisibleColumnMode("default");
+    setVisibleColumnIds(defaultVisible);
+    setRowDensity(DEFAULT_ROW_DENSITY);
+    setPresetStore((current) => ({ ...current, activePresetId: null }));
+    setIsPresetEditorOpen(false);
+    setNewPresetName("");
+  };
+
+  const applyPreset = (preset: TablePreset) => {
+    const nextOrderedColumnIds = deriveOrderedColumnIds(preset.state.orderedColumnIds);
+    const nextVisibleColumnIds =
+      preset.state.visibleColumnMode === "default"
+        ? deriveVisibleColumnIds()
+        : deriveVisibleColumnIds(preset.state.visibleColumnIds);
+    const nextSortColumnId =
+      preset.state.sortColumnId && nextVisibleColumnIds.includes(preset.state.sortColumnId)
+        ? preset.state.sortColumnId
+        : nextVisibleColumnIds[0] ?? nextOrderedColumnIds[0] ?? null;
+
+    setOrderedColumnIds(nextOrderedColumnIds);
+    setVisibleColumnMode(preset.state.visibleColumnMode);
+    setVisibleColumnIds(nextVisibleColumnIds);
+    setRowDensity(preset.state.rowDensity);
+    setSortColumnId(nextSortColumnId);
+    setSortOrder(preset.state.sortOrder);
+    setPresetStore((current) => ({ ...current, activePresetId: preset.id }));
+    setIsPresetEditorOpen(false);
+    setNewPresetName("");
+  };
+
+  const handlePresetSelection = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const presetId = event.target.value;
+    if (!presetId) {
+      applyDefaultTableLayout();
+      return;
+    }
+
+    const preset = presetStore.presets.find(({ id }) => id === presetId);
+    if (preset) applyPreset(preset);
+  };
+
+  const handleCreatePreset = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!normalizedNewPresetName || isPresetNameDuplicate) return;
+
+    const preset: TablePreset = {
+      id: createPresetId(),
+      name: normalizedNewPresetName,
+      state: capturePresetState(),
+    };
+
+    setPresetStore((current) => ({
+      ...current,
+      activePresetId: preset.id,
+      presets: [...current.presets, preset],
+    }));
+    setNewPresetName("");
+    setIsPresetEditorOpen(false);
+  };
+
+  const handleSaveActivePreset = () => {
+    if (!activePreset) return;
+    const nextState = capturePresetState();
+
+    setPresetStore((current) => ({
+      ...current,
+      presets: current.presets.map((preset) =>
+        preset.id === activePreset.id ? { ...preset, state: nextState } : preset,
+      ),
+    }));
+  };
+
+  const handleDeleteActivePreset = () => {
+    if (!activePreset) return;
+
+    setPresetStore((current) => ({
+      ...current,
+      activePresetId: null,
+      presets: current.presets.filter(({ id }) => id !== activePreset.id),
+    }));
+  };
+
   const areColumnsCustomized = useMemo(
     () =>
       !areStringArraysEqual(
@@ -784,13 +1065,7 @@ function GenericTable<T extends WithId>({
   );
 
   const resetTableSettings = () => {
-    const defaultVisible = defaultVisibleColumnIds.length > 0 ? defaultVisibleColumnIds : defaultOrderedColumnIds.slice(0, 1);
-    setSortColumnId(defaultVisible[0] ?? defaultOrderedColumnIds[0] ?? null);
-    setSortOrder("asc");
-    setOrderedColumnIds(defaultOrderedColumnIds);
-    setVisibleColumnMode("default");
-    setVisibleColumnIds(defaultVisible);
-    setRowDensity(DEFAULT_ROW_DENSITY);
+    applyDefaultTableLayout();
     setFilters({});
     filterSearchRef.current = {};
     setOpenFilterColumnId(null);
@@ -812,6 +1087,17 @@ function GenericTable<T extends WithId>({
     navigate(`${routeTo}/${row.id}`, { state: row });
   };
 
+  const handleRowLinkClick = (event: React.MouseEvent<HTMLAnchorElement>, row: T) => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+      event.stopPropagation();
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    onRowClickHandle(row);
+  };
+
   const handleAddClick = () => {
     if (onAddClick) {
       onAddClick();
@@ -827,6 +1113,144 @@ function GenericTable<T extends WithId>({
     }
 
     return value;
+  };
+
+  const getExportValue = (row: T, column: Column<T>): string | number | boolean | Date => {
+    if (isKeyColumn(column)) {
+      return normalizeExportValue(row[column.key]);
+    }
+
+    const renderedText = getReactNodeText(column.render(row)).trim();
+    if (renderedText) return renderedText;
+    if (column.filterValue) return normalizeExportValue(column.filterValue(row));
+    if (column.sortValue) return normalizeExportValue(column.sortValue(row));
+    return "";
+  };
+
+  const handleExportToExcel = async () => {
+    if (isExporting || loading || sortedData.length === 0 || visibleColumns.length === 0) return;
+
+    setIsExporting(true);
+    try {
+      const rootStyles = getComputedStyle(document.documentElement);
+      const excelPrimaryColor = rootStyles.getPropertyValue("--color-export-header").trim();
+      const excelHeaderTextColor = rootStyles.getPropertyValue("--color-export-header-text").trim();
+      const borderColor = rootStyles.getPropertyValue("--color-export-border").trim();
+      const alternateRowColor = rootStyles.getPropertyValue("--color-export-row").trim();
+      const surfaceColor = rootStyles.getPropertyValue("--color-export-surface").trim();
+
+      const headerRow: Cell[] = visibleColumns.map(({ column }) => ({
+        value: column.label,
+        type: String,
+        fontWeight: "bold",
+        textColor: excelHeaderTextColor,
+        backgroundColor: excelPrimaryColor,
+        borderColor,
+        borderStyle: "thin",
+        alignVertical: "center",
+        wrap: true,
+        height: 28,
+      }));
+
+      const bodyRows: Cell[][] = sortedData.map((row, rowIndex) =>
+        visibleColumns.map(({ column }) => {
+          const value = getExportValue(row, column);
+          const type =
+            value instanceof Date
+              ? Date
+              : typeof value === "number"
+                ? Number
+                : typeof value === "boolean"
+                  ? Boolean
+                  : String;
+
+          return {
+            value,
+            type,
+            format: value instanceof Date ? "dd.mm.yyyy" : undefined,
+            backgroundColor: rowIndex % 2 === 1 ? alternateRowColor : surfaceColor,
+            borderColor,
+            borderStyle: "thin",
+            alignVertical: "center",
+            wrap: true,
+          };
+        }),
+      );
+      const sheetData: SheetData = [headerRow, ...bodyRows];
+      const columnWidths = visibleColumns.map(({ column }) => {
+        const maxContentLength = sortedData.reduce((maxLength, row) => {
+          const cellLength = String(getExportValue(row, column)).length;
+          return Math.max(maxLength, cellLength);
+        }, column.label.length);
+
+        return { width: Math.min(42, Math.max(12, maxContentLength + 2)) };
+      });
+      const pathParts = location.pathname.split("/").filter(Boolean);
+      const fallbackName =
+        tableStateKey ??
+        pathParts[pathParts.length - 1] ??
+        "table";
+      const baseFileName = sanitizeExportFileName(exportFileName ?? fallbackName);
+      const dateSuffix = new Date().toISOString().slice(0, 10);
+      const [
+        { default: writeXlsxFile },
+        {
+          getCellAddress,
+          getOrderOfSiblings,
+          getSelfClosingTagMarkup,
+          insertElementMarkupAccordingToOrderOfSiblings,
+        },
+      ] = await Promise.all([
+        import("write-excel-file/browser"),
+        import("write-excel-file/utility"),
+      ]);
+      const filterRange = `${getCellAddress(0, 0)}:${getCellAddress(
+        sheetData.length - 1,
+        visibleColumns.length - 1,
+      )}`;
+      const autoFilterFeature: Feature<File | Blob | ArrayBuffer> = {
+        files: {
+          transform: {
+            "xl/worksheets/sheet{id}.xml": {
+              transform: (xml) => {
+                if (xml.includes("<autoFilter")) return xml;
+                const worksheetOrder = getOrderOfSiblings(
+                  "xl/worksheets/sheet{id}.xml",
+                  "worksheet",
+                );
+                if (!worksheetOrder) return xml;
+
+                return insertElementMarkupAccordingToOrderOfSiblings(
+                  xml,
+                  getSelfClosingTagMarkup("autoFilter", { ref: filterRange }),
+                  worksheetOrder,
+                  "worksheet",
+                );
+              },
+            },
+          },
+        },
+      };
+
+      await writeXlsxFile(
+        sheetData,
+        {
+          sheet: "Данные",
+          columns: columnWidths,
+          stickyRowsCount: 1,
+          showGridLines: false,
+        },
+        {
+          fontFamily: "Arial",
+          fontSize: 12,
+          features: [autoFilterFeature],
+        },
+      ).toFile(`${baseFileName}-${dateSuffix}.xlsx`);
+    } catch (error) {
+      console.error("Не удалось экспортировать таблицу в Excel", error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const showSettingsButton = columnsWithId.length > 0;
@@ -901,10 +1325,25 @@ function GenericTable<T extends WithId>({
             </tr>
           ) : visibleData.length > 0 ? (
             visibleData.map((row) => (
-              <tr key={String(row.id)} onClick={() => onRowClickHandle(row)}>
+              <tr
+                key={String(row.id)}
+                onClick={() => onRowClickHandle(row)}
+              >
                 {visibleColumns.map(({ id, column }) => (
-                  <td key={id} title={String(getCellValue(row, column))}>
-                    {renderCellValue(getCellValue(row, column))}
+                  <td
+                    key={id}
+                    title={String(getCellValue(row, column))}
+                    className={routeTo ? styles.routedCell : undefined}
+                  >
+                    {routeTo ? (
+                      <a
+                        href={`${routeTo}/${row.id}`}
+                        className={styles.rowLink}
+                        onClick={(event) => handleRowLinkClick(event, row)}
+                      >
+                        {renderCellValue(getCellValue(row, column))}
+                      </a>
+                    ) : renderCellValue(getCellValue(row, column))}
                   </td>
                 ))}
               </tr>
@@ -921,6 +1360,23 @@ function GenericTable<T extends WithId>({
         <tfoot>
           <tr>
             <td colSpan={Math.max(visibleColumns.length, 1)}>
+              {showSettingsButton && (
+                <button
+                  type="button"
+                  className={styles.exportButton}
+                  onClick={() => void handleExportToExcel()}
+                  disabled={loading || isExporting || sortedData.length === 0}
+                  aria-label="Экспортировать таблицу в Excel"
+                  title={
+                    isExporting
+                      ? "Формирование Excel-файла..."
+                      : `Экспортировать в Excel (${sortedData.length} строк)`
+                  }
+                >
+                  <FileDownloadRoundedIcon />
+                </button>
+              )}
+
               {showSettingsButton && (
                 <button
                   type="button"
@@ -1020,20 +1476,20 @@ function GenericTable<T extends WithId>({
                 </div>
 
                 <div className={styles.filterMenuActions}>
-                  <button
-                    type="button"
-                    className={styles.filterSecondaryButton}
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => resetColumnFilter(openFilterColumnId)}
                   >
                     Сбросить
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.filterPrimaryButton}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="primary"
                     onClick={() => setOpenFilterColumnId(null)}
                   >
                     Готово
-                  </button>
+                  </Button>
                 </div>
               </div>
             );
@@ -1055,6 +1511,84 @@ function GenericTable<T extends WithId>({
             onClick={(event) => event.stopPropagation()}
           >
             <div className={styles.columnsMenuTitle}>Настройки таблицы</div>
+
+            <div className={styles.presetSection}>
+              <div className={styles.sectionTitle}>Пресеты</div>
+              <div className={styles.presetControls}>
+                <select
+                  className={styles.presetSelect}
+                  value={activePreset?.id ?? ""}
+                  onChange={handlePresetSelection}
+                  aria-label="Пресет настроек таблицы"
+                >
+                  <option value="">Без пресета</option>
+                  {presetStore.presets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  className={styles.presetActionButton}
+                  onClick={handleSaveActivePreset}
+                  disabled={!activePreset}
+                  aria-label="Сохранить изменения в пресете"
+                  title="Сохранить изменения в пресете"
+                >
+                  <SaveRoundedIcon fontSize="inherit" />
+                </button>
+                <button
+                  type="button"
+                  className={styles.presetActionButton}
+                  onClick={() => {
+                    setIsPresetEditorOpen((current) => !current);
+                    setNewPresetName("");
+                  }}
+                  aria-label="Создать пресет"
+                  title="Создать пресет"
+                >
+                  <AddRoundedIcon fontSize="inherit" />
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.presetActionButton} ${styles.presetDeleteButton}`}
+                  onClick={handleDeleteActivePreset}
+                  disabled={!activePreset}
+                  aria-label="Удалить пресет"
+                  title="Удалить пресет"
+                >
+                  <DeleteOutlineRoundedIcon fontSize="inherit" />
+                </button>
+              </div>
+
+              {isPresetEditorOpen && (
+                <form className={styles.presetEditor} onSubmit={handleCreatePreset}>
+                  <input
+                    className={styles.presetNameInput}
+                    value={newPresetName}
+                    onChange={(event) => setNewPresetName(event.target.value)}
+                    maxLength={40}
+                    placeholder="Название пресета"
+                    aria-label="Название нового пресета"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className={styles.presetCreateButton}
+                    disabled={!normalizedNewPresetName || isPresetNameDuplicate}
+                  >
+                    Создать
+                  </button>
+                  {isPresetNameDuplicate && (
+                    <span className={styles.presetError} role="alert">
+                      Такое название уже есть
+                    </span>
+                  )}
+                </form>
+              )}
+            </div>
 
             <div className={styles.densitySection}>
               <div className={styles.sectionTitle}>Плотность строк</div>
@@ -1127,12 +1661,12 @@ function GenericTable<T extends WithId>({
             )}
 
             <div className={styles.filterMenuActions}>
-              <button type="button" className={styles.filterSecondaryButton} onClick={resetTableSettings}>
+              <Button size="sm" variant="secondary" onClick={resetTableSettings}>
                 По умолчанию
-              </button>
-              <button type="button" className={styles.filterPrimaryButton} onClick={() => setColumnsMenuOpen(false)}>
+              </Button>
+              <Button size="sm" variant="primary" onClick={() => setColumnsMenuOpen(false)}>
                 Готово
-              </button>
+              </Button>
             </div>
           </div>,
           document.body,

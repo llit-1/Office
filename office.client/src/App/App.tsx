@@ -6,7 +6,13 @@ import Header from "../Header/Header";
 import HamburgerMenuDesktop from "../HamburgerMenuDesktop/HamburgerMenuDesktop";
 import { HeaderMobile } from "../HeaderMobile/HeaderMobile";
 import type { RootState } from "../Store";
-import { post } from "../Services/api";
+import {
+  accessTokenRolesMatch,
+  getAccessToken,
+  post,
+  refreshSession,
+} from "../Services/api";
+import { login } from "../Store/authSlice";
 import { clearUserData, setUserData } from "../Store/userDataSlice";
 import { getUserData } from "../Services/userData";
 import { navigateWithPreloadedRoute } from "./routes";
@@ -197,6 +203,19 @@ function App() {
     const loadUserData = async () => {
       try {
         const normalizedData = await getUserData(effectiveUserId);
+
+        if (!accessTokenRolesMatch(getAccessToken(), normalizedData.roles)) {
+          const refreshedSession = await refreshSession();
+          if (refreshedSession?.responseCode === 1 && refreshedSession.token) {
+            dispatch(login({
+              id: refreshedSession.id,
+              token: refreshedSession.token,
+              fullName: refreshedSession.fullName,
+              position: refreshedSession.position,
+            }));
+          }
+        }
+
         const newNotificationIds = normalizedData.newNotifications.map((item) => item.id);
 
         if (newNotificationIds.length > 0) {

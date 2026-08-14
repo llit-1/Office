@@ -3,7 +3,7 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .factoryNX_wrapper_personSelect {
@@ -13,13 +13,13 @@
     overflow-x: auto; /* горизонтальная прокрутка */
     overflow-y: hidden;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
     min-height: 80px;
     align-items: center;
     justify-content: flex-start;
-    padding: 10px 11px;
+    padding: 12px 12px;
     background-color: var(--color-surface);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 
     -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
     cursor: grab; /* визуальный hint для drag */
@@ -41,23 +41,23 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background-color: var(--color-surface-muted);
-    padding: 10px;
-    gap: 5px;
+    padding: 12px;
+    gap: 4px;
     width: 60px;
     height: 60px;
     min-width: 60px;
     min-height: 60px;
-    transition: all 0.18s ease-in-out;
+    transition: background-color 0.18s var(--easing-standard), border-color 0.18s var(--easing-standard), color 0.18s var(--easing-standard), opacity 0.18s var(--easing-standard), box-shadow 0.18s var(--easing-standard), transform 0.18s var(--easing-standard);
     touch-action: pan-y; /* разрешаем вертикальный пан при touch, блокируем горизонтальную систему браузера */
 }
 
 .factoryNX_item:hover {
     cursor: pointer;
-    box-shadow: 0 0 10px var(--color-overlay);
-    transform: scale(1.02);
-    transition: all 0.25s linear;
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
 }
 
 .factoryNX_item > span {
@@ -69,13 +69,12 @@
     background-color: var(--color-primary);
     color: var(--color-surface);
     box-shadow: 0 4px 6px var(--color-overlay);
-    transform: scale(1.02);
 }
 
 .factoryNX_wrapper_photos {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
     height: 100%;
     max-height: calc(100% - 90px);
@@ -91,8 +90,8 @@
     max-width: 540px;
     min-width: 30%;
     background-color: var(--color-surface);
-    padding: 10px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: var(--radius-control);
     box-sizing: border-box;
 }
 
@@ -102,7 +101,7 @@
     width: 100%;
     aspect-ratio: 1 / 1; /* гарантирует квадрат */
     overflow: hidden;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     background: var(--color-surface-muted);
     display: block;
 }
@@ -113,7 +112,7 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 }
 
 /* Плейсхолдер на случай отсутствия фото */
@@ -130,11 +129,11 @@
 .photosToSelect_wrapper {
     width: 100%;
     background-color: var(--color-surface);
-    border-radius: 8px;
-    padding: 10px;
+    border-radius: var(--radius-control);
+    padding: 12px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* не больше 108px, при необходимости сожмутся до 80px */
-    gap: 10px;
+    gap: 12px;
     align-content: start;
     justify-content: center;
     overflow: auto;
@@ -144,7 +143,7 @@
     width: 100%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     transition: transform 0.2s ease;
     display: block;
     max-width: 162px;
@@ -157,7 +156,7 @@
     align-items: center;
     width: 100%;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .buttonWrapper > button {
@@ -165,7 +164,7 @@
     height: 50px;
     color: var(--color-white);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -203,13 +202,13 @@
     overflow-x: auto; /* горизонтальная прокрутка */
     overflow-y: hidden;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
     min-height: 80px;
     align-items: center;
     justify-content: flex-start;
-    padding: 10px 11px;
+    padding: 12px 12px;
     background-color: var(--color-surface);
-    border-radius: 8px;
+    border-radius: var(--radius-control);
 
     -webkit-overflow-scrolling: touch; /* плавная прокрутка на мобильных */
     cursor: grab; /* визуальный hint для drag */
@@ -223,15 +222,15 @@
 
 .factoryNX_item:hover {
     cursor: pointer;
-    box-shadow: 0 0 10px var(--color-overlay);
-    transform: scale(1.02);
-    transition: all 0.25s linear;
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
 }
 
 .factoryNX_wrapper_photos {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
     width: 100%;
     height: 100%;
 }
@@ -245,8 +244,8 @@
     background-color: var(--color-surface);
     max-width: 540px;
     min-width: 30%;
-    padding: 10px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: var(--radius-control);
 }
     
 /* Плейсхолдер на случай отсутствия фото */
@@ -263,11 +262,11 @@
 .photosToSelect_wrapper {
     width: 100%;
     background-color: var(--color-surface);
-    border-radius: 8px;
-    padding: 10px;
+    border-radius: var(--radius-control);
+    padding: 12px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); /* не больше 108px, при необходимости сожмутся до 80px */
-    gap: 10px;
+    gap: 12px;
     align-content: start;
     justify-content: center;
     overflow: auto;
@@ -277,7 +276,7 @@
     width: 100%;
     aspect-ratio: 1 / 1;
     object-fit: cover;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     transition: transform 0.2s ease;
     display: block;
     max-width: 162px;
@@ -290,7 +289,7 @@
     align-items: center;
     width: 100%;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .buttonWrapper > button {
@@ -298,7 +297,7 @@
     height: 50px;
     color: var(--color-white);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;

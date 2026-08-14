@@ -9,6 +9,7 @@ export interface ToggleProps {
   small?: boolean
   id?: string
   label?: React.ReactNode
+  labelPlacement?: 'inline' | 'top'
   ariaLabel?: string
   containerClassName?: string
   labelClassName?: string
@@ -22,6 +23,7 @@ export const Toggle: React.FC<ToggleProps> = ({
   small = false,
   id,
   label,
+  labelPlacement = 'inline',
   ariaLabel,
   containerClassName,
   labelClassName,
@@ -44,7 +46,7 @@ export const Toggle: React.FC<ToggleProps> = ({
 
   return (
     <label
-      className={`${styles.toggle_container} ${containerClassName ?? ''} ${disabled ? styles.toggle_disabled : ''}`}
+      className={`${styles.toggle_container} ${label ? styles.withLabel : ''} ${labelPlacement === 'top' ? styles.labelTop : ''} ${containerClassName ?? ''} ${disabled ? styles.toggle_disabled : ''}`}
       htmlFor={inputId}
     >
       <input

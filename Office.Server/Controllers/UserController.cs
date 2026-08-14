@@ -10,6 +10,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Users")]
     public class UserController : ControllerBase
     {
         private readonly RKNETDBContext _context;
@@ -20,14 +21,12 @@ namespace Office.Server.Controllers
         }
 
         // 1) Получение всех пользователей
-        [Authorize]
         [HttpGet("users")]
         public async Task<ActionResult<IEnumerable<OfficeUser>>> GetAllUsers()
         {
             return await _context.OfficeUser.ToListAsync();
         }
 
-        [Authorize]
         [HttpGet("ad-users")]
         public ActionResult<IEnumerable<AdDirectoryUserModel>> GetAdUsers()
         {

@@ -18,6 +18,12 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
     <PackageReference Include="System.DirectoryServices.AccountManagement" Version="10.0.1" />
+    <!-- Индексация содержимого файлов библиотеки знаний (поиск по тексту): -->
+    <!-- PdfPig — извлечение текста из PDF (MIT, чистый managed-код, без нативных зависимостей). -->
+    <PackageReference Include="UglyToad.PdfPig" Version="1.7.0-custom-5" />
+    <!-- Windows-1251 недоступна в .NET Core без явной регистрации CodePagesEncodingProvider — -->
+    <!-- нужна для legacy .doc/.xls (однобайтовые текстовые прогоны) и .txt/.csv без BOM. -->
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

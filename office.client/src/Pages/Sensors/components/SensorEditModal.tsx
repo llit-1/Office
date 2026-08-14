@@ -1,4 +1,5 @@
 import Input from "../../../Components/Input/Input";
+import Button from "../../../Components/Button/Button";
 import Modal from "../../../Components/Modal/Modal";
 import Toggle from "../../../Components/Toggle/Toggle";
 import type { SensorFormState, SensorRow } from "../sensors.types";
@@ -76,12 +77,12 @@ export default function SensorEditModal({
       </div>
 
       <div className={styles.editActions}>
-        <button type="button" className={styles.editCancelButton} onClick={onClose} disabled={saving}>
+        <Button variant="secondary" onClick={onClose} disabled={saving}>
           Отмена
-        </button>
-        <button type="button" className={styles.editSaveButton} onClick={onSave} disabled={!canSave || saving}>
+        </Button>
+        <Button variant="primary" onClick={onSave} disabled={!canSave} loading={saving}>
           {saving ? "Сохраняем..." : mode === "create" ? "Создать" : "Сохранить"}
-        </button>
+        </Button>
       </div>
     </Modal>
   );

@@ -1,10 +1,10 @@
 .mainFields {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 16px;
     background: var(--color-surface);
-    padding: 15px;
-    border-radius: 8px;
+    padding: 16px;
+    border-radius: var(--radius-control);
     width: 100%;
     border: 1px solid var(--color-border);
 }
@@ -12,13 +12,13 @@
 .holderSelectWrapper {
     display: flex;
     flex-direction: row;
-    gap: 10px;
+    gap: 12px;
 }
 
 .transferWrapper {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
     height: calc(100% - 50px);
 }
 
@@ -32,11 +32,11 @@
 
 .addHolder {
     padding: 0 12px;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     border: none;
-    background-color: var(--color-primary);
-    color: var(--color-white);
-    transition: all 0.25s linear;
+    background-color: var(--color-primary-solid);
+    color: var(--color-on-primary-solid);
+    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
     font-size: 14px;
     font-weight: 600;
 }
@@ -49,45 +49,23 @@
 .mainFieldsWrapper {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 12px;
 }
 
 .commentSection {
     height: fit-content;
 }
 
-.commentInput {
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 10px;
-    width: 100%;
-    min-height: 100px;
-    resize: none;
-    font-size: 16px;
-    transition: all 0.05s ease;
-    background-color: var(--color-surface);
-    color: var(--color-text);
-}
-
-.commentInput:focus {
-    border: 2px solid var(--color-primary);
-    outline: none;
-}
-
-.commentInput:focus-visible {
-    outline: none;
-}
-
 .scanBtn {
     width: 100%;
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     font-weight: 600;
     font-size: 14px;
     background: var(--color-surface-muted);
     color: var(--color-text);
-    padding: 10px;
-    transition: all 0.2s ease;
+    padding: 12px;
+    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -109,7 +87,7 @@
 .scanState {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 12px;
     font-weight: 700;
     color: var(--color-primary);
@@ -119,7 +97,7 @@
 .scanStateDot {
     width: 8px;
     height: 8px;
-    border-radius: 50%;
+    border-radius: var(--radius-pill);
     background: var(--color-primary);
     box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 55%, var(--color-transparent));
     animation: scanDotPulse 1.2s ease-in-out infinite;
@@ -160,17 +138,17 @@
     display: flex;
     width: 100%;
     justify-content: space-between;
-    gap: 10px;
+    gap: 12px;
 }
 
 .submitButton {
-    border-radius: 8px;
+    border-radius: var(--radius-control);
     border: none;
-    padding: 10px 12px;
+    padding: 12px 12px;
     font-weight: 600;
     font-size: 14px;
     cursor: pointer;
-    transition: all 0.25s linear;
+    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
     color: var(--color-white);
     background-color: var(--color-bg-strong);
 }
@@ -202,8 +180,8 @@
 
 .headerDrafts {
     background: var(--color-primary-soft);
-    padding: 10px;
-    border-radius: 8px;
+    padding: 12px;
+    border-radius: var(--radius-control);
     width: 100%;
     color: var(--color-white);
 }
@@ -224,14 +202,14 @@
     gap: 8px;
     max-height: 335px;
     overflow: auto;
-    padding-right: 5px;
+    padding-right: 4px;
 }
 
 .rowDrafts {
     background: var(--color-surface-muted);
     border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 8px 10px;
+    border-radius: var(--radius-control);
+    padding: 8px 12px;
 }
 
 .draftField,
@@ -260,8 +238,8 @@
 .commentRowInput {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    padding: 6px 8px;
+    border-radius: var(--radius-control);
+    padding: 8px 8px;
     font-size: 14px;
     color: var(--color-text);
     background-color: var(--color-surface);
@@ -283,7 +261,7 @@
 .addHolderModalFields {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 12px;
 }
 
 .addHolderModalButtons {
@@ -390,18 +368,18 @@
 
 @media (max-width: 768px) {
     .transferWrapper {
-        gap: 14px;
+        gap: 16px;
     }
 
     .mainFieldsWrapper {
         grid-template-columns: 1fr;
-        gap: 14px;
+        gap: 16px;
     }
 
     .mainFields {
         gap: 16px;
         padding: 16px;
-        border-radius: 18px;
+        border-radius: var(--radius-lg);
         box-shadow: 0 10px 28px color-mix(in srgb, var(--color-black) 8%, var(--color-transparent));
     }
 
@@ -420,25 +398,21 @@
     .submitButton {
         width: 100%;
         min-height: 48px;
-        padding: 12px 14px;
+        padding: 12px 16px;
     }
 
     .scanBtn {
         min-height: 56px;
         height: auto;
-        padding: 14px 16px;
-        border-radius: 14px;
+        padding: 16px 16px;
+        border-radius: var(--radius-card);
         align-items: flex-start;
         flex-direction: column;
     }
 
     .scanState {
-        font-size: 11px;
+        font-size: var(--font-size-caption);
         letter-spacing: 0.04em;
-    }
-
-    .commentInput {
-        min-height: 120px;
     }
 
     .headerDrafts {
@@ -457,7 +431,7 @@
         flex-direction: column;
         gap: 12px;
         padding: 16px;
-        border-radius: 20px;
+        border-radius: var(--radius-lg);
         background: linear-gradient(
             180deg,
             color-mix(in srgb, var(--color-surface) 94%, var(--color-white)) 0%,
@@ -472,9 +446,9 @@
         display: flex;
         flex-direction: column;
         align-items: stretch;
-        gap: 6px;
-        padding: 10px 12px;
-        border-radius: 14px;
+        gap: 8px;
+        padding: 12px 12px;
+        border-radius: var(--radius-card);
         background: color-mix(in srgb, var(--color-surface) 92%, var(--color-transparent));
         border: 1px solid color-mix(in srgb, var(--color-border) 65%, var(--color-transparent));
     }
@@ -482,7 +456,8 @@
     .draftFieldLabel {
         display: block;
         color: var(--color-text-muted);
-        font-size: 11px;
+        font-family: var(--font-uppercase);
+        font-size: var(--font-size-caption);
         font-weight: 700;
         letter-spacing: 0.04em;
         text-transform: uppercase;
@@ -499,8 +474,8 @@
 
     .commentRowInput {
         min-height: 44px;
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: 12px 12px;
+        border-radius: var(--radius-card);
         font-size: 13px;
     }
 
@@ -509,6 +484,6 @@
     }
 
     .addHolderModalButtons {
-        gap: 10px;
+        gap: 12px;
     }
 }

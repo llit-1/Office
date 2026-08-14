@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
@@ -10,21 +11,25 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthorizationController : ControllerBase
     {
         private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
         private readonly RKNETDBContext _rKNETDBContext;
         private readonly AuthTokenService _authTokenService;
         private readonly ClientInfoParser _clientInfoParser;
+        private readonly ILogger<AuthorizationController> _logger;
 
         public AuthorizationController(
             RKNETDBContext rKNETDBContext,
             AuthTokenService authTokenService,
-            ClientInfoParser clientInfoParser)
+            ClientInfoParser clientInfoParser,
+            ILogger<AuthorizationController> logger)
         {
             _rKNETDBContext = rKNETDBContext;
             _authTokenService = authTokenService;
             _clientInfoParser = clientInfoParser;
+            _logger = logger;
         }
 
         [HttpPost("login")]
@@ -43,7 +48,7 @@ namespace Office.Server.Controllers
             }
 
             var adUser = GetAdUserInfo(login);
-            var officeUser = await _rKNETDBContext.OfficeUser.FirstOrDefaultAsync(x => x.Login == login);
+            var officeUser = await OfficeUsersWithRoles().FirstOrDefaultAsync(x => x.Login == login);
             if (officeUser == null)
             {
                 if (adUser == null)
@@ -135,32 +140,53 @@ namespace Office.Server.Controllers
             var rawRefreshToken = Request.Cookies[AuthConstants.RefreshCookieName];
             if (string.IsNullOrWhiteSpace(rawRefreshToken))
             {
+                LogRefreshRejection("missing_cookie");
                 ClearRefreshCookie();
                 return Unauthorized(new { message = "Refresh token is missing" });
             }
 
-            var refreshPayload = _authTokenService.ReadRefreshToken(rawRefreshToken);
-            if (refreshPayload is null)
+            if (!_authTokenService.TryReadRefreshToken(rawRefreshToken, out var refreshPayload, out var failureReason) ||
+                refreshPayload is null)
             {
+                LogRefreshRejection(failureReason);
                 ClearRefreshCookie();
                 return Unauthorized(new { message = "Refresh token is invalid" });
             }
 
             if (refreshPayload.ExpiresAtUtc <= DateTime.UtcNow)
             {
+                LogRefreshRejection("expired", refreshPayload.OfficeUserId);
                 ClearRefreshCookie();
                 return Unauthorized(new { message = "Refresh token expired" });
             }
 
-            var officeUser = await _rKNETDBContext.OfficeUser.FirstOrDefaultAsync(x =>
-                x.Id == refreshPayload.OfficeUserId &&
-                x.Login == refreshPayload.Login);
+            OfficeUser? officeUser;
+            try
+            {
+                officeUser = await OfficeUsersWithRoles().FirstOrDefaultAsync(x =>
+                    x.Id == refreshPayload.OfficeUserId &&
+                    x.Login == refreshPayload.Login);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Refresh token validation could not load user {OfficeUserId}. The cookie was preserved for retry.",
+                    refreshPayload.OfficeUserId);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Session validation is temporarily unavailable"
+                });
+            }
+
             if (officeUser is null || officeUser.Actual != 1)
             {
+                LogRefreshRejection("user_inactive_or_missing", refreshPayload.OfficeUserId);
                 ClearRefreshCookie();
                 return Unauthorized(new { message = "User is not active" });
             }
 
+            _logger.LogDebug("Session refreshed for user {OfficeUserId}.", officeUser.Id);
             return Ok(IssueTokens(officeUser, null));
         }
 
@@ -264,6 +290,24 @@ namespace Office.Server.Controllers
                 AuthConstants.RefreshCookieName,
                 string.Empty,
                 _authTokenService.BuildExpiredRefreshCookie());
+        }
+
+        private IQueryable<OfficeUser> OfficeUsersWithRoles()
+        {
+            return _rKNETDBContext.OfficeUser
+                .Include(user => user.OfficeGroup)
+                .ThenInclude(group => group.OfficeRole);
+        }
+
+        private void LogRefreshRejection(string reason, int? officeUserId = null)
+        {
+            _logger.LogWarning(
+                "Session refresh rejected. Reason={Reason}; OfficeUserId={OfficeUserId}; Scheme={Scheme}; Host={Host}; RemoteIp={RemoteIp}",
+                reason,
+                officeUserId,
+                Request.Scheme,
+                Request.Host.Value,
+                GetRemoteIp());
         }
 
         private string? GetUserAgent()

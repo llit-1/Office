@@ -3,6 +3,7 @@ import { Controller, useForm } from "react-hook-form";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import Select from "../../Components/Select/Select";
 import { callApi, get, getFriendlyErrorMessage, put } from "../../Services/api";
@@ -161,7 +162,7 @@ export default function TTEdit() {
     <div className={styles.wrapper}>
       {loading ? (
         <div className={styles.loadingState}>
-          <LoadingSpinner />
+          <LoadingSpinner size={96} label="Загружаем торговую точку…" />
         </div>
       ) : (
         <>
@@ -196,13 +197,11 @@ export default function TTEdit() {
           </div>
 
           <div className={styles.footer}>
-            <button type="button" className={styles.cancelButton} onClick={() => navigate("/TT")}>
+            <Button variant="secondary" onClick={() => navigate("/TT")}>
               Отмена
-            </button>
+            </Button>
 
-            <button type="button" className={styles.saveButton} onClick={() => void onSubmit()} disabled={saving || !isDirty}>
-              {saving ? <LoadingSpinner size={22} color="white" /> : "Сохранить"}
-            </button>
+            <Button variant="primary" onClick={() => void onSubmit()} disabled={!isDirty} loading={saving}>Сохранить</Button>
           </div>
         </>
       )}

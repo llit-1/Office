@@ -6,11 +6,12 @@ import DeviceThermostatOutlinedIcon from "@mui/icons-material/DeviceThermostatOu
 import FactoryOutlinedIcon from "@mui/icons-material/FactoryOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import HomeIcon from "@mui/icons-material/HomeOutlined";
-import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import TvOutlinedIcon from "@mui/icons-material/TvOutlined";
+import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
 
 export interface MenuPart {
   name: string;
@@ -72,6 +73,13 @@ export const menuParts: MenuPart[] = [
     requiredRole: "Stock",
   },
   {
+    name: "Меню",
+    Icon: RestaurantMenuOutlinedIcon,
+    path: "/DeliveryMenu",
+    img: "/img/menu.svg",
+      requiredRole: ["MenuMarketing", "MenuAuditor", "MenuAdmin", "Menu"],
+  },
+  {
     name: "Видео на ТТ",
     Icon: TvOutlinedIcon,
     path: "/VideoDevices",
@@ -83,6 +91,7 @@ export const menuParts: MenuPart[] = [
     Icon: DeviceThermostatOutlinedIcon,
     path: "/Sensors",
     img: "/img/thermometer.svg",
+    requiredRole: "Sensors",
   },
   {
     name: "Зарплата",
@@ -92,9 +101,10 @@ export const menuParts: MenuPart[] = [
     requiredRole: "Salary",
   },
   {
-    name: "Уведомления",
-    Icon: NotificationsNoneIcon,
-    path: "/Notifications",
-    img: "/img/notification.svg",
+    name: "Библиотека знаний",
+    Icon: MenuBookOutlinedIcon,
+    path: "/KnowledgeLibrary",
+    img: "/img/book.svg",
+    requiredRole: ["KnowledgeLibrary", "KnowledgeLibraryAdmin"],
   },
 ];

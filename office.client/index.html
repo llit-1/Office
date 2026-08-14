@@ -1,14 +1,330 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="ico.png" />
+    <link id="app-favicon" rel="icon" type="image/svg+xml" href="/img/label.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      window.__officeBootStartedAt = performance.now();
+      var initialTheme = "light";
+      try {
+        var savedTheme = localStorage.getItem("theme");
+        initialTheme = savedTheme === "dark" ? "dark" : "light";
+      } catch (_) {}
+
+      document.documentElement.dataset.theme = initialTheme;
+
+      (function () {
+        var favicon = document.getElementById("app-favicon");
+        var labelPath = "M8.13,13.05H9.62a10.77,10.77,0,0,0,2.23,2.25c.39.32.79.66,1.22,1.05l.66.58.65-.59c.44-.39.84-.72,1.22-1a7.62,7.62,0,0,0,2.84-3.5l0-.07a4,4,0,0,0-.31-3.05,2.74,2.74,0,0,0-1.7-1.28A3.08,3.08,0,0,0,13.71,8,3.08,3.08,0,0,0,11,7.39a2.78,2.78,0,0,0-1.7,1.29,3.75,3.75,0,0,0-.4,2.47H8.12V7.23h-2l0,9.8h2ZM11,9.67a.8.8,0,0,1,.49-.38c.59-.15.9.08,1.4.51l.25.22.62.48.61-.49c.08-.06.16-.14.25-.22.5-.42.8-.66,1.39-.51a.79.79,0,0,1,.5.38,2.13,2.13,0,0,1,.1,1.53,6.12,6.12,0,0,1-2.23,2.59l-.62.52-.61-.52a6,6,0,0,1-2.24-2.58A2.14,2.14,0,0,1,11,9.67Z";
+
+        function updateFavicon(theme) {
+          if (!favicon) return;
+
+          var color = theme === "dark" ? "#5865f1" : "#f47920";
+          var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="' + color + '" transform="translate(12 12) scale(1.85) translate(-12.3 -11.13)" d="' + labelPath + '"/></svg>';
+          favicon.href = "data:image/svg+xml," + encodeURIComponent(svg);
+        }
+
+        updateFavicon(initialTheme);
+
+        new MutationObserver(function () {
+          updateFavicon(document.documentElement.dataset.theme);
+        }).observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ["data-theme"],
+        });
+      })();
+    </script>
+    <style>
+      :root {
+        color-scheme: light;
+        --boot-bg: #eeeeee;
+        --boot-card: #ffffff;
+        --boot-border: #dadce0;
+        --boot-text: #333333;
+        --boot-muted: #6d6d6d;
+        --boot-primary: #f47920;
+        --boot-dough: #f4d5a1;
+        --boot-bread: #dc8428;
+        --boot-bread-light: #ffd28a;
+        --boot-crust: #a94b13;
+      }
+
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --boot-bg: #323339;
+        --boot-card: #2e2f35;
+        --boot-border: #45464d;
+        --boot-text: #d0d0d4;
+        --boot-muted: #b9bac1;
+        --boot-primary: #5865f1;
+      }
+
+      html,
+      body,
+      #root {
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        background: var(--boot-bg);
+      }
+
+      .boot-screen {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: 24px;
+        background: var(--boot-bg);
+        color: var(--boot-text);
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+      }
+
+      .boot-card {
+        visibility: hidden;
+        display: grid;
+        justify-items: center;
+        gap: 18px;
+        width: min(100%, 360px);
+        box-sizing: border-box;
+        padding: 32px 28px;
+        border: 1px solid var(--boot-border);
+        border-radius: 18px;
+        background: var(--boot-card);
+        box-shadow: 0 12px 30px rgba(16, 24, 40, 0.12);
+        opacity: 0;
+        animation: boot-reveal 120ms ease-out 500ms forwards;
+      }
+
+      .boot-brand {
+        display: grid;
+        place-items: center;
+        width: 54px;
+        height: 54px;
+        border-radius: 16px;
+        background: var(--boot-primary);
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -1px;
+      }
+
+      .boot-title {
+        font-size: 24px;
+        line-height: 1;
+      }
+
+      .boot-loader {
+        display: block;
+        width: 96px;
+        height: 96px;
+        overflow: visible;
+        --boot-loader-cycle: 2.65s;
+      }
+
+      .boot-product {
+        transform-box: fill-box;
+        transform-origin: center bottom;
+        animation: boot-product-motion var(--boot-loader-cycle) cubic-bezier(.4, 0, .2, 1) infinite;
+      }
+
+      .boot-product-shape {
+        fill: var(--boot-dough);
+        stroke: color-mix(in srgb, var(--boot-crust) 54%, transparent);
+        stroke-width: 1.25;
+        stroke-linejoin: round;
+        filter: drop-shadow(0 3px 2px rgba(30, 25, 20, .16));
+        animation: boot-product-bake var(--boot-loader-cycle) cubic-bezier(.4, 0, .2, 1) infinite;
+      }
+
+      .boot-highlight {
+        fill: none;
+        stroke: #fff6e5;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        opacity: .52;
+        animation: boot-highlight var(--boot-loader-cycle) ease-in-out infinite;
+      }
+
+      .boot-slashes {
+        fill: none;
+        stroke: var(--boot-bread-light);
+        stroke-width: 4;
+        stroke-linecap: round;
+        opacity: 0;
+        animation: boot-slashes var(--boot-loader-cycle) ease-out infinite;
+      }
+
+      .boot-impact {
+        fill: none;
+        stroke: var(--boot-primary);
+        stroke-width: 2.6;
+        stroke-linecap: round;
+        opacity: 0;
+      }
+
+      .boot-impact-left { animation: boot-impact-left var(--boot-loader-cycle) ease-out infinite; }
+      .boot-impact-right { animation: boot-impact-right var(--boot-loader-cycle) ease-out infinite; }
+
+      .boot-flour {
+        fill: var(--boot-primary);
+        opacity: 0;
+        animation: boot-flour var(--boot-loader-cycle) ease-out infinite;
+      }
+
+      .boot-shadow {
+        fill: rgba(40, 40, 40, .16);
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: boot-shadow var(--boot-loader-cycle) ease-in-out infinite;
+      }
+
+      .boot-conveyor {
+        fill: none;
+        stroke: var(--boot-muted);
+        stroke-width: 1.5;
+        stroke-linecap: round;
+        opacity: 0;
+        animation: boot-conveyor var(--boot-loader-cycle) ease-in-out infinite;
+      }
+
+      .boot-conveyor-marks {
+        stroke-dasharray: 9 9;
+        animation: boot-conveyor-move .45s linear infinite;
+      }
+
+      .boot-message {
+        margin: 0;
+        color: var(--boot-muted);
+        font-size: 17px;
+        line-height: 1.4;
+      }
+
+      @keyframes boot-product-bake {
+        0%, 31% { fill: var(--boot-dough); }
+        39% { fill: color-mix(in srgb, var(--boot-dough) 84%, var(--boot-bread)); }
+        48% { fill: color-mix(in srgb, var(--boot-dough) 68%, var(--boot-bread)); }
+        57% { fill: color-mix(in srgb, var(--boot-dough) 32%, var(--boot-bread)); }
+        64%, 100% { fill: var(--boot-bread); }
+      }
+
+      @keyframes boot-product-motion {
+        0% { opacity: 0; transform: translateY(-44px) scale(.7); }
+        7% { opacity: 1; }
+        17% { transform: translateY(0) scale(1.16, .76); }
+        22% { transform: translateY(-3px) scale(.96, 1.05); }
+        27% { transform: translateY(0) scale(1); }
+        31% { transform: translateX(4px); }
+        39% { transform: translateX(0) scale(1.05, .94); }
+        48% { transform: translateX(-4px) skewY(2deg); }
+        53% { transform: translateX(0) scale(1.1, .86); }
+        57% { transform: translateY(-3px) scale(.98, 1.06); }
+        64%, 78% { opacity: 1; transform: translateX(0) scale(1); }
+        93%, 100% { opacity: 0; transform: translateX(66px) scale(.98) rotate(5deg); }
+      }
+
+      @keyframes boot-highlight {
+        0%, 49% { opacity: .5; }
+        58%, 100% { opacity: 0; }
+      }
+
+      @keyframes boot-slashes {
+        0%, 56% { opacity: 0; stroke-dasharray: 0 20; }
+        66%, 81% { opacity: .9; stroke-dasharray: 20 0; }
+        92%, 100% { opacity: 0; stroke-dasharray: 20 0; }
+      }
+
+      @keyframes boot-impact-left {
+        0%, 27%, 38%, 100% { opacity: 0; transform: translateX(-7px) scaleX(.7); }
+        31%, 34% { opacity: .85; transform: translateX(2px) scaleX(1); }
+      }
+
+      @keyframes boot-impact-right {
+        0%, 43%, 54%, 100% { opacity: 0; transform: translateX(7px) scaleX(.7); }
+        47%, 50% { opacity: .85; transform: translateX(-2px) scaleX(1); }
+      }
+
+      @keyframes boot-flour {
+        0%, 27%, 100% { opacity: 0; transform: translateY(5px) scale(.65); }
+        34%, 49% { opacity: .48; transform: translateY(0) scale(1); }
+        57% { opacity: 0; transform: translateY(-6px) scale(.82); }
+      }
+
+      @keyframes boot-shadow {
+        0% { opacity: 0; transform: scaleX(.4); }
+        15% { opacity: .4; transform: scaleX(1); }
+        57%, 79% { opacity: .48; transform: scaleX(1.1); }
+        94%, 100% { opacity: 0; transform: translateX(45px) scaleX(.6); }
+      }
+
+      @keyframes boot-conveyor {
+        0%, 55% { opacity: 0; }
+        64%, 92% { opacity: .55; }
+        100% { opacity: 0; }
+      }
+
+      @keyframes boot-conveyor-move {
+        to { stroke-dashoffset: -18; }
+      }
+
+      @keyframes boot-reveal {
+        from {
+          visibility: hidden;
+          opacity: 0;
+        }
+
+        to {
+          visibility: visible;
+          opacity: 1;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .boot-card { animation-duration: 1ms; }
+        .boot-product,
+        .boot-product-shape,
+        .boot-highlight,
+        .boot-slashes,
+        .boot-impact,
+        .boot-flour,
+        .boot-shadow,
+        .boot-conveyor,
+        .boot-conveyor-marks { animation: none; }
+      }
+    </style>
     <link rel="stylesheet" href="/Fonts/Akrobat/akrobat.css" />
     <title>Корпоративный портал ЛюдиЛюбят</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="boot-screen" role="status" aria-live="polite">
+        <div class="boot-card">
+          <svg class="boot-loader" viewBox="0 0 112 96" aria-hidden="true">
+            <ellipse class="boot-shadow" cx="52" cy="76" rx="25" ry="3.5"></ellipse>
+            <g class="boot-product">
+              <path class="boot-product-shape" d="M50 24 C64 24 75 31 75 45 C75 58 66 67 55 67 C50 68 45 68 40 67 C29 67 25 58 25 45 C25 31 36 24 50 24 Z">
+                <animate attributeName="d" dur="2.65s" repeatCount="indefinite" calcMode="spline" keyTimes="0;0.17;0.31;0.39;0.48;0.57;0.64;1" keySplines=".4 0 .2 1;.4 0 .2 1;.4 0 .2 1;.4 0 .2 1;.4 0 .2 1;.4 0 .2 1;.4 0 .2 1" values="M50 24 C64 24 75 31 75 45 C75 58 66 67 55 67 C50 68 45 68 40 67 C29 67 25 58 25 45 C25 31 36 24 50 24 Z; M50 24 C64 24 75 31 75 45 C75 58 66 67 55 67 C50 68 45 68 40 67 C29 67 25 58 25 45 C25 31 36 24 50 24 Z; M54 23 C67 24 76 32 77 45 C73 58 66 67 55 67 C50 68 45 68 41 67 C32 66 30 57 31 44 C32 31 40 23 54 23 Z; M50 24 C65 24 77 33 77 45 C77 56 67 65 55 66 C50 67 45 67 39 66 C27 65 23 56 23 45 C23 33 35 24 50 24 Z; M46 23 C60 23 68 31 69 44 C70 57 68 66 59 67 C54 68 49 68 44 67 C33 67 24 58 23 45 C24 32 33 24 46 23 Z; M50 21 C67 21 78 32 78 49 C78 61 74 69 62 69 C54 69 46 69 38 69 C26 69 22 61 22 49 C22 32 33 21 50 21 Z; M50 17 C67 17 78 31 78 50 C78 62 74 69 62 69 C54 69 46 69 38 69 C26 69 22 62 22 50 C22 31 33 17 50 17 Z; M50 17 C67 17 78 31 78 50 C78 62 74 69 62 69 C54 69 46 69 38 69 C26 69 22 62 22 50 C22 31 33 17 50 17 Z"></animate>
+              </path>
+              <path class="boot-highlight" d="M35 35c4-3.4 8.5-4.8 14-4.8"></path>
+              <g class="boot-slashes"><path d="m34 34 8 10"></path><path d="m48 29 8 11"></path><path d="m62 34 7 10"></path></g>
+            </g>
+            <path class="boot-impact boot-impact-left" d="M16 37c5 4 5 12 0 16"></path>
+            <path class="boot-impact boot-impact-right" d="M84 37c-5 4-5 12 0 16"></path>
+            <g class="boot-flour"><circle cx="20" cy="31" r="1.8"></circle><circle cx="14" cy="25" r="1.1"></circle><circle cx="80" cy="31" r="1.8"></circle><circle cx="86" cy="25" r="1.1"></circle></g>
+            <g class="boot-conveyor"><path d="M20 78h75"></path><path class="boot-conveyor-marks" d="M29 82h9m9 0h9m9 0h9m9 0h9"></path></g>
+          </svg>
+          <p class="boot-message">Загружаем портал…</p>
+        </div>
+      </div>
+    </div>
+    <noscript>Для работы портала необходимо включить JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

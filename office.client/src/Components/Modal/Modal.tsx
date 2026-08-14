@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './Modal.module.css'
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
@@ -17,6 +17,7 @@ export interface ModalProps {
   bodyClassName?: string
   titleClassName?: string
   closeButtonClassName?: string
+  headerActions?: React.ReactNode
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -25,6 +26,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   size = 'md',
+  closeOnBackdropClick = false,
   showClose = true,
   ariaLabel,
   panelClassName,
@@ -32,11 +34,13 @@ export const Modal: React.FC<ModalProps> = ({
   bodyClassName,
   titleClassName,
   closeButtonClassName,
+  headerActions,
 }) => {
   const backdropRef = useRef<HTMLDivElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
   const previouslyFocused = useRef<HTMLElement | null>(null)
   const onCloseRef = useRef(onClose)
+  const generatedTitleId = useId()
 
   useEffect(() => {
     onCloseRef.current = onClose
@@ -57,6 +61,24 @@ export const Modal: React.FC<ModalProps> = ({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCloseRef.current()
+      if (e.key !== 'Tab' || !panelRef.current) return
+      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ))
+      if (focusable.length === 0) {
+        e.preventDefault()
+        panelRef.current.focus()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
     document.addEventListener('keydown', onKey)
 
@@ -75,8 +97,12 @@ export const Modal: React.FC<ModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label={ariaLabel}
+      aria-labelledby={!ariaLabel && title ? generatedTitleId : undefined}
       className={styles.modal_backdrop}
       ref={backdropRef}
+      onMouseDown={(event) => {
+        if (closeOnBackdropClick && event.target === event.currentTarget) onClose()
+      }}
     >
       <div
         className={`${styles.modal_panel} ${styles[size] ?? ''} ${panelClassName ?? ''}`}
@@ -84,17 +110,20 @@ export const Modal: React.FC<ModalProps> = ({
         tabIndex={-1}
       >
         <header className={`${styles.modal_header} ${headerClassName ?? ''}`}>
-          <h3 className={`${styles.modal_title} ${titleClassName ?? ''}`}>{title}</h3>
-          {showClose ? (
-            <button
-              type="button"
-              aria-label="Close"
-              className={`${styles.modal_close} ${closeButtonClassName ?? ''}`}
-              onClick={onClose}
-            >
-              <CloseOutlinedIcon className={styles.closeIcon} />
-            </button>
-          ) : null}
+          <h3 id={generatedTitleId} className={`${styles.modal_title} ${titleClassName ?? ''}`}>{title}</h3>
+          <div className={styles.modal_headerActions}>
+            {headerActions}
+            {showClose ? (
+              <button
+                type="button"
+                aria-label="Закрыть"
+                className={`${styles.modal_close} ${closeButtonClassName ?? ''}`}
+                onClick={onClose}
+              >
+                <CloseOutlinedIcon className={styles.closeIcon} />
+              </button>
+            ) : null}
+          </div>
         </header>
 
         <div className={`${styles.modal_body} ${bodyClassName ?? ''}`}>{children}</div>

@@ -2,10 +2,12 @@ import type { Dispatch, SetStateAction } from "react";
 import MusicNoteRoundedIcon from "@mui/icons-material/MusicNoteRounded";
 import OndemandVideoRoundedIcon from "@mui/icons-material/OndemandVideoRounded";
 import Input from "../../../Components/Input/Input";
+import Button from "../../../Components/Button/Button";
 import LoadingSpinner from "../../../Components/LoadingSpinner/LoadingSpinner";
 import Modal from "../../../Components/Modal/Modal";
 import Select from "../../../Components/Select/Select";
 import type { DeviceFormState, FormDataResponse } from "../videoDevices.types";
+import { resolveSelectedVideoName } from "../videoDevices.utils";
 import styles from "../VideoDevices.module.css";
 
 type DeviceFormModalProps = {
@@ -31,6 +33,18 @@ export default function DeviceFormModal({
   onClose,
   onSave,
 }: DeviceFormModalProps) {
+  const selectedVideoName = resolveSelectedVideoName(
+    formState.videoNames[0],
+    formData?.videos.map((video) => video.name) ?? [],
+  );
+  const videoOptions = formData
+    ? formData.videos.map((video) => ({ value: video.name, label: video.name }))
+    : [];
+
+  if (selectedVideoName && !videoOptions.some((option) => option.value === selectedVideoName)) {
+    videoOptions.unshift({ value: selectedVideoName, label: selectedVideoName });
+  }
+
   return (
     <Modal
       isOpen={isOpen}
@@ -108,10 +122,10 @@ export default function DeviceFormModal({
           <Select
             label="Видео"
             search
-            value={formState.videoNames[0] ?? ""}
+            value={selectedVideoName}
             options={[
               { value: "", label: "Видео не выбрано" },
-              ...formData.videos.map((video) => ({ value: video.name, label: video.name })),
+              ...videoOptions,
             ]}
             placeholder="Выберите видео"
             onChange={(event) =>
@@ -124,16 +138,16 @@ export default function DeviceFormModal({
 
           <div className={styles.modalActions}>
             {editingDeviceGuid && (
-              <button type="button" className={styles.dangerButton} onClick={() => onDelete(editingDeviceGuid)}>
+              <Button variant="danger" className={styles.modalDangerAction} onClick={() => onDelete(editingDeviceGuid)}>
                 Удалить
-              </button>
+              </Button>
             )}
-            <button type="button" className={styles.secondaryButton} onClick={onClose}>
+            <Button variant="secondary" onClick={onClose}>
               Отмена
-            </button>
-            <button type="button" className={styles.primaryButton} onClick={onSave} disabled={saving}>
+            </Button>
+            <Button variant="primary" onClick={onSave} loading={saving}>
               Сохранить
-            </button>
+            </Button>
           </div>
         </div>
       )}

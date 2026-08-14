@@ -10,6 +10,7 @@ import styles from "./UserEdit.module.css";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import Input from "../../Components/Input/Input";
+import Button from "../../Components/Button/Button";
 import { MultiplySelect } from "../../Components/MultiplySelect/MultiplySelect";
 import Toggle from "../../Components/Toggle/Toggle";
 import ConnectField from "../../Components/ConnectField/ConnectField";
@@ -26,6 +27,7 @@ import type {
   OfficeBid,
 } from "../../Interfaces/Users";
 import Select from "../../Components/Select/Select";
+import { getSavedTtSettings, resolveTtSettings, type TtBinding } from "./userEdit.utils";
 
 /**
  * Формат ответа с бэка (по Swagger)
@@ -45,7 +47,7 @@ type FormValues = {
   officeUser: OfficeUser;
   locations: Location[];
   officeGroups: OfficeGroup[];
-  ttBinding: string;
+  ttBinding: TtBinding;
   isTT: boolean;
 };
 
@@ -79,6 +81,7 @@ const DEFAULTS: FormValues = {
     patronymic: null,
     position: null,
     actual: 0,
+    defaultLocations: 0,
     factoryPersonId: null,
     personalitiesGuid: null,
     factoryPerson: null as FactoryPerson | null,
@@ -106,6 +109,7 @@ function modelToForm(model?: OfficeUserModel | null): FormValues {
   // То, что уже выбрано у пользователя
   const userLocations = user.locations ?? [];
   const userGroups = user.officeGroup ?? [];
+  const ttSettings = resolveTtSettings(user.defaultLocations, userLocations.length);
 
   return {
     officeUser: {
@@ -115,8 +119,8 @@ function modelToForm(model?: OfficeUserModel | null): FormValues {
     },
     locations: allLocations,
     officeGroups: allGroups,
-    ttBinding: userLocations.length === 0 ? "allTT" : "manualTT",
-    isTT: userLocations.length > 0,
+    ttBinding: ttSettings.ttBinding,
+    isTT: ttSettings.isTT,
   };
 }
 
@@ -348,6 +352,11 @@ export default function UserEdit() {
 
   const onSubmit = async (form: FormValues) => {
     setSaving(true);
+    const ttSettings = getSavedTtSettings(
+      form.isTT,
+      form.ttBinding,
+      form.officeUser.locations.map((location) => location.guid),
+    );
 
     const payload: OfficeUserUpdateModel = {
       id: form.officeUser.id,
@@ -362,9 +371,8 @@ export default function UserEdit() {
       personalitiesGuid: form.officeUser.personalitiesGuid,
 
       officeGroup: form.officeUser.officeGroup.map((g) => g.id),
-      locations: form.officeUser.locations.map((l) => l.guid),
-
-      defaultLocations: 0, // если есть поле
+      locations: ttSettings.locations,
+      defaultLocations: ttSettings.defaultLocations,
     };
 
     const result = await callApi(put("/User/users", payload), {
@@ -429,7 +437,7 @@ export default function UserEdit() {
   if (pageLoading) {
     return (
       <div className={styles.loadingSpinner}>
-        <LoadingSpinner />
+        <LoadingSpinner size={96} label="Загружаем данные пользователя…" />
       </div>
     );
   }
@@ -460,13 +468,18 @@ export default function UserEdit() {
               />
 
 
-              <Input label="Отчество" {...register("officeUser.patronymic")} />
+              <Input
+                label="Отчество"
+                placeholder="Не указано"
+                {...register("officeUser.patronymic")}
+              />
 
               <Input label="Должность" {...register("officeUser.position")} disabled={true} />
 
               <div className={styles.togglesWrapper}>
                 <Toggle
                   label="Активность"
+                  labelPlacement="top"
                   checked={actual === 1}
                   onChange={(v: boolean) =>
                     setValue("officeUser.actual", v ? 1 : 0, {
@@ -476,7 +489,8 @@ export default function UserEdit() {
                 />
 
                 <Toggle
-                  label="Является ТТ"
+                  label="Привязка ТТ"
+                  labelPlacement="top"
                   checked={isTt}
                   onChange={(v: boolean) =>
                     setValue("isTT", v, { shouldDirty: true })
@@ -493,7 +507,7 @@ export default function UserEdit() {
                 disabled={!isTt}
                 value={ttBinding}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setValue("ttBinding", String(e.target.value), { shouldDirty: true })
+                  setValue("ttBinding", e.target.value as TtBinding, { shouldDirty: true })
                 }
               />
 
@@ -501,7 +515,7 @@ export default function UserEdit() {
 
             </div>
 
-            <div className={styles.groups}>
+            <div className={`${styles.groups} ${styles.officeBidsBlock}`}>
               <label className={styles.blockLabel}>Заявки пользователя</label>
               {officeBids.length === 0 ? (
                 <div className={styles.emptyOfficeBids}>Активных заявок нет.</div>
@@ -689,18 +703,18 @@ export default function UserEdit() {
       </div>
 
       <div className={styles.userEditFooter}>
-        <button type="button" className={styles.cancelButton} onClick={onCancel}>
+        <Button variant="secondary" onClick={onCancel}>
           Отмена
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          className={styles.saveButton}
+        <Button
+          variant="primary"
           onClick={handleSubmit(onSubmit)}
-          disabled={saving || (!isDirty && !isCreate)}
+          disabled={!isDirty && !isCreate}
+          loading={saving}
         >
-          {saving ? <LoadingSpinner size={24} color="white" /> : "Сохранить"}
-        </button>
+          Сохранить
+        </Button>
       </div>
     </div>
   );

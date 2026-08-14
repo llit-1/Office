@@ -10,14 +10,6 @@
     composes: userEditFooter from "../../styles/shared-user-editor.module.css";
 }
 
-.saveButton {
-    composes: saveButton from "../../styles/shared-user-editor.module.css";
-}
-
-.cancelButton {
-    composes: cancelButton from "../../styles/shared-user-editor.module.css";
-}
-
 .groups {
     composes: groups from "../../styles/shared-user-editor.module.css";
 }
@@ -33,11 +25,7 @@
 .blocks {
     display: flex;
     flex-direction: row;
-    gap: 10px;
-}
-
-.buttonDelete {
-    composes: buttonDelete from "../../styles/shared-user-editor.module.css";
+    gap: 12px;
 }
 
 .confirmModalPanel {

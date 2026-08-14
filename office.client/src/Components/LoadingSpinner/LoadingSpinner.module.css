@@ -1,50 +1,260 @@
-﻿.spinnerOverlay{
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 50;
-    width: 100%;
-    height: 100%;
-}
-.ring{
-  border-radius: 50%;
-  border: 8px solid var(--color-overlay);
-  animation: spin 0.8s linear infinite;
+.spinnerOverlay {
+  z-index: 50;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  height: fit-content;
+  line-height: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
 }
 
-.ringSize20 {
-  width: 20px;
-  height: 20px;
-  border-width: 3px;
+.exiting {
+  opacity: 0 !important;
+  transform: translateY(-3px) scale(.97);
 }
 
-.ringSize24 {
-  width: 24px;
-  height: 24px;
-  border-width: 4px;
+.delayed {
+  opacity: 0;
+  animation: revealLoader 0s linear 220ms forwards;
 }
 
-.ringSize34 {
-  width: 34px;
-  height: 34px;
-  border-width: 6px;
+.immediate { opacity: 1; }
+
+.labelled {
+  flex-direction: column;
+  gap: 12px;
 }
 
-.ringSize48 {
-  width: 48px;
-  height: 48px;
+.label {
+  min-height: 20px;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.35;
+  text-align: center;
 }
 
-.ringColorPrimary {
-  border-top-color: var(--color-primary);
+.loader {
+  display: block;
+  flex: 0 0 auto;
+  overflow: visible;
+  --loader-cycle: 2.65s;
 }
 
-.ringColorWhite {
-  border-top-color: var(--color-surface);
+.primary {
+  --loader-accent: var(--color-primary);
+  --dough-color: var(--color-loader-dough);
+  --bread-color: var(--color-loader-bread);
+  --bread-light: var(--color-loader-bread-light);
+  --loader-detail: var(--color-loader-detail);
+  --loader-dark: var(--color-loader-crust);
 }
 
-@keyframes spin{
-  to{ transform: rotate(360deg) }
+.white {
+  --loader-accent: var(--color-surface);
+  --dough-color: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  --bread-color: var(--color-surface);
+  --bread-light: color-mix(in srgb, var(--color-surface) 76%, transparent);
+  --loader-detail: color-mix(in srgb, var(--color-text) 36%, transparent);
+  --loader-dark: color-mix(in srgb, var(--color-text) 38%, transparent);
 }
 
+.product {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: productMotion var(--loader-cycle) cubic-bezier(.4, 0, .2, 1) infinite;
+}
+
+.productShape {
+  fill: var(--dough-color);
+  stroke: color-mix(in srgb, var(--loader-dark) 54%, transparent);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 3px 2px color-mix(in srgb, var(--color-text) 18%, transparent));
+  animation: productBake var(--loader-cycle) cubic-bezier(.4, 0, .2, 1) infinite;
+}
+
+.highlight {
+  fill: none;
+  stroke: var(--loader-detail);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: .52;
+  animation: highlightCycle var(--loader-cycle) ease-in-out infinite;
+}
+
+.slashes {
+  fill: none;
+  stroke: var(--bread-light);
+  stroke-width: 4;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: slashCycle var(--loader-cycle) ease-out infinite;
+}
+
+.impactWave {
+  fill: none;
+  stroke: var(--loader-accent);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  opacity: 0;
+}
+
+.impactLeft { animation: impactLeft var(--loader-cycle) ease-out infinite; }
+.impactRight { animation: impactRight var(--loader-cycle) ease-out infinite; }
+
+.flour {
+  fill: var(--loader-accent);
+  opacity: 0;
+  animation: flourCycle var(--loader-cycle) ease-out infinite;
+}
+
+.shadow {
+  fill: color-mix(in srgb, var(--color-text) 17%, transparent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: shadowCycle var(--loader-cycle) ease-in-out infinite;
+}
+
+.conveyor {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text-muted, var(--color-text)) 48%, transparent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  opacity: 0;
+  animation: conveyorCycle var(--loader-cycle) ease-in-out infinite;
+}
+
+.conveyorMarks {
+  stroke-dasharray: 9 9;
+  animation: conveyorMove .45s linear infinite;
+}
+
+.compactBread { display: none; }
+
+@keyframes productBake {
+  0%, 31% { fill: var(--dough-color); }
+  39% { fill: color-mix(in srgb, var(--dough-color) 84%, var(--bread-color)); }
+  48% { fill: color-mix(in srgb, var(--dough-color) 68%, var(--bread-color)); }
+  57% { fill: color-mix(in srgb, var(--dough-color) 32%, var(--bread-color)); }
+  64%, 100% { fill: var(--bread-color); }
+}
+
+@keyframes productMotion {
+  0% { opacity: 0; transform: translateY(-44px) scale(.7); }
+  7% { opacity: 1; }
+  17% { transform: translateY(0) scale(1.16, .76); }
+  22% { transform: translateY(-3px) scale(.96, 1.05); }
+  27% { transform: translateY(0) scale(1); }
+  31% { transform: translateX(4px); }
+  39% { transform: translateX(0) scale(1.05, .94); }
+  48% { transform: translateX(-4px) skewY(2deg); }
+  53% { transform: translateX(0) scale(1.1, .86); }
+  57% { transform: translateY(-3px) scale(.98, 1.06); }
+  64%, 78% { opacity: 1; transform: translateX(0) scale(1); }
+  93%, 100% { opacity: 0; transform: translateX(66px) scale(.98) rotate(5deg); }
+}
+
+@keyframes highlightCycle {
+  0%, 49% { opacity: .5; }
+  58%, 100% { opacity: 0; }
+}
+
+@keyframes slashCycle {
+  0%, 56% { opacity: 0; stroke-dasharray: 0 20; }
+  66%, 81% { opacity: .9; stroke-dasharray: 20 0; }
+  92%, 100% { opacity: 0; stroke-dasharray: 20 0; }
+}
+
+@keyframes impactLeft {
+  0%, 27%, 38%, 100% { opacity: 0; transform: translateX(-7px) scaleX(.7); }
+  31%, 34% { opacity: .85; transform: translateX(2px) scaleX(1); }
+}
+
+@keyframes impactRight {
+  0%, 43%, 54%, 100% { opacity: 0; transform: translateX(7px) scaleX(.7); }
+  47%, 50% { opacity: .85; transform: translateX(-2px) scaleX(1); }
+}
+
+@keyframes flourCycle {
+  0%, 27%, 100% { opacity: 0; transform: translateY(5px) scale(.65); }
+  34%, 49% { opacity: .48; transform: translateY(0) scale(1); }
+  57% { opacity: 0; transform: translateY(-6px) scale(.82); }
+}
+
+@keyframes shadowCycle {
+  0% { opacity: 0; transform: scaleX(.4); }
+  15% { opacity: .4; transform: scaleX(1); }
+  57%, 79% { opacity: .48; transform: scaleX(1.1); }
+  94%, 100% { opacity: 0; transform: translateX(45px) scaleX(.6); }
+}
+
+@keyframes conveyorCycle {
+  0%, 55% { opacity: 0; }
+  64%, 92% { opacity: .55; }
+  100% { opacity: 0; }
+}
+
+@keyframes conveyorMove {
+  to { stroke-dashoffset: -18; }
+}
+
+@keyframes revealLoader {
+  to { opacity: 1; }
+}
+
+.compact .scene { display: none; }
+.compact .compactBread {
+  display: block;
+  fill: var(--bread-color);
+  stroke: var(--loader-dark);
+  stroke-width: 1.5;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: compactPulse 1s ease-in-out infinite;
+}
+
+.compact .compactBread g {
+  fill: none;
+  stroke: var(--bread-light);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+@keyframes compactPulse {
+  0%, 100% { opacity: .72; transform: scale(.88); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product,
+  .productShape,
+  .highlight,
+  .slashes,
+  .impactWave,
+  .flour,
+  .shadow,
+  .conveyor,
+  .conveyorMarks,
+  .compactBread {
+    animation: none;
+  }
+
+  .scene { display: none; }
+  .compactBread {
+    display: block;
+    fill: var(--bread-color);
+    stroke: var(--loader-dark);
+    opacity: 1;
+    transform: none;
+  }
+  .compactBread g {
+    fill: none;
+    stroke: var(--bread-light);
+    stroke-width: 4;
+    stroke-linecap: round;
+  }
+
+  .delayed { animation-delay: 220ms; }
+}

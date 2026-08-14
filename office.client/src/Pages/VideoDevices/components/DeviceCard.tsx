@@ -8,6 +8,7 @@ import WifiTetheringRoundedIcon from "@mui/icons-material/WifiTetheringRounded";
 import type { Device, DeviceActionState } from "../videoDevices.types";
 import { parseVideoNames } from "../videoDevices.utils";
 import styles from "../VideoDevices.module.css";
+import dashboard from "../../../styles/entity-dashboard.module.css";
 
 type DeviceCardProps = {
   device: Device;
@@ -41,26 +42,26 @@ export default function DeviceCard({
   const canUpdateApp = versionMismatch && actionState?.status !== "offline";
   const cardStateClass =
     actionState?.status === "online"
-      ? styles.deviceCardOnline
+      ? dashboard.cardSuccess
       : actionState?.status === "offline"
-        ? styles.deviceCardOffline
+        ? dashboard.cardDanger
         : actionState?.status === "ping"
-          ? styles.deviceCardPing
+          ? dashboard.cardWarning
           : "";
   const statusDotClass =
     actionState?.status === "online"
-      ? styles.statusDotOnline
+      ? dashboard.statusSuccess
       : actionState?.status === "ping"
-        ? styles.statusDotPing
+        ? dashboard.statusWarning
         : actionState?.status === "offline"
-          ? styles.statusDotOffline
+          ? dashboard.statusDanger
           : "";
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`${styles.deviceCard} ${cardStateClass}`}
+      className={`${dashboard.card} ${cardStateClass}`}
       onClick={() => onOpen(device)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -69,7 +70,7 @@ export default function DeviceCard({
         }
       }}
     >
-      <span className={`${styles.statusDot} ${statusDotClass}`} aria-hidden="true" />
+      <span className={`${dashboard.statusDot} ${statusDotClass}`} aria-hidden="true" />
       <div className={styles.deviceHeader}>
         <div className={styles.deviceIdentity}>
           <span className={styles.deviceTitleRow}>
@@ -94,11 +95,11 @@ export default function DeviceCard({
           </span>
         </div>
 
-        <div className={styles.deviceActions} onClick={(event) => event.stopPropagation()}>
+        <div className={dashboard.cardActions} onClick={(event) => event.stopPropagation()}>
           {!isOnline && (
             <button
               type="button"
-              className={styles.cardActionButton}
+              className={dashboard.cardActionButton}
               onClick={() => onCheck(device)}
               disabled={Boolean(actionState?.loading)}
               title="Проверить связь и версию"
@@ -114,7 +115,7 @@ export default function DeviceCard({
           {isPing && (
             <button
               type="button"
-              className={styles.cardActionButton}
+              className={dashboard.cardActionButton}
               onClick={() => onStartApp(device)}
               disabled={Boolean(actionState?.loading)}
               title="Запустить приложение через ADB"
@@ -130,7 +131,7 @@ export default function DeviceCard({
           {canUpdateApp && (
             <button
               type="button"
-              className={styles.cardActionButton}
+              className={dashboard.cardActionButton}
               onClick={() => onUpdateApp(device)}
               disabled={Boolean(actionState?.loading)}
               title="Обновить приложение"
@@ -147,7 +148,7 @@ export default function DeviceCard({
             <>
               <button
                 type="button"
-                className={styles.cardActionButton}
+                className={dashboard.cardActionButton}
                 onClick={() => onScreenshot(device)}
                 disabled={Boolean(actionState?.loading)}
                 title="Получить скриншот"
@@ -157,7 +158,7 @@ export default function DeviceCard({
               </button>
               <button
                 type="button"
-                className={`${styles.cardActionButton} ${styles.reloadButton}`}
+                className={`${dashboard.cardActionButton} ${styles.reloadButton}`}
                 onClick={() => onReload(device)}
                 disabled={Boolean(actionState?.loading)}
                 title="Перезапустить приложение"

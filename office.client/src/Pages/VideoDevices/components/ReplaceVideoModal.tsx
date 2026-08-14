@@ -1,4 +1,5 @@
 import Modal from "../../../Components/Modal/Modal";
+import Button from "../../../Components/Button/Button";
 import Select from "../../../Components/Select/Select";
 import styles from "../VideoDevices.module.css";
 
@@ -45,12 +46,12 @@ export default function ReplaceVideoModal({
           onChange={(event) => onReplaceToVideoChange(event.target.value)}
         />
         <div className={styles.modalActions}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+          <Button variant="secondary" onClick={onClose}>
             Отмена
-          </button>
-          <button type="button" className={styles.primaryButton} onClick={onReplace} disabled={!replaceFromVideo || !replaceToVideo}>
+          </Button>
+          <Button variant="primary" onClick={onReplace} disabled={!replaceFromVideo || !replaceToVideo}>
             Заменить
-          </button>
+          </Button>
         </div>
       </div>
     </Modal>
