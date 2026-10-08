@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useDispatch } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
@@ -14,7 +15,9 @@ import { ttTabs } from "./ttModels";
 
 export default function TT() {
   const dispatch = useDispatch();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeIndex = Math.max(0, ttTabs.findIndex((tab) => tab.key === searchParams.get("tab")));
+  const activeKey = ttTabs[activeIndex].key;
 
   useEffect(() => {
     dispatch(visibleSet({ visible: true }));
@@ -22,24 +25,28 @@ export default function TT() {
   }, [dispatch]);
 
   useEffect(() => {
-    dispatch(titleSet({ title: ttTabs[activeIndex] }));
+    dispatch(titleSet({ title: ttTabs[activeIndex].label }));
   }, [activeIndex, dispatch]);
 
   return (
     <>
       <div className={styles.tt_wrapper}>
         <div className={styles.tabAndSearchWrapper}>
-          <TabNavigation items={[...ttTabs]} activeIndex={activeIndex} onChange={setActiveIndex} />
+          <TabNavigation
+            items={ttTabs.map((tab) => tab.label)}
+            activeIndex={activeIndex}
+            onChange={(index) => setSearchParams(index === 0 ? {} : { tab: ttTabs[index].key }, { replace: true })}
+          />
         </div>
       </div>
 
       <div className={styles.page}>
-        {activeIndex === 0 && <TradePointsTab />}
-        {activeIndex === 1 && <FactoryLocationsTab />}
-        {activeIndex === 2 && <OfficeLocationsTab />}
-        {activeIndex === 3 && <EntitiesTab />}
-        {activeIndex === 4 && <JobTitlesTab />}
-        {activeIndex === 5 && <LocationTypesTab />}
+        {activeKey === "trade" && <TradePointsTab />}
+        {activeKey === "factory" && <FactoryLocationsTab />}
+        {activeKey === "office" && <OfficeLocationsTab />}
+        {activeKey === "entities" && <EntitiesTab />}
+        {activeKey === "jobtitles" && <JobTitlesTab />}
+        {activeKey === "types" && <LocationTypesTab />}
       </div>
     </>
   );

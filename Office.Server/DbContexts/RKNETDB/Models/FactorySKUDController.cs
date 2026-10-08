@@ -14,6 +14,8 @@ namespace Office.Server.DbContexts.RKNETDB.Models
 
         public int Pwd { get; set; }
 
+        public int Type { get; set; }
+
         public virtual ICollection<FactorySKUDReader> FactorySKUDReaders { get; set; } = new HashSet<FactorySKUDReader>();
     }
 }

@@ -17,6 +17,7 @@ import {
   defaultRuleSettingsFormState,
   formatDelaySummary,
   formatTemperatureRange,
+  oneTimeStartsAt,
   toApiTimeValue,
   toMaintenanceWindowFormState,
   toRuleSettingsFormState,
@@ -34,9 +35,10 @@ const emptyRuleModalState = (roomId = ""): RuleModalState => ({
 
 interface SensorRulesTabProps {
   sensors: SensorRow[];
+  canEdit: boolean;
 }
 
-export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
+export default function SensorRulesTab({ sensors, canEdit }: SensorRulesTabProps) {
   const notifications = useNotifications();
   const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
   const debouncedSearchText = useDebouncedValue(searchText);
@@ -110,7 +112,7 @@ export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
     });
   };
 
-  const canAddRule = sensors.some((sensor) => !rows.some((row) => row.roomId === sensor.id));
+  const canAddRule = canEdit && sensors.some((sensor) => !rows.some((row) => row.roomId === sensor.id));
 
   const canSave = useMemo(() => {
     if (!ruleForm.roomId) {
@@ -136,6 +138,13 @@ export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
 
       if (window.scheduleType === "one_time" && (!window.startDate || !window.endDate)) {
         return false;
+      }
+
+      if (window.scheduleType === "one_time" && window.id == null) {
+        const startsAt = oneTimeStartsAt(window);
+        if (startsAt == null || startsAt.getTime() < Date.now()) {
+          return false;
+        }
       }
 
       return true;
@@ -280,12 +289,14 @@ export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
 
   return (
     <section className={`${styles.contentSection} ${styles.rulesTabSection}`}>
-      <div className={styles.rulesTableToolbar}>
-        <Button variant="primary" onClick={openCreateModal} disabled={!canAddRule}>
-          <AddRoundedIcon fontSize="small" />
-          Добавить правило
-        </Button>
-      </div>
+      {canEdit && (
+        <div className={styles.rulesTableToolbar}>
+          <Button variant="primary" onClick={openCreateModal} disabled={!canAddRule}>
+            <AddRoundedIcon fontSize="small" />
+            Добавить правило
+          </Button>
+        </div>
+      )}
 
       <GenericTable<SensorRuleRow>
         data={filteredRows}
@@ -311,6 +322,7 @@ export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
         ruleForm={ruleForm}
         saving={saving}
         canSave={canSave}
+        readOnly={!canEdit}
         deleteConfirmOpen={deleteConfirmOpen}
         onClose={() => {
           if (!saving) {
@@ -318,13 +330,13 @@ export default function SensorRulesTab({ sensors }: SensorRulesTabProps) {
           }
         }}
         onSave={() => void handleSave()}
-        onDelete={editingRow ? () => void handleDeleteRule() : null}
+        onDelete={canEdit && editingRow ? () => void handleDeleteRule() : null}
         onDeleteCancel={() => {
           if (!saving) {
             setDeleteConfirmOpen(false);
           }
         }}
-        onDeleteRequest={editingRow ? () => setDeleteConfirmOpen(true) : null}
+        onDeleteRequest={canEdit && editingRow ? () => setDeleteConfirmOpen(true) : null}
         onRuleFormChange={setRuleForm}
       />
     </section>

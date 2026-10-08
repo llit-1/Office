@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import styles from "./MultiplySelect.module.css";
+import Input from "../Input/Input";
+import Checkbox from "../Checkbox/Checkbox";
+import Button from "../Button/Button";
+import LoadingSpinner from "../LoadingSpinner/LoadingSpinner";
 
 type Key = string | number;
 
@@ -10,6 +14,8 @@ type MultiplySelectProps<T> = {
   selectedKeys: Key[];
   onChange: (nextSelectedKeys: Key[]) => void;
   placeholder?: string;
+  label?: string;
+  className?: string;
   disabled?: boolean;
   loading?: boolean;
   loadingText?: string;
@@ -26,6 +32,8 @@ export function MultiplySelect<T>({
   selectedKeys,
   onChange,
   placeholder = "Поиск...",
+  label = "Поиск",
+  className,
   disabled = false,
   loading = false,
   loadingText = "Загрузка...",
@@ -39,6 +47,7 @@ export function MultiplySelect<T>({
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
     if (!items.length) {
       setOrderKeys([]);
       setInitialized(false);
@@ -83,7 +92,7 @@ export function MultiplySelect<T>({
 
       return next;
     });
-  }, [getKey, getLabel, initialized, items, selectedKeys]);
+  }, [getKey, getLabel, initialized, items, selectedKeys, loading]);
 
   const itemByKey = useMemo(() => {
     const map = new Map<Key, T>();
@@ -107,10 +116,15 @@ export function MultiplySelect<T>({
       return orderedItems;
     }
 
-    return orderedItems.filter((item) => getLabel(item).toLowerCase().includes(normalizedSearch));
+    return orderedItems.filter((item) =>
+      getLabel(item).toLowerCase().includes(normalizedSearch),
+    );
   }, [getLabel, orderedItems, searchText]);
 
-  const renderedItems = useMemo(() => visibleItems.slice(0, visibleCount), [visibleCount, visibleItems]);
+  const renderedItems = useMemo(
+    () => visibleItems.slice(0, visibleCount),
+    [visibleCount, visibleItems],
+  );
 
   useEffect(() => {
     setVisibleCount(INITIAL_VISIBLE_ITEMS);
@@ -135,7 +149,8 @@ export function MultiplySelect<T>({
       return;
     }
 
-    const distanceToBottom = node.scrollHeight - node.scrollTop - node.clientHeight;
+    const distanceToBottom =
+      node.scrollHeight - node.scrollTop - node.clientHeight;
     if (distanceToBottom <= SCROLL_THRESHOLD_PX) {
       loadMore();
     }
@@ -157,20 +172,41 @@ export function MultiplySelect<T>({
   };
 
   return (
-    <div className={`${styles.multiplySelectWrapper} ${disabled ? styles.disabled : ""}`}>
-      <input
-        className={styles.search}
+    <div
+      className={`${styles.multiplySelectWrapper} ${className ?? ""}`}
+      aria-busy={loading || undefined}
+    >
+      <Input
+        label={label}
+        type="search"
         value={searchText}
         onChange={(event) => setSearchText(event.target.value)}
         placeholder={placeholder}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+        }}
         disabled={disabled || loading}
       />
-
-      <div ref={optionsRef} className={styles.optionsWrapper} onScroll={handleScroll}>
+      <div className={styles.listMeta}>
+        <span>
+          Выбрано: <strong>{selectedKeys.length}</strong>
+        </span>
+        <span>
+          {searchText.trim()
+            ? `Найдено: ${visibleItems.length}`
+            : `Всего: ${items.length}`}
+        </span>
+      </div>
+      <div
+        ref={optionsRef}
+        className={styles.optionsWrapper}
+        onScroll={handleScroll}
+        role="group"
+        aria-label={`${label}: результаты`}
+      >
         {loading && (
           <div className={styles.loadingState}>
-            <div className={styles.spinner} />
-            <span>{loadingText}</span>
+            <LoadingSpinner size={28} label={loadingText} />
           </div>
         )}
 
@@ -181,31 +217,42 @@ export function MultiplySelect<T>({
             const isSelected = selectedSet.has(key);
 
             return (
-              <div
+              <Checkbox
                 key={String(key)}
-                className={`${styles.optionItem} ${isSelected ? styles.selected : ""}`}
-                onClick={() => toggle(key)}
+                label={label}
+                className={styles.optionInput}
+                labelClassName={`${styles.optionItem} ${isSelected ? styles.selected : ""} ${disabled ? styles.optionDisabled : ""}`}
+                checked={isSelected}
+                disabled={disabled || loading}
+                onChange={() => toggle(key)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
+                  if (event.key === "Enter") {
                     event.preventDefault();
                     toggle(key);
                   }
                 }}
-                role="button"
-                tabIndex={0}
-              >
-                {label}
-              </div>
+              />
             );
           })}
 
         {!loading && visibleItems.length > renderedItems.length && (
           <div className={styles.loadMoreHint}>
-            Показано {renderedItems.length} из {visibleItems.length}
+            <span>
+              Показано {renderedItems.length} из {visibleItems.length}
+            </span>
+            <Button size="sm" onClick={loadMore} disabled={disabled}>
+              Показать ещё
+            </Button>
           </div>
         )}
 
-        {!loading && visibleItems.length === 0 && <div className={styles.emptyState}>Ничего не найдено</div>}
+        {!loading && visibleItems.length === 0 && (
+          <p className={styles.emptyState}>
+            {searchText.trim()
+              ? "Ничего не найдено. Измените запрос."
+              : "Список пуст"}
+          </p>
+        )}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import GenericTable, { type Column } from "../../../Components/GenericTable/GenericTable";
 import { includesNormalized } from "../../../Components/GenericTable/searchUtils";
 import useDebouncedValue from "../../../Hooks/useDebouncedValue";
@@ -11,6 +12,7 @@ const tableStateKey = "tt-office-list";
 
 const columns: Column<TTListItem>[] = [
   { key: "name", label: "Наименование", responsivePriority: 0 },
+  { key: "type", label: "Тип", responsivePriority: 1 },
   { key: "address", label: "Адрес", defaultVisible: true, responsivePriority: 2 },
   {
     label: "Дата открытия",
@@ -27,6 +29,7 @@ const columns: Column<TTListItem>[] = [
 ];
 
 export default function OfficeLocationsTab() {
+  const navigate = useNavigate();
   const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
   const debouncedSearchText = useDebouncedValue(searchText);
   const [loading, setLoading] = useState(true);
@@ -67,8 +70,9 @@ export default function OfficeLocationsTab() {
       data={filteredItems}
       columns={columns}
       loading={loading}
-      addOption={false}
-      routeTo="/TT/Edit"
+      addOption
+      onAddClick={() => navigate("/TT/Location/office/new")}
+      routeTo="/TT/Location/office"
       tableStateKey={tableStateKey}
       searchPlaceholder="Поиск"
       searchText={searchText}

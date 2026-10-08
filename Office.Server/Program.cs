@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Office.Server.Security;
 using Office.Server.KnowledgeLibrary;
+using Office.Server.Stock;
 using System.Security.Claims;
 using System.Text;
 
@@ -34,6 +35,27 @@ builder.Services
         UseProxy = false
     });
 builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient(WarehouseApiClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<WarehouseApiClient>();
+builder.Services.AddSingleton<Office.Server.Reports.ReportFileTickets>();
+builder.Services.AddSingleton<Office.Server.Locations.EntityFolderService>();
+builder.Services.AddScoped<Office.Server.Reports.FranchiseeReportBuilder>();
+builder.Services.AddScoped<Office.Server.Reports.ReportsInitializer>();
+builder.Services.AddDbContext<Office.Server.DbContexts.RK7.Rk7Context>(options =>
+    options.UseSqlServer(Office.Server.Reports.ReportConnections.Rk7(builder.Configuration)));
+builder.Services.AddDbContext<Office.Server.DbContexts.Reports1C.Reports1CContext>(options =>
+{
+    // Без строки подключения контекст создаётся, но отчёты 1С отвечают понятной ошибкой вместо падения всего контроллера.
+    var reports1C = Office.Server.Reports.ReportConnections.Reports1C(builder.Configuration);
+    if (reports1C is null)
+    {
+        options.UseSqlServer();
+    }
+    else
+    {
+        options.UseSqlServer(reports1C);
+    }
+});
 
 var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
 if (string.IsNullOrWhiteSpace(dataProtectionKeysPath))
@@ -135,6 +157,18 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddSingleton<ClientInfoParser>();
 builder.Services.AddScoped<KnowledgeLibrarySchemaInitializer>();
+builder.Services.AddScoped<DeliveryCashRoleInitializer>();
+builder.Services.AddScoped<StockRoleInitializer>();
+builder.Services.AddScoped<NxRoleInitializer>();
+// Сервер Nx отвечает по https с самоподписанным сертификатом — проверку отключаем только для этого клиента.
+builder.Services
+    .AddHttpClient(Office.Server.Nx.NxRestClient.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
+    });
+builder.Services.AddScoped<Office.Server.Nx.NxRestClient>();
+builder.Services.AddScoped<Office.Server.Nx.NxUserSyncService>();
 builder.Services.AddScoped<KnowledgeLibraryIndexer>();
 builder.Services.AddSingleton<KnowledgeLibraryIndexQueue>();
 builder.Services.AddSingleton<KnowledgeLibraryFileTickets>();
@@ -159,6 +193,46 @@ builder.Services.AddDbContext<Office.Server.DbContexts.PowerBi.PowerBiContext>(o
 });
 
 var app = builder.Build();
+
+try
+{
+    await using var roleScope = app.Services.CreateAsyncScope();
+    await roleScope.ServiceProvider.GetRequiredService<DeliveryCashRoleInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Delivery and cash role initialization failed.");
+}
+
+try
+{
+    await using var nxRoleScope = app.Services.CreateAsyncScope();
+    await nxRoleScope.ServiceProvider.GetRequiredService<NxRoleInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Nx role initialization failed.");
+}
+
+try
+{
+    await using var stockRoleScope = app.Services.CreateAsyncScope();
+    await stockRoleScope.ServiceProvider.GetRequiredService<StockRoleInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Stock role initialization failed.");
+}
+
+try
+{
+    await using var reportsScope = app.Services.CreateAsyncScope();
+    await reportsScope.ServiceProvider.GetRequiredService<Office.Server.Reports.ReportsInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Reports schema and role initialization failed.");
+}
 
 try
 {

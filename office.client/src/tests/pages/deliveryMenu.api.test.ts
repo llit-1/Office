@@ -30,6 +30,8 @@ const payload: DeliveryItemPayload = {
   actual: 1,
   image: "base64-image",
   stops: [],
+  declaration: 7,
+  tnvedCode: "1905908000",
 };
 
 describe("delivery menu item requests", () => {

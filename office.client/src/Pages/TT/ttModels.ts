@@ -15,6 +15,7 @@ export type EntityListItem = {
   id: string;
   name: string;
   owner: number;
+  locationsCount: number;
 };
 
 export type JobTitleListItem = {
@@ -26,13 +27,15 @@ export type JobTitleListItem = {
 export type LocationTypeListItem = {
   id: string;
   name: string;
+  locationsCount: number;
 };
 
+/** Ключ вкладки хранится в адресе (/TT?tab=factory), чтобы после редактирования вернуться на неё. */
 export const ttTabs = [
-  "Торговые точки",
-  "Завод",
-  "Офис",
-  "Организации",
-  "Должность",
-  "Типы",
+  { key: "trade", label: "Торговые точки" },
+  { key: "factory", label: "Завод" },
+  { key: "office", label: "Офис" },
+  { key: "entities", label: "Организации" },
+  { key: "jobtitles", label: "Должность" },
+  { key: "types", label: "Типы" },
 ] as const;

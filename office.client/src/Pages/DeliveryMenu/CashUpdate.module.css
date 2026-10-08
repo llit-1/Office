@@ -1,0 +1,413 @@
+/* Панель версий живёт в общем toolbar раздела, поэтому своей геометрии почти не нужно. */
+/* Селект версии той же высоты, что поиск и кнопки панели, и не шире номера версии. */
+.versionSelectWrapper {
+  width: 116px;
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
+}
+.versionSelect { font-variant-numeric: tabular-nums; }
+
+/* Удаление остаётся кнопкой с рамкой, но подписано опасным цветом. */
+.deleteAction { border-color: var(--color-danger-border); color: var(--color-danger); }
+.deleteAction:hover:not(:disabled) { border-color: var(--color-danger); background: var(--color-danger-bg); }
+/* Обёртка нужна, чтобы подсказка показывалась и на выключенной кнопке. */
+.deleteHint { display: inline-flex; }
+
+/* Иконочная кнопка: без сброса padding и без block у svg иконка уезжает из центра квадрата. */
+.iconAction {
+  width: var(--control-height-md);
+  padding: 0;
+}
+
+.iconAction svg { display: block; }
+
+.sectionState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
+
+/* auto-fill вместо auto-fit: одна касса остаётся карточкой, а не растягивается на всю ширину. */
+.cashGrid { grid-template-columns: repeat(auto-fill, minmax(var(--entity-card-min-width), 1fr)); }
+
+/* Карточка кассы: как в «Видео на ТТ», но полей меньше — ТТ, адрес, связь и версия. */
+/* min-width: 0 - иначе элемент сетки растягивается по самому длинному тексту и наезжает на соседа */
+.cashCard { min-width: 0; cursor: default; }
+
+/* Карточка не кликабельна: при наведении рамка и тень не меняются. Цвет рамки по состоянию
+   повторяет .cardSuccess/.cardWarning/.cardInactive из entity-dashboard, иначе общий .card:hover
+   перекрашивал бы её (а прежний border-color: inherit делал рамку чёрной). */
+.cashToneActual { --cash-card-border: color-mix(in srgb, var(--color-success) 46%, var(--color-border)); }
+.cashToneOutdated { --cash-card-border: color-mix(in srgb, var(--color-warning) 48%, var(--color-border)); }
+.cashToneUnknown { --cash-card-border: color-mix(in srgb, var(--color-inactive-strong) 52%, var(--color-border)); }
+
+.cashCard.cashCard:hover {
+  border-color: var(--cash-card-border, var(--color-border));
+  box-shadow: var(--shadow-sm);
+}
+
+.cashIdentity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.cashTitle {
+  overflow: hidden;
+  font-size: var(--font-size-compact);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashIp {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.cashSeen { color: var(--color-text-subtle); font-size: var(--font-size-caption); }
+
+.cashFooter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.cashVersion {
+  overflow: hidden;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cashVersionOk { background: var(--color-success-bg); color: var(--color-success-text); }
+.cashVersionWarning { background: var(--color-warning-bg); color: var(--color-warning-text); }
+
+.cashSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: cashSpin var(--duration-slow) linear infinite;
+}
+
+@keyframes cashSpin { to { transform: rotate(360deg); } }
+
+/* Модалка добавления версии */
+
+.modalBody { padding: 0; }
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+}
+
+.filePicker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--control-height-lg);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.filePicker:hover { border-color: var(--color-primary); }
+.filePicker:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.filePicker[data-filled] { border-style: solid; border-color: var(--color-border); background: var(--color-surface); }
+.filePicker > svg { flex: none; color: var(--color-text-muted); }
+
+.filePickerBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.filePickerBody strong {
+  overflow: hidden;
+  font-size: var(--font-size-compact);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filePickerBody small { color: var(--color-text-muted); font-size: var(--font-size-caption); }
+
+.filePickerAction {
+  flex: none;
+  color: var(--color-primary);
+  font-size: var(--font-size-compact);
+  font-weight: 600;
+}
+
+.filePicker input[type="file"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Окно выбора версии для одной кассы */
+.installSelect { width: 100%; }
+
+.installSummary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  font-size: var(--font-size-compact);
+}
+
+.installSummary strong { font-weight: 600; }
+
+.rollbackNote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  font-size: var(--font-size-compact);
+  line-height: 1.4;
+}
+
+.modalHint { margin: 0; color: var(--color-text-muted); font-size: var(--font-size-caption); line-height: 1.4; }
+
+.formError { margin: 0; color: var(--color-danger); font-size: var(--font-size-compact); line-height: 1.4; }
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Кнопка «Обновить»: на широком экране текст, на телефоне - иконка */
+.refreshAction { gap: var(--space-2); }
+.refreshIcon { display: none !important; }
+
+/* ---------- Телефон ----------
+   entity-dashboard на узком экране ставит каждый контрол панели в отдельную строку - панель
+   занимала полтора экрана. Здесь панель собрана компактно; удвоенные классы перебивают
+   правила entity-dashboard независимо от порядка подключения стилей. */
+@media (max-width: 586px) {
+  .modalForm { padding: var(--space-4); }
+  .modalActions button { flex: 1; }
+
+  .cashToolbar.cashToolbar { gap: var(--space-2); }
+  .cashToolbarGroup.cashToolbarGroup { gap: var(--space-2); }
+  .cashSearch.cashSearch { width: 100%; min-width: 0; }
+
+  /* версия + скачать + удалить в первой строке, «Установить» и «Добавить» - во второй */
+  .versionActions.versionActions {
+    --version-row-height: var(--touch-target-min);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--version-row-height) var(--version-row-height);
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .versionActions > * { min-width: 0; }
+  .versionSelectWrapper {
+    order: 1;
+    width: 100%;
+    height: var(--version-row-height);
+    min-height: var(--version-row-height);
+  }
+  .iconAction.iconAction {
+    width: 100%;
+    height: var(--version-row-height);
+    min-height: var(--version-row-height);
+  }
+  .deleteHint { display: flex; }
+  .deleteHint > * { flex: 1; }
+  .downloadAction { order: 2; }
+  .deleteHint { order: 3; }
+  .installAction { order: 4; grid-column: 1 / -1; width: 100%; }
+  .addAction { order: 5; grid-column: 1 / -1; width: 100%; }
+
+  /* фильтры - одной строкой с прокруткой, «Обновить» - иконкой в конце строки */
+  .cashToolbarEnd.cashToolbarEnd {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .cashFilters.cashFilters {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .cashFilters > button { flex: 0 0 auto; white-space: nowrap; }
+
+  /* кнопка той же высоты, что и фильтры (иначе на сенсорном экране она на 4px выше) */
+  .refreshAction.refreshAction {
+    width: var(--control-height-md);
+    min-width: var(--control-height-md);
+    height: var(--control-height-md);
+    min-height: var(--control-height-md);
+    flex: 0 0 auto;
+    padding: 0;
+  }
+
+  .refreshIcon { display: block !important; }
+  .refreshLabel { display: none; }
+
+  /* четыре счётчика - одной строкой компактных плиток */
+  .cashMetrics.cashMetrics {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-1);
+  }
+
+  .cashMetrics > div {
+    min-width: 0;
+    min-height: 0;
+    padding: var(--space-2);
+    gap: 2px;
+  }
+
+  .cashMetrics > div > span {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cashMetrics > div > strong { font-size: 20px; line-height: 1.1; }
+
+  /* строки сетки растут по содержимому: блок задачи не обрезается */
+  .cashGrid.cashGrid { grid-auto-rows: minmax(124px, auto); }
+
+  /* на телефоне iOS увеличивает страницу при фокусе на поле с шрифтом меньше 16px */
+  .cashSearch input { font-size: 16px; }
+}
+
+/* Карточка с задачей выше обычной: строки сетки растут по содержимому. */
+.cashGrid { grid-auto-rows: minmax(124px, auto); }
+
+.cardDeleteButton:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+}
+
+/* Блок задачи: заголовок, этап и полоска из сегментов по числу этапов. */
+.task {
+  --task-color: var(--color-text-muted);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--task-color) 8%, var(--color-surface));
+  color: var(--task-color);
+}
+
+.taskQueued { --task-color: var(--color-text-muted); }
+.taskRunning { --task-color: var(--color-primary); }
+.taskDone { --task-color: var(--color-success); }
+
+/* Название и этап - две строки: в узкой карточке в одну строку они не помещаются. */
+.taskHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.taskTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.taskTitle {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.taskStage {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* длинный этап переносится, а не обрезается: в узкой карточке он важнее высоты */
+.taskStageText {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+/* счётчик шагов не сжимается и прижат вправо */
+.taskStep {
+  flex: none;
+  margin-left: auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.taskStage .cashSpinner { flex: none; width: 10px; height: 10px; }
+
+.taskTrack {
+  display: flex;
+  gap: 3px;
+}
+
+.taskSegment {
+  height: 4px;
+  flex: 1;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--task-color) 18%, var(--color-surface));
+}
+
+.taskSegment[data-filled] { background: var(--task-color); }
+.taskSegment[data-current] { animation: taskPulse 1.2s ease-in-out infinite; }
+
+@keyframes taskPulse { 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .taskSegment[data-current], .cashSpinner { animation: none; }
+}

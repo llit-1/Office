@@ -1519,3 +1519,32 @@
         min-height: clamp(240px, 40dvh, 320px);
     }
 }
+
+.sensorMetricsGrid {
+    grid-template-columns: repeat(5, minmax(110px, 1fr));
+}
+
+.sensorMetricLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sensorMetricDot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: var(--radius-pill);
+}
+
+@media (max-width: 900px) {
+    .sensorMetricsGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .sensorMetricsGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

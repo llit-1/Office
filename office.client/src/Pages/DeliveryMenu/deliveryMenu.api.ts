@@ -1,5 +1,8 @@
 import { ApiError, del, get, patch, post, put } from "../../Services/api";
 import type {
+  Declaration,
+  DeclarationLookup,
+  DeclarationPayload,
   DeliveryGroup,
   DeliveryGroupPayload,
   DeliveryItem,
@@ -59,6 +62,24 @@ export function updateDeliveryItem(id: number, payload: DeliveryItemPayload) {
     imageHash: "",
     group: null,
   });
+}
+
+export function getActualDeclarations() {
+  return get<Declaration[]>(`${baseUrl}/declarations/actual`);
+}
+
+/** Поиск декларации в реестре по номеру; null — не найдена (404). */
+export async function lookupDeclaration(docNumber: string) {
+  try {
+    return await post<DeclarationLookup>(`${baseUrl}/declarations/lookup`, { docNumber });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+export function createDeclaration(payload: DeclarationPayload) {
+  return post<Declaration>(`${baseUrl}/declarations`, payload);
 }
 
 export function setDeliveryItemActual(id: number, actual: boolean) {

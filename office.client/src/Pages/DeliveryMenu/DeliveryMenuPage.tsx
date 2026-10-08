@@ -5,6 +5,7 @@ import EditRoundedIcon from "@mui/icons-material/EditRounded";
 import Inventory2OutlinedIcon from "@mui/icons-material/Inventory2Outlined";
 import LockOpenRoundedIcon from "@mui/icons-material/LockOpenRounded";
 import LockRoundedIcon from "@mui/icons-material/LockRounded";
+import PriorityHighRoundedIcon from "@mui/icons-material/PriorityHighRounded";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
@@ -24,10 +25,12 @@ import { titleSet } from "../../Store/stateForPageTitleSlice";
 import CategoryModal from "./components/CategoryModal";
 import ItemModal from "./components/ItemModal";
 import {
+  createDeclaration,
   createDeliveryGroup,
   createDeliveryItem,
   deleteDeliveryGroup,
   findDeliveryItem,
+  getActualDeclarations,
   getDeliveryGroupItems,
   getDeliveryGroups,
   getRkReference,
@@ -40,6 +43,8 @@ import {
   updateDeliveryItem,
 } from "./deliveryMenu.api";
 import type {
+  Declaration,
+  DeclarationPayload,
   DeliveryGroup,
   DeliveryGroupPayload,
   DeliveryItem,
@@ -50,26 +55,33 @@ import type {
 } from "./deliveryMenu.types";
 import { flattenRkCategories, formatMeasureUnit, formatPrice, getImageSource } from "./deliveryMenu.utils";
 import styles from "./DeliveryMenu.module.css";
-import DeliveryStopsPage from "./DeliveryStopsPage";
+import { deliveryMenuRoles, hasAnyRole } from "./sectionRoles";
+import { activeItemStops, formatStopEnd, stopTime } from "./stopStatus";
+import useStopRefresh from "./useStopRefresh";
+import useCashMenuSearch from "./useCashMenuSearch";
+import { declarationStatus, normalizeDocNumber, type DeclarationStatus } from "./declarations.utils";
+
+const DECLARATION_BADGE: Record<DeclarationStatus, string> = {
+  valid: "Декларация",
+  expired: "Декларация истекла",
+  none: "Нет декларации",
+};
 
 export default function DeliveryMenuPage() {
-  const roles = useSelector((state: RootState) => state.userData.roles);
-  const location = useLocation();
-  const isMenuAuditor = roles.includes("MenuAuditor");
-  const isMenuAdminStops = roles.includes("MenuAdmin") && location.pathname.toLocaleLowerCase() === "/deliverymenu/stops";
-  return isMenuAuditor || isMenuAdminStops ? <DeliveryStopsPage /> : <DeliveryCatalogPage />;
-}
-
-function DeliveryCatalogPage() {
   const { groupId } = useParams<{ groupId?: string }>();
   const selectedGroupId = groupId && Number.isInteger(Number(groupId)) ? Number(groupId) : null;
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const notifications = useNotifications();
+  const { show } = useNotifications();
   const roles = useSelector((state: RootState) => state.userData.roles);
-  const isMenuAdmin = roles.includes("MenuAdmin");
-  const canManageMenu = roles.includes("MenuMarketing") || isMenuAdmin;
-  const canUseStops = isMenuAdmin || (roles.includes("Menu") && !canManageMenu);
+  const userId = useSelector((state: RootState) => state.auth?.id ?? null);
+  const locationStorageKey = `office:cash-location:${userId ?? "session"}`;
+  const location = useLocation();
+  const cashMode = /^\/cash(?:\/|$)/i.test(location.pathname);
+  const isCashAuditor = roles.includes("MenuAuditor");
+  const canManageMenu = !cashMode && hasAnyRole(roles, deliveryMenuRoles);
+  const canUseStops = cashMode && (isCashAuditor || roles.includes("Menu"));
+  const catalogPath = cashMode ? "/Cash/items" : "/Delivery/menu";
   const hideInactiveCategories = !canManageMenu;
   const hideInactiveItems = !canManageMenu;
 
@@ -89,11 +101,20 @@ function DeliveryCatalogPage() {
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<DeliveryItem | null>(null);
   const [itemSaving, setItemSaving] = useState(false);
+  // Действующие декларации (закон о платформенной экономике) — для карточки позиции и бейджей.
+  const [declarations, setDeclarations] = useState<Declaration[]>([]);
+  const [declarationsLoading, setDeclarationsLoading] = useState(false);
+  const [declarationsLoaded, setDeclarationsLoaded] = useState(false);
+  const [declarationsError, setDeclarationsError] = useState("");
   const [stopLocations, setStopLocations] = useState<StopLocation[]>([]);
   const [stopPacks, setStopPacks] = useState<StopPack[]>([]);
   const [selectedLocation, setSelectedLocation] = useState("");
-  const [stopTarget, setStopTarget] = useState<DeliveryItem | null>(null);
+  const [stopTarget, setStopTarget] = useState<{ item: DeliveryItem; location: string; locationName: string; remove: boolean } | null>(null);
   const [stopMutating, setStopMutating] = useState(false);
+  const stopMutationRef = useRef(false);
+  const stopRequestRef = useRef(0);
+  const [stopsReady, setStopsReady] = useState(false);
+  const [stopError, setStopError] = useState("");
   const [sourceItems, setSourceItems] = useState<RkMenuOption[]>([]);
   const [sourceLoading, setSourceLoading] = useState(false);
   const [sourceLoaded, setSourceLoaded] = useState(false);
@@ -106,6 +127,43 @@ function DeliveryCatalogPage() {
     () => groups.find((group) => group.id === selectedGroupId) ?? null,
     [groups, selectedGroupId],
   );
+  const globalSearch = canUseStops && search.trim().length > 0;
+  // Всё меню нужно поиску по всем категориям, бейджам стопов (касса) и счётчикам позиций без декларации (доставка).
+  const allMenu = useCashMenuSearch(groups, (canUseStops || canManageMenu) && (globalSearch || selectedGroupId === null) && !pageLoading);
+
+  const loadDeclarations = useCallback(async () => {
+    if (!canManageMenu) return;
+    setDeclarationsLoading(true);
+    setDeclarationsError("");
+    try {
+      setDeclarations(await getActualDeclarations());
+      setDeclarationsLoaded(true);
+    } catch (error) {
+      setDeclarationsError(getFriendlyErrorMessage(error, "Не удалось загрузить декларации."));
+    } finally {
+      setDeclarationsLoading(false);
+    }
+  }, [canManageMenu]);
+
+  useEffect(() => { void loadDeclarations(); }, [loadDeclarations]);
+
+  const actualDeclarationIds = useMemo(() => new Set(declarations.map((declaration) => declaration.id)), [declarations]);
+  // Бейджи деклараций показываем только когда список действующих загружен — иначе все выглядели бы истёкшими.
+  const showDeclarations = canManageMenu && declarationsLoaded;
+
+  // Сколько активных позиций каждой категории без действующей декларации (нет или истекла).
+  const categoryDeclarationGaps = useMemo(() => {
+    if (!showDeclarations || !allMenu.loaded) return null;
+    const byCode = new Map(allMenu.items.map((item) => [item.rkcode, item]));
+    const gaps = new Map<number, number>();
+    allMenu.rkcodesByGroup.forEach((rkcodes, groupId) => {
+      gaps.set(groupId, rkcodes.filter((rkcode) => {
+        const menuItem = byCode.get(rkcode);
+        return menuItem ? declarationStatus(menuItem, actualDeclarationIds) !== "valid" : false;
+      }).length);
+    });
+    return gaps;
+  }, [actualDeclarationIds, allMenu.items, allMenu.loaded, allMenu.rkcodesByGroup, showDeclarations]);
 
   const loadData = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
@@ -155,22 +213,46 @@ function DeliveryCatalogPage() {
 
   const loadWorkerStops = useCallback(async () => {
     if (!canUseStops) return;
+    const requestId = ++stopRequestRef.current;
     try {
       const [locations, packs] = await Promise.all([getStopLocations(), getStopPacks()]);
+      if (requestId !== stopRequestRef.current) return;
       setStopLocations(locations);
       setStopPacks(packs);
-      setSelectedLocation((current) => isMenuAdmin && locations.some((location) => location.guid === current)
-        ? current
-        : locations[0]?.guid ?? "");
-    } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось загрузить стопы и доступные торговые точки."), {
-        severity: "error",
-        autoHideDuration: 5000,
+      setSelectedLocation((current) => {
+        let saved = "";
+        try { saved = localStorage.getItem(locationStorageKey) ?? ""; } catch { /* Storage may be disabled. */ }
+        const preferred = current || saved;
+        return isCashAuditor && locations.some((entry) => entry.guid === preferred) ? preferred : locations[0]?.guid ?? "";
       });
+      setStopsReady(true);
+      setStopError("");
+      return packs;
+    } catch (error) {
+      if (requestId === stopRequestRef.current) setStopError(getFriendlyErrorMessage(error, "Не удалось обновить стопы. Показаны последние полученные данные."));
     }
-  }, [canUseStops, isMenuAdmin, notifications]);
+  }, [canUseStops, isCashAuditor, locationStorageKey]);
 
   useEffect(() => { void loadWorkerStops(); }, [loadWorkerStops]);
+  const now = useStopRefresh(canUseStops && !stopMutating, loadWorkerStops);
+  const currentLocationName = stopLocations.find((entry) => entry.guid === selectedLocation)?.name ?? "";
+
+  // Сколько позиций каждой категории сейчас в стопе на выбранной ТТ (любой уровень стопа).
+  const categoryStopCounts = useMemo(() => {
+    if (!canUseStops || !stopsReady || !selectedLocation || !allMenu.loaded) return null;
+    const counts = new Map<number, number>();
+    allMenu.rkcodesByGroup.forEach((rkcodes, groupId) => {
+      counts.set(groupId, rkcodes.filter((rkcode) => activeItemStops(stopPacks, rkcode, selectedLocation, now).length > 0).length);
+    });
+    return counts;
+  }, [allMenu.loaded, allMenu.rkcodesByGroup, canUseStops, now, selectedLocation, stopPacks, stopsReady]);
+  const chooseLocation = (value: string) => {
+    setSelectedLocation(value);
+    setStopTarget(null);
+    if (isCashAuditor) {
+      try { localStorage.setItem(locationStorageKey, value); } catch { /* Keep the in-memory selection. */ }
+    }
+  };
 
   useEffect(() => {
     setSearch("");
@@ -178,18 +260,18 @@ function DeliveryCatalogPage() {
 
   useEffect(() => {
     dispatch(visibleSet({ visible: true }));
-    dispatch(pathSet({ path: selectedGroupId === null ? "/Main" : "/DeliveryMenu" }));
-    dispatch(titleSet({ title: selectedGroup?.yaName ?? "Категории" }));
-  }, [dispatch, selectedGroup?.yaName, selectedGroupId]);
+    dispatch(pathSet({ path: selectedGroupId === null ? "/Main" : catalogPath }));
+    dispatch(titleSet({ title: selectedGroup?.yaName ?? (cashMode ? "Касса" : "Доставка") }));
+  }, [dispatch, selectedGroup?.yaName, selectedGroupId, cashMode, catalogPath]);
 
   const filteredItems = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("ru-RU");
-    return items
+    return (globalSearch ? allMenu.items : items)
       .filter((item) => !query || `${item.yeName} ${item.rkName} ${item.description} ${item.rkcode}`
           .toLocaleLowerCase("ru-RU")
           .includes(query))
       .sort((left, right) => Number(right.actual === 1) - Number(left.actual === 1));
-  }, [items, search]);
+  }, [items, search, globalSearch, allMenu.items]);
 
   const existingCodes = useMemo(() => new Set(items.map((item) => item.rkcode)), [items]);
 
@@ -208,15 +290,15 @@ function DeliveryCatalogPage() {
     try {
       if (editingCategory) {
         await updateDeliveryGroup(editingCategory.id, payload);
-        notifications.show("Категория обновлена", { severity: "success", autoHideDuration: 3000 });
+        show("Категория обновлена", { severity: "success", autoHideDuration: 3000 });
       } else {
         await createDeliveryGroup(payload);
-        notifications.show("Категория создана", { severity: "success", autoHideDuration: 3000 });
+        show("Категория создана", { severity: "success", autoHideDuration: 3000 });
       }
       setCategoryModalOpen(false);
       await loadData();
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось сохранить категорию."), {
+      show(getFriendlyErrorMessage(error, "Не удалось сохранить категорию."), {
         severity: "error",
         autoHideDuration: 5000,
       });
@@ -230,12 +312,12 @@ function DeliveryCatalogPage() {
     setDeletingCategory(true);
     try {
       await deleteDeliveryGroup(deleteCategoryTarget.id);
-      notifications.show("Категория удалена", { severity: "success", autoHideDuration: 3000 });
+      show("Категория удалена", { severity: "success", autoHideDuration: 3000 });
       setDeleteCategoryTarget(null);
-      navigate("/DeliveryMenu");
+      navigate(catalogPath);
       await loadData();
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Удалить можно только пустую категорию."), {
+      show(getFriendlyErrorMessage(error, "Удалить можно только пустую категорию."), {
         severity: "error",
         autoHideDuration: 5000,
       });
@@ -252,14 +334,14 @@ function DeliveryCatalogPage() {
       setSourceItems(flattenRkCategories(reference.categories ?? []));
       setSourceLoaded(true);
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось загрузить меню R-Keeper."), {
+      show(getFriendlyErrorMessage(error, "Не удалось загрузить меню R-Keeper."), {
         severity: "error",
         autoHideDuration: 5000,
       });
     } finally {
       setSourceLoading(false);
     }
-  }, [notifications, sourceLoaded, sourceLoading]);
+  }, [show, sourceLoaded, sourceLoading]);
 
   const openCreateItem = () => {
     setEditingItem(null);
@@ -272,9 +354,19 @@ function DeliveryCatalogPage() {
     setItemModalOpen(true);
   };
 
-  const saveItem = async (payload: DeliveryItemPayload) => {
+  const saveItem = async (itemPayload: DeliveryItemPayload, newDeclaration: DeclarationPayload | null) => {
     setItemSaving(true);
     try {
+      let payload = itemPayload;
+      if (newDeclaration) {
+        // Если декларация с таким номером уже есть у нас (например, сохранилась при прошлой неудачной попытке),
+        // повторно её не создаём.
+        const number = normalizeDocNumber(newDeclaration.docNumber);
+        const existing = declarations.find((declaration) => normalizeDocNumber(declaration.docNumber) === number);
+        const declaration = existing ?? await createDeclaration(newDeclaration);
+        if (!existing) setDeclarations((current) => [...current, declaration]);
+        payload = { ...payload, declaration: declaration.id };
+      }
       const savedItem: DeliveryItem = { ...payload, imageHash: "" };
 
       if (editingItem) {
@@ -285,12 +377,12 @@ function DeliveryCatalogPage() {
         setItems((current) => current.map((item) =>
           item.rkcode === editingItem.rkcode ? savedItem : item,
         ));
-        notifications.show("Позиция обновлена", { severity: "success", autoHideDuration: 3000 });
+        show("Позиция обновлена", { severity: "success", autoHideDuration: 3000 });
       } else {
         const existingItem = await findDeliveryItem(payload.rkcode);
         if (existingItem) {
           const existingGroupName = groups.find((group) => group.id === existingItem.yeGroup)?.yaName;
-          notifications.show(
+          show(
             existingGroupName
               ? `Позиция уже добавлена в категорию «${existingGroupName}».`
               : "Позиция с таким RK-кодом уже добавлена в меню.",
@@ -300,11 +392,13 @@ function DeliveryCatalogPage() {
         }
         await createDeliveryItem(payload);
         setItems((current) => [...current, savedItem]);
-        notifications.show("Позиция добавлена", { severity: "success", autoHideDuration: 3000 });
+        show("Позиция добавлена", { severity: "success", autoHideDuration: 3000 });
       }
       setItemModalOpen(false);
+      // Счётчики «без декларации» на категориях считаются по всему меню — перечитываем его.
+      allMenu.reload();
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось сохранить позицию."), {
+      show(getFriendlyErrorMessage(error, "Не удалось сохранить позицию."), {
         severity: "error",
         autoHideDuration: 5000,
       });
@@ -313,31 +407,30 @@ function DeliveryCatalogPage() {
     }
   };
 
-  const effectiveStopsFor = useCallback((itemId: number) => {
-    const now = Date.now();
-    return stopPacks.flatMap((pack) => pack.stops).filter((stop) => {
-      const begin = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(stop.begin) ? stop.begin : `${stop.begin}+03:00`).getTime();
-      const end = new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(stop.end) ? stop.end : `${stop.end}+03:00`).getTime();
-      return stop.item === itemId && stop.locationGUID === selectedLocation && begin <= now && end > now;
-    });
-  }, [selectedLocation, stopPacks]);
-
-  const effectivePacksFor = useCallback((itemId: number) => {
-    const effectiveStops = effectiveStopsFor(itemId);
-    return stopPacks.filter((pack) => pack.stops.some((stop) => effectiveStops.includes(stop)));
-  }, [effectiveStopsFor, stopPacks]);
-
-  const mutateWorkerStop = async (item: DeliveryItem) => {
-    if (!selectedLocation || stopMutating) return;
-    const effectivePacks = effectivePacksFor(item.rkcode);
-    const hasLevelTwo = effectivePacks.some((pack) => pack.permissionLevel === 2);
+  const mutateWorkerStop = async () => {
+    if (!stopTarget || stopMutationRef.current) return;
+    const target = stopTarget;
+    const item = target.item;
+    stopMutationRef.current = true;
     setStopMutating(true);
     try {
-      if (hasLevelTwo) {
-        await removeLevelTwoStops(item.rkcode, selectedLocation);
-        notifications.show("Стоп снят", { severity: "success", autoHideDuration: 2500 });
+      // Recheck immediately before mutation without changing the action shown in the dialog.
+      const packs = await loadWorkerStops();
+      if (!packs) {
+        show("Не удалось проверить состояние стопа. Повторите после обновления данных.", { severity: "error" });
+        return;
+      }
+      const current = activeItemStops(packs, item.rkcode, target.location, Date.now());
+      if (current.some((stop) => stop.permissionLevel === 1) || current.some((stop) => stop.permissionLevel === 2) !== target.remove) {
+        setStopTarget(null);
+        show("Состояние позиции изменилось. Проверьте обновлённый статус и выберите действие заново.", { severity: "warning" });
+        return;
+      }
+      ++stopRequestRef.current;
+      if (target.remove) {
+        await removeLevelTwoStops(item.rkcode, target.location);
+        show(`Стоп снят для «${target.locationName}»`, { severity: "success", autoHideDuration: 2500 });
       } else {
-        const location = stopLocations.find((entry) => entry.guid === selectedLocation);
         const now = new Date();
         await createStopPack({
           itemId: item.rkcode,
@@ -347,15 +440,16 @@ function DeliveryCatalogPage() {
           begin: now.toISOString(),
           end: now.toISOString(),
           permissionLevel: 2,
-          stops: [{ locationGUID: selectedLocation, item: item.rkcode }],
+          stops: [{ locationGUID: target.location, item: item.rkcode }],
         });
-        notifications.show(`Позиция заблокирована для «${location?.name ?? "ТТ"}» до 00:00`, { severity: "success", autoHideDuration: 3000 });
+        show(`Позиция заблокирована для «${target.locationName}» до 00:00`, { severity: "success", autoHideDuration: 3000 });
       }
       setStopTarget(null);
       await loadWorkerStops();
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось изменить стоп."), { severity: "error", autoHideDuration: 5000 });
+      show(getFriendlyErrorMessage(error, "Не удалось изменить стоп."), { severity: "error", autoHideDuration: 5000 });
     } finally {
+      stopMutationRef.current = false;
       setStopMutating(false);
     }
   };
@@ -387,7 +481,7 @@ function DeliveryCatalogPage() {
         <Inventory2OutlinedIcon className={styles.largeStateIcon} />
         <h2>Категория не найдена</h2>
         <p>Возможно, она была удалена или отключена.</p>
-        <Button variant="primary" onClick={() => navigate("/DeliveryMenu")}>
+        <Button variant="primary" onClick={() => navigate(catalogPath)}>
           К списку категорий
         </Button>
       </div>
@@ -396,32 +490,48 @@ function DeliveryCatalogPage() {
 
   return (
     <div className={styles.page}>
-      {isMenuAdmin && selectedGroup && (
+      {canUseStops && !isCashAuditor && (
         <section className={styles.locationBar}>
           <div className={styles.locationBarIntro}>
             <span className={styles.locationBarIcon}><LocationOnOutlinedIcon /></span>
             <div>
-              <strong>Быстрый стоп</strong>
-              <small>Замки на позициях применяются к выбранной торговой точке</small>
+              <strong>{currentLocationName || "Быстрые стопы"}</strong>
+              <small>Только агрегаторы · до 00:00 по Москве</small>
             </div>
           </div>
-          <div className={styles.locationPicker}>
-            <Select
-              label="Торговая точка"
-              options={stopLocations.map((location) => ({ value: location.guid, label: location.name }))}
-              value={selectedLocation}
-              onChange={(event) => setSelectedLocation(event.target.value)}
-              placeholder="Выберите торговую точку"
-              wrapperClassName={styles.locationSelect}
-              search
-              size="small"
-            />
-          </div>
+          {!currentLocationName && <strong>{stopsReady ? "Нет доступных торговых точек" : "Загружаем торговую точку…"}</strong>}
         </section>
       )}
-      {selectedGroup ? (
+      {canUseStops && <>
+        {stopError && <p role="alert" className={styles.refreshError}>{stopError} Действия временно недоступны.</p>}
+        <section className={styles.toolbar}>
+          <div className={styles.toolbarSearchGroup}>
+            <label className={styles.searchField}><SearchRoundedIcon /><input value={search}
+              aria-label="Поиск по всем категориям" placeholder="Найти блюдо: название или RK-код"
+              onChange={(event) => setSearch(event.target.value)} /></label>
+            {isCashAuditor && (
+              <div className={styles.locationPicker}>
+                <Select
+                  label="Торговая точка"
+                  hideLabel
+                  options={stopLocations.map((location) => ({ value: location.guid, label: location.name }))}
+                  value={selectedLocation}
+                  onChange={(event) => chooseLocation(event.target.value)}
+                  disabled={stopMutating || stopTarget !== null}
+                  placeholder="Выберите торговую точку"
+                  wrapperClassName={styles.locationSelect}
+                  search
+                  size="small"
+                />
+              </div>
+            )}
+          </div>
+          {search && <Button size="sm" onClick={() => setSearch("")}>Сбросить поиск</Button>}
+        </section>
+      </>}
+      {selectedGroup || globalSearch ? (
         <>
-          <section className={styles.categoryHero}>
+          {selectedGroup && !globalSearch && canUseStops && <section className={styles.categoryHero}>
             {getImageSource(selectedGroup.image) && (
               <img src={getImageSource(selectedGroup.image) ?? ""} alt="" className={styles.categoryHeroImage} />
             )}
@@ -432,44 +542,57 @@ function DeliveryCatalogPage() {
                 {items.length} {items.length === 1 ? "позиция" : "позиций"}
               </p>
             </div>
-            {canManageMenu && (
-              <div className={styles.categoryHeroActions}>
-                <button type="button" className={styles.heroSecondaryButton} onClick={() => openEditCategory(selectedGroup)}>
-                  <EditRoundedIcon />
-                  Изменить категорию
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.heroSecondaryButton} ${styles.heroDangerButton}`}
-                  onClick={() => setDeleteCategoryTarget(selectedGroup)}
-                >
-                  <DeleteOutlineRoundedIcon />
-                  Удалить категорию
-                </button>
-                <button type="button" className={styles.heroPrimaryButton} onClick={openCreateItem}>
-                  <AddRoundedIcon />
-                  Добавить позицию
-                </button>
-              </div>
-            )}
-          </section>
+          </section>}
 
-          <section className={styles.toolbar}>
-            <label className={styles.searchField}>
-              <SearchRoundedIcon />
-              <input
-                value={search}
-                placeholder="Поиск по названию, описанию или RK-коду"
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-          </section>
+          {!canUseStops && <section className={styles.toolbar}>
+            <div className={styles.toolbarSearchGroup}>
+              <label className={styles.searchField}>
+                <SearchRoundedIcon />
+                <input
+                  value={search}
+                  placeholder="Поиск по названию, описанию или RK-коду"
+                  onChange={(event) => setSearch(event.target.value)}
+                />
+              </label>
+              {selectedGroup && canManageMenu && (
+                <div className={styles.categoryToolbarActions}>
+                  <button
+                    type="button"
+                    className={styles.heroSecondaryButton}
+                    onClick={() => openEditCategory(selectedGroup)}
+                    aria-label="Изменить категорию"
+                  >
+                    <EditRoundedIcon />
+                    Изменить<span className={styles.labelTail}> категорию</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.heroSecondaryButton} ${styles.heroDangerButton}`}
+                    onClick={() => setDeleteCategoryTarget(selectedGroup)}
+                    aria-label="Удалить категорию"
+                  >
+                    <DeleteOutlineRoundedIcon />
+                    Удалить<span className={styles.labelTail}> категорию</span>
+                  </button>
+                  <button type="button" className={styles.heroPrimaryButton} onClick={openCreateItem}>
+                    <AddRoundedIcon />
+                    Добавить позицию
+                  </button>
+                </div>
+              )}
+            </div>
+          </section>}
 
-          {filteredItems.length === 0 ? (
+          {globalSearch && <p className={styles.searchSummary}>Поиск по всем категориям{!allMenu.loading && !allMenu.error ? ` · найдено: ${filteredItems.length}` : ""}</p>}
+          {globalSearch && allMenu.loading ? (
+            <div className={styles.searchLoading}><LoadingSpinner label="Ищем во всех категориях…" /></div>
+          ) : globalSearch && allMenu.error ? (
+            <div role="alert"><p>{allMenu.error}</p><Button onClick={allMenu.retry}>Повторить поиск</Button></div>
+          ) : filteredItems.length === 0 ? (
             <section className={styles.emptyState}>
               <RestaurantMenuRoundedIcon />
-              <h2>{items.length === 0 ? "В категории пока нет позиций" : "Ничего не найдено"}</h2>
-              <p>{items.length === 0 ? "Добавьте первое блюдо из актуального меню R-Keeper." : "Попробуйте изменить поисковый запрос."}</p>
+              <h2>{!globalSearch && items.length === 0 ? "В категории пока нет позиций" : "Ничего не найдено"}</h2>
+              <p>{!globalSearch && items.length === 0 && canManageMenu ? "Добавьте первое блюдо из актуального меню R-Keeper." : "Попробуйте изменить поисковый запрос."}</p>
               {items.length === 0 && canManageMenu && (
                 <Button variant="primary" leadingIcon={<AddRoundedIcon />} onClick={openCreateItem}>
                   Добавить позицию
@@ -481,31 +604,33 @@ function DeliveryCatalogPage() {
               {filteredItems.map((item) => {
                 const imageSource = getImageSource(item.image);
                 const active = item.actual === 1;
-                const effectiveStops = effectiveStopsFor(item.rkcode);
-                const effectivePacks = effectivePacksFor(item.rkcode);
-                const hasLevelOne = effectivePacks.some((pack) => pack.permissionLevel === 1);
-                const hasLevelTwo = effectivePacks.some((pack) => pack.permissionLevel === 2);
+                const effectiveStops = canUseStops ? activeItemStops(stopPacks, item.rkcode, selectedLocation, now) : [];
+                const hasLevelOne = effectiveStops.some((stop) => stop.permissionLevel === 1);
+                const hasLevelTwo = effectiveStops.some((stop) => stop.permissionLevel === 2);
                 const stopped = hasLevelOne || hasLevelTwo;
                 const currentLocationName = stopLocations.find((location) => location.guid === selectedLocation)?.name ?? "выбранной ТТ";
-                const latestStopEnd = effectiveStops.sort((left, right) => right.end.localeCompare(left.end))[0]?.end;
-                const stopEnd = latestStopEnd
-                  ? new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-                    .format(new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(latestStopEnd) ? latestStopEnd : `${latestStopEnd}+03:00`))
-                  : "";
+                const latestStopEnd = Math.max(...effectiveStops.filter((stop) => stop.permissionLevel === (hasLevelOne ? 1 : 2)).map((stop) => stopTime(stop.end)));
+                const stopEnd = Number.isFinite(latestStopEnd) ? formatStopEnd(latestStopEnd) : "";
+                const statusUnknown = !stopsReady || Boolean(stopError) || !selectedLocation;
                 const stopTitle = !selectedLocation
                   ? "Сначала выберите торговую точку"
                   : hasLevelOne
-                    ? `Касса и агрегаторы · ${currentLocationName} · до ${stopEnd}. Снять может только аудитор`
+                    ? `Касса и агрегаторы · ${currentLocationName} · до ${stopEnd}. Управление в разделе «Стоп-листы»`
                     : hasLevelTwo
                       ? `Только агрегаторы · ${currentLocationName} · до ${stopEnd}. Нажмите, чтобы снять`
                       : `Поставить стоп в агрегаторах для «${currentLocationName}» до 00:00`;
                 return (
                   <article
                     key={item.rkcode}
-                    className={`${styles.itemCard} ${!active ? styles.itemCardInactive : ""} ${stopped ? styles.itemCardStopped : ""}`}
+                    className={`${styles.itemCard} ${!active ? styles.itemCardInactive : ""} ${
+                      stopped ? `${styles.itemCardStopped} ${hasLevelOne ? styles.itemCardStoppedFull : styles.itemCardStoppedPartial}` : ""
+                    }`}
                   >
                     <div className={styles.itemMedia}>
                       {imageSource ? <img src={imageSource} alt={item.yeName} /> : <RestaurantMenuRoundedIcon />}
+                      <span className={`${styles.itemStatus} ${styles.itemStatusBadge} ${!active || stopped ? styles.statusStopped : styles.statusAvailable}`}>
+                        {!active ? "Отключено" : canUseStops ? statusUnknown ? "Статус не подтверждён" : hasLevelOne ? "Глобальный стоп" : hasLevelTwo ? "Стоп до 00:00" : "Доступно" : "Активно"}
+                      </span>
                       {(canManageMenu || canUseStops) && (
                         <div className={styles.itemCardActions}>
                           {canManageMenu && (
@@ -523,10 +648,10 @@ function DeliveryCatalogPage() {
                             <button
                               type="button"
                               className={`${styles.itemCardActionButton} ${stopped ? styles.itemCardLockButtonClosed : ""}`}
-                              disabled={!selectedLocation || stopMutating}
+                              disabled={statusUnknown || stopMutating || hasLevelOne}
                               aria-disabled={hasLevelOne}
-                              onClick={() => { if (!hasLevelOne) setStopTarget(item); }}
-                              aria-label={stopped ? `Снять стоп с ${item.yeName}` : `Поставить стоп на ${item.yeName}`}
+                              onClick={() => setStopTarget({ item, location: selectedLocation, locationName: currentLocationName, remove: hasLevelTwo })}
+                              aria-label={hasLevelOne ? `Глобальный стоп на ${item.yeName}` : stopped ? `Снять стоп с ${item.yeName}` : `Поставить стоп на ${item.yeName}`}
                               title={stopTitle}
                             >
                               {stopped ? <LockRoundedIcon /> : <LockOpenRoundedIcon />}
@@ -536,6 +661,11 @@ function DeliveryCatalogPage() {
                       )}
                     </div>
                     <div className={styles.itemBody}>
+                      {globalSearch && (
+                        <div className={styles.statusLine}>
+                          <small>{groups.find((group) => group.id === item.yeGroup)?.yaName}</small>
+                        </div>
+                      )}
                       <div className={styles.itemHeading}>
                         <h2>{item.yeName}</h2>
                         <strong>{formatPrice(item.price)}</strong>
@@ -544,6 +674,18 @@ function DeliveryCatalogPage() {
                       <div className={styles.itemMeta}>
                         <span>{item.measure} {formatMeasureUnit(item.measureUnit)}</span>
                         <span>RK #{item.rkcode}</span>
+                        {showDeclarations && (() => {
+                          const status = declarationStatus(item, actualDeclarationIds);
+                          return (
+                            <span
+                              className={`${styles.itemDeclarationBadge} ${
+                                status === "valid" ? styles.itemDeclarationValid : status === "expired" ? styles.itemDeclarationExpired : styles.itemDeclarationMissing
+                              }`}
+                            >
+                              {DECLARATION_BADGE[status]}
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </article>
@@ -556,13 +698,6 @@ function DeliveryCatalogPage() {
       ) : (
         <>
           <section className={styles.categoriesGrid}>
-            {isMenuAdmin && (
-              <button type="button" className={styles.stopListsCard} onClick={() => navigate("/DeliveryMenu/stops") }>
-                <span><LockRoundedIcon /></span>
-                <strong>Стоп-листы</strong>
-                <small>Управление блокировками</small>
-              </button>
-            )}
             {canManageMenu && (
               <button type="button" className={styles.addCategoryCard} onClick={openCreateCategory}>
                 <span><AddRoundedIcon /></span>
@@ -573,15 +708,32 @@ function DeliveryCatalogPage() {
 
             {groups.map((group) => {
               const imageSource = getImageSource(group.image);
+              const stopCount = categoryStopCounts?.get(group.id) ?? 0;
+              const declarationGaps = categoryDeclarationGaps?.get(group.id) ?? 0;
               return (
                 <article key={group.id} className={styles.categoryCard}>
-                  <button type="button" className={styles.categoryCardMain} onClick={() => navigate(`/DeliveryMenu/${group.id}`)}>
+                  <button type="button" className={styles.categoryCardMain} onClick={() => navigate(`${catalogPath}/${group.id}`)}>
                     <span className={styles.categoryCardMedia}>
                       {imageSource ? <img src={imageSource} alt="" /> : <RestaurantMenuRoundedIcon />}
                       <span className={styles.categoryCardShade}></span>
                     </span>
+                    {stopCount > 0 && (
+                      <span className={styles.categoryStopBadge} title={`В стопе позиций: ${stopCount}`}>
+                        <LockRoundedIcon aria-hidden="true" />
+                        {stopCount}
+                        <span className={styles.srOnly}> в стопе</span>
+                      </span>
+                    )}
+                    {declarationGaps > 0 && (
+                      <span className={styles.categoryDeclarationBadge} title={`Позиций без действующей декларации: ${declarationGaps}`}>
+                        <PriorityHighRoundedIcon aria-hidden="true" />
+                        {declarationGaps}
+                        <span className={styles.srOnly}> без декларации</span>
+                      </span>
+                    )}
                     <span className={styles.categoryCardContent}>
                       <span className={styles.categoryCardTitle}>{group.yaName}</span>
+                      {canManageMenu && <span className={styles.categoryStatus}>{group.actual === 1 ? "Активна" : "Отключена"}</span>}
                     </span>
                   </button>
                   {canManageMenu && (
@@ -621,7 +773,11 @@ function DeliveryCatalogPage() {
           existingCodes={existingCodes}
           saving={itemSaving}
           onClose={() => setItemModalOpen(false)}
-          onSubmit={(payload) => void saveItem(payload)}
+          declarations={declarations}
+          declarationsLoading={declarationsLoading || (!declarationsLoaded && !declarationsError)}
+          declarationsError={declarationsError}
+          onRetryDeclarations={() => void loadDeclarations()}
+          onSubmit={(payload, newDeclaration) => void saveItem(payload, newDeclaration)}
         />
       )}
 
@@ -640,19 +796,19 @@ function DeliveryCatalogPage() {
       {canUseStops && (
         <ConfirmModal
           isOpen={stopTarget !== null}
-          title={stopTarget && effectivePacksFor(stopTarget.rkcode).some((pack) => pack.permissionLevel === 2) ? "Снять стоп?" : "Поставить стоп?"}
+          title={stopTarget?.remove ? "Снять стоп?" : "Поставить стоп?"}
           message={stopTarget
-            ? effectivePacksFor(stopTarget.rkcode).some((pack) => pack.permissionLevel === 2)
-              ? `Позиция «${stopTarget.yeName}» снова станет доступна в агрегаторах.`
-              : `Позиция «${stopTarget.yeName}» будет недоступна в агрегаторах до 00:00 для выбранной ТТ.`
+            ? stopTarget.remove
+              ? `Позиция «${stopTarget.item.yeName}» снова станет доступна в агрегаторах для «${stopTarget.locationName}».`
+              : `Позиция «${stopTarget.item.yeName}» будет недоступна в агрегаторах до 00:00 по Москве для «${stopTarget.locationName}».`
             : ""}
           confirmLabel={stopMutating
             ? "Сохраняем…"
-            : stopTarget && effectivePacksFor(stopTarget.rkcode).some((pack) => pack.permissionLevel === 2) ? "Снять стоп" : "Поставить стоп"}
+            : stopTarget?.remove ? "Снять стоп" : "Поставить стоп"}
           cancelLabel="Отмена"
           onCancel={() => { if (!stopMutating) setStopTarget(null); }}
           onConfirm={() => {
-            if (stopTarget) void mutateWorkerStop(stopTarget);
+            if (stopTarget) void mutateWorkerStop();
           }}
         />
       )}

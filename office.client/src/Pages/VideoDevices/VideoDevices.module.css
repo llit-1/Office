@@ -7,6 +7,11 @@
   gap: var(--space-4);
 }
 
+.deviceToolbar .deviceFilters {
+  width: auto;
+  flex: 1 1 auto;
+}
+
 .topBar {
   width: 100%;
   flex: 0 0 auto;

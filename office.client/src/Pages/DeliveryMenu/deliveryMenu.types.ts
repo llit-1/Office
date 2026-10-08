@@ -20,6 +20,46 @@ export interface DeliveryItem {
   actual: number;
   image: string | number[];
   stops?: unknown[];
+  /** id декларации соответствия (закон о платформенной экономике). */
+  declaration?: number | null;
+  /** Код ТН ВЭД позиции — один из кодов её декларации. */
+  tnvedCode?: string | null;
+  yeDeclaration?: Declaration | null;
+}
+
+/** Декларация соответствия, сохранённая в нашей базе. */
+export interface Declaration {
+  id: number;
+  docNumber: string;
+  fsaId: number | null;
+  dateFrom: string | null;
+  dateTo: string | null;
+  manufacturerName: string;
+  legalAddress: string;
+  productionAddress: string | null;
+  productName: string | null;
+  /** Коды ТН ВЭД через запятую. */
+  tnvedCodes: string | null;
+}
+
+export type DeclarationPayload = Omit<Declaration, "id">;
+
+export interface DeclarationTnved {
+  code: string | null;
+  name: string | null;
+}
+
+/** Декларация, найденная в реестре (ещё не сохранена у нас — без id). */
+export interface DeclarationLookup {
+  docNumber: string | null;
+  fsaId: number;
+  dateFrom: string | null;
+  dateTo: string | null;
+  manufacturerName: string | null;
+  legalAddress: string | null;
+  productionAddress: string | null;
+  productName: string | null;
+  tnvedCodes: DeclarationTnved[] | null;
 }
 
 export interface RkReference {
@@ -65,6 +105,8 @@ export interface DeliveryItemPayload {
   actual: number;
   image: string;
   stops: unknown[];
+  declaration: number | null;
+  tnvedCode: string | null;
 }
 
 export interface StopLocation {

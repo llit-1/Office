@@ -1,10 +1,14 @@
 import { lazy, type ComponentProps, type ComponentType, type LazyExoticComponent, type ReactNode } from "react";
 import { Route, matchPath, type NavigateFunction, type NavigateOptions } from "react-router-dom";
 import RequireRole from "./RequireRole";
+import { deliveryRoles, deliveryMenuRoles, deliveryRequestRoles, cashRoles, cashQuickRoles, cashUpdateRoles, cashSectionRoles } from "../Pages/DeliveryMenu/sectionRoles";
+import { reportRoles } from "../Pages/Reports/reportRoles";
 import Login from "../Pages/Login/Login";
 import Main from "../Pages/Main/Main";
 
 type RequiredRole = ComponentProps<typeof RequireRole>["requiredRole"];
+
+const ordersRoles = ["OrdersTT", "OrdersTTAdmin"];
 
 export interface AppRouteConfig {
   path: string;
@@ -100,6 +104,7 @@ export const protectedRoutes: AppRouteConfig[] = [
   },
   { path: "TT", page: "TT/TT", role: "Location" },
   { path: "/TT/Edit/:id", page: "TT/TTEdit", role: "Location" },
+  { path: "/TT/Location/:group/:id?", page: "TT/LocationEdit", role: "Location" },
   { path: "Users", page: "Users/Users", role: "Users" },
   { path: "/Users/Edit", page: "Users/UserEdit", role: "Users" },
   { path: "/Users/Edit/:id", page: "Users/UserEdit", role: "Users" },
@@ -109,18 +114,34 @@ export const protectedRoutes: AppRouteConfig[] = [
   { path: "/Roles/Edit/:id", page: "Users/RoleEdit", role: "Users" },
   { path: "Settings", page: "Settings/Settings" },
   { path: "VideoDevices", page: "VideoDevices/VideoDevices", role: "VideoDevices" },
-  { path: "Sensors", page: "Sensors/Sensors", role: "Sensors" },
+  { path: "Sensors", page: "Sensors/Sensors", role: ["Sensors", "SensorsView", "SensorsEdit"] },
   { path: "Help", page: "Help/Help" },
   { path: "FactoryNX", page: "FactoryNX/FactoryNX", role: "FactoryNX" },
-  { path: "Orders", page: "Orders/Orders", role: ["OrdersTT", "OrdersTTAdmin"] },
+  { path: "Orders", page: "Orders/Orders", role: ordersRoles },
+  { path: "/Orders/settings/:section?", page: "Orders/Orders", role: "OrdersTTAdmin" },
+  { path: "/Orders/new/:typeId", page: "Orders/Orders", role: ordersRoles },
+  { path: "/Orders/edit/:orderId", page: "Orders/Orders", role: ordersRoles },
   { path: "FactoryPerson", page: "FactoryPerson/FactoryPerson", role: "FactoryPerson" },
   { path: "/FactoryPerson/Edit", page: "FactoryPerson/FactoryPersonEdit", role: "FactoryPerson" },
   { path: "/FactoryPerson/Edit/:id", page: "FactoryPerson/FactoryPersonEdit", role: "FactoryPerson" },
-  { path: "/Stock", page: "Stock/Stock", role: "Stock" },
-  { path: "/Stock/:tab", page: "Stock/Stock", role: "Stock" },
-  { path: "/StockTable", page: "Stock/StockTable", role: "Stock" },
-    { path: "/DeliveryMenu/stops", page: "DeliveryMenu/DeliveryMenuPage", role: ["MenuAuditor", "MenuAdmin"] },
-    { path: "/DeliveryMenu/:groupId?", page: "DeliveryMenu/DeliveryMenuPage", role: ["MenuMarketing", "MenuAuditor", "MenuAdmin", "Menu"] },
+  { path: "/Stock", page: "Stock/Stock", role: ["Stock", "StockAdmin"] },
+  { path: "/Stock/:tab", page: "Stock/Stock", role: ["Stock", "StockAdmin"] },
+  { path: "/StockTable", page: "Stock/StockTable", role: "StockAdmin" },
+  { path: "/Delivery", page: "DeliveryMenu/DeliveryPage", role: deliveryRoles },
+  { path: "/Delivery/menu/:groupId?", page: "DeliveryMenu/DeliveryPage", role: deliveryMenuRoles },
+  { path: "/Delivery/requests", page: "DeliveryMenu/DeliveryPage", role: deliveryRequestRoles },
+  { path: "/Cash", page: "DeliveryMenu/CashPage", role: cashSectionRoles },
+  { path: "/Cash/items/:groupId?", page: "DeliveryMenu/CashPage", role: cashQuickRoles },
+  { path: "/Cash/stops", page: "DeliveryMenu/CashPage", role: cashRoles },
+  { path: "/Cash/messages", page: "DeliveryMenu/CashPage", role: cashRoles },
+  { path: "/Cash/update", page: "DeliveryMenu/CashPage", role: cashUpdateRoles },
+  { path: "/DeliveryMenu/stops", page: "DeliveryMenu/LegacyMenuRedirect", role: ["MenuAuditor", "MenuAdmin"] },
+  { path: "/DeliveryMenu/:groupId?", page: "DeliveryMenu/LegacyMenuRedirect", role: ["MenuMarketing", "MenuAuditor", "MenuAdmin", "Menu"] },
+  { path: "/Reports", page: "Reports/Reports", role: reportRoles },
+  { path: "/Reports/View/:code", page: "Reports/ReportViewerPage", role: reportRoles },
+  { path: "/Reports/Franchisee", page: "Reports/FranchiseeReportsPage", role: "ReportsFranchisee" },
+  { path: "/Reports/Other", page: "Reports/OtherReportsPage", role: "ReportsOther" },
+  { path: "/Reports/Settings", page: "Reports/ReportsSettingsPage", role: "ReportsAdmin" },
   { path: "/Salary", page: "Salary/SalaryPage", role: "Salary" },
   { path: "/Salary/Settings", page: "Salary/SalarySettingsPage", role: "Salary" },
   { path: "/KnowledgeLibrary", page: "KnowledgeLibrary/KnowledgeLibrary", role: ["KnowledgeLibrary", "KnowledgeLibraryAdmin"] },

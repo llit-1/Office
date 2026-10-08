@@ -9,7 +9,9 @@ import LoadingSpinner from "../../../Components/LoadingSpinner/LoadingSpinner";
 import Select from "../../../Components/Select/Select";
 import Textarea from "../../../Components/Textarea/Textarea";
 import Toggle from "../../../Components/Toggle/Toggle";
-import type { DeliveryItem, DeliveryItemPayload, RkMenuOption } from "../deliveryMenu.types";
+import type { Declaration, DeclarationPayload, DeliveryItem, DeliveryItemPayload, RkMenuOption } from "../deliveryMenu.types";
+import { selectionTnvedOptions, toDeclarationPayload, type DeclarationSelection } from "../declarations.utils";
+import DeclarationField from "./DeclarationField";
 import {
   formatMeasureUnit,
   formatRkPrice,
@@ -28,11 +30,17 @@ interface ItemModalProps {
   sourceLoading: boolean;
   existingCodes: Set<number>;
   saving: boolean;
+  /** Действующие декларации из /declarations/actual. */
+  declarations: Declaration[];
+  declarationsLoading: boolean;
+  declarationsError: string;
+  onRetryDeclarations: () => void;
   onClose: () => void;
-  onSubmit: (payload: DeliveryItemPayload) => void;
+  /** newDeclaration — декларация из реестра: страница сначала сохраняет её, затем позицию с её id. */
+  onSubmit: (payload: DeliveryItemPayload, newDeclaration: DeclarationPayload | null) => void;
 }
 
-const MEASURE_UNITS = ["гр", "мл"] as const;
+const MEASURE_UNITS = ["г", "мл"] as const;
 type MeasureUnit = (typeof MEASURE_UNITS)[number];
 
 export default function ItemModal({
@@ -43,6 +51,10 @@ export default function ItemModal({
   sourceLoading,
   existingCodes,
   saving,
+  declarations,
+  declarationsLoading,
+  declarationsError,
+  onRetryDeclarations,
   onClose,
   onSubmit,
 }: ItemModalProps) {
@@ -54,11 +66,14 @@ export default function ItemModal({
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState(0);
   const [measure, setMeasure] = useState(100);
-  const [measureUnit, setMeasureUnit] = useState<MeasureUnit>("гр");
+  const [measureUnit, setMeasureUnit] = useState<MeasureUnit>("г");
   const [image, setImage] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [actual, setActual] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [declarationSelection, setDeclarationSelection] = useState<DeclarationSelection | null>(null);
+  const [tnvedCode, setTnvedCode] = useState("");
+  const [tnvedError, setTnvedError] = useState("");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -74,7 +89,36 @@ export default function ItemModal({
     setPreview(getImageSource(item?.image));
     setActual(item?.actual ?? 1);
     setError(null);
+    setTnvedCode(item?.tnvedCode ?? "");
+    setTnvedError("");
   }, [isOpen, item]);
+
+  // Привязанная декларация: ищем её среди действующих; нет в списке — значит истекла (показываем то, что знаем о ней).
+  useEffect(() => {
+    if (!isOpen) return;
+    if (item?.declaration == null) {
+      setDeclarationSelection(null);
+      return;
+    }
+    const actualDeclaration = declarations.find((declaration) => declaration.id === item.declaration);
+    const known = actualDeclaration ?? item.yeDeclaration ?? null;
+    setDeclarationSelection({
+      kind: "saved",
+      expired: !declarationsLoading && !declarationsError && !actualDeclaration,
+      declaration: known ?? {
+        id: item.declaration,
+        docNumber: `Декларация #${item.declaration}`,
+        fsaId: null,
+        dateFrom: null,
+        dateTo: null,
+        manufacturerName: "",
+        legalAddress: "",
+        productionAddress: null,
+        productName: null,
+        tnvedCodes: item.tnvedCode ?? null,
+      },
+    });
+  }, [declarations, declarationsError, declarationsLoading, isOpen, item]);
 
   const filteredSourceItems = useMemo(() => {
     const query = sourceSearch.trim().toLocaleLowerCase("ru-RU");
@@ -128,6 +172,18 @@ export default function ItemModal({
       setError("Добавьте изображение позиции.");
       return;
     }
+    // Новую позицию без декларации не добавляем: Яндекс требует её по закону о платформенной экономике.
+    if (!item && !declarationSelection) {
+      setError("Укажите декларацию соответствия — без неё новую позицию добавить нельзя.");
+      return;
+    }
+    const tnvedChoices = selectionTnvedOptions(declarationSelection);
+    const selectedTnved = tnvedChoices.length === 1 ? tnvedChoices[0].code ?? "" : tnvedCode;
+    if (declarationSelection && tnvedChoices.length > 1 && !selectedTnved) {
+      setTnvedError("Выберите код ТН ВЭД из декларации.");
+      setError("Выберите код ТН ВЭД из декларации.");
+      return;
+    }
 
     onSubmit({
       rkcode,
@@ -142,7 +198,9 @@ export default function ItemModal({
       actual,
       image,
       stops: item?.stops ?? [],
-    });
+      declaration: declarationSelection?.kind === "saved" ? declarationSelection.declaration.id : null,
+      tnvedCode: declarationSelection ? selectedTnved || null : null,
+    }, declarationSelection?.kind === "lookup" ? toDeclarationPayload(declarationSelection.declaration, selectedTnved || null) : null);
   };
 
   return (
@@ -309,6 +367,26 @@ export default function ItemModal({
                 ariaLabel="Позиция активна"
               />
             </div>
+
+            <DeclarationField
+              declarations={declarations}
+              loading={declarationsLoading}
+              error={declarationsError}
+              onRetry={onRetryDeclarations}
+              selection={declarationSelection}
+              onSelectionChange={(next) => {
+                setDeclarationSelection(next);
+                setTnvedError("");
+              }}
+              tnvedCode={tnvedCode}
+              onTnvedCodeChange={(code) => {
+                setTnvedCode(code);
+                if (code) setTnvedError("");
+              }}
+              tnvedError={tnvedError}
+              disabled={saving}
+              required={!item}
+            />
           </div>
         </section>
       </div>

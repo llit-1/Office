@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { useNotifications } from "@toolpad/core";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import { callApi, del, get, post, put } from "../../Services/api";
+import type { RootState } from "../../Store";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import SensorChatsTab from "./components/SensorChatsTab";
@@ -17,12 +18,16 @@ import type {
   SensorRow,
   SensorRuleRow,
   SensorRuleSettings,
+  SensorStatusFilter,
 } from "./sensors.types";
 import {
   defaultSensorFormState,
   defaultRuleSettingsFormState,
+  getSensorStatus,
   normalizeHistory,
+  oneTimeStartsAt,
   periodOptions,
+  sensorStatusOrder,
   toApiTimeValue,
   toMaintenanceWindowFormState,
   toRuleSettingsFormState,
@@ -31,24 +36,29 @@ import styles from "./Sensors.module.css";
 
 const SensorHistoryModal = lazy(() => import("./components/SensorHistoryModal"));
 
-const tabs = ["Датчики", "Правила", "Чаты"];
-
 const emptyRuleModalState = (roomId = ""): RuleModalState => ({
   roomId,
   ...defaultRuleSettingsFormState,
   maintenanceWindows: [],
 });
 
+const SENSORS_REFRESH_MS = 60_000;
+
 export default function Sensors() {
   const dispatch = useDispatch();
   const notifications = useNotifications();
+
+  const roles = useSelector((state: RootState) => state.userData.roles);
+  const isFullAccess = roles.includes("Sensors");
+  const canEditRules = isFullAccess || roles.includes("SensorsEdit");
+  const tabs = isFullAccess ? ["Датчики", "Правила", "Чаты"] : ["Датчики", "Правила"];
 
   const [activeTab, setActiveTab] = useState(0);
   const [sensors, setSensors] = useState<SensorRow[]>([]);
   const [ruleRows, setRuleRows] = useState<SensorRuleRow[]>([]);
   const [sensorsLoading, setSensorsLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "online" | "offline">("all");
+  const [statusFilter, setStatusFilter] = useState<SensorStatusFilter>("all");
   const [selectedSensor, setSelectedSensor] = useState<SensorRow | null>(null);
   const [editingSensor, setEditingSensor] = useState<SensorRow | null>(null);
   const [sensorModalMode, setSensorModalMode] = useState<"create" | "edit" | null>(null);
@@ -113,6 +123,17 @@ export default function Sensors() {
     };
   }, [notifications]);
 
+  // Статус датчика меняется со временем (задержка до уведомления), поэтому список тихо перечитываем раз в минуту.
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      void get<SensorRow[]>("/Sensors/rooms")
+        .then((rows) => setSensors(rows))
+        .catch(() => undefined);
+    }, SENSORS_REFRESH_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   useEffect(() => {
     if (!selectedSensor) {
       return;
@@ -160,7 +181,12 @@ export default function Sensors() {
     const loadSettings = async () => {
       const [settingsResult, maintenanceWindowsResult] = await Promise.all([
         callApi(get<SensorRuleSettings>(`/Sensors/${selectedSensor.id}/settings`), { notifications }),
-        callApi(get<MaintenanceWindowItem[]>(`/Sensors/${selectedSensor.id}/maintenance-windows`), { notifications }),
+        callApi(
+          get<MaintenanceWindowItem[]>(`/Sensors/${selectedSensor.id}/maintenance-windows`, {
+            params: { includeDeleted: true },
+          }),
+          { notifications },
+        ),
       ]);
 
       if (cancelled || !settingsResult.ok || !maintenanceWindowsResult.ok) {
@@ -183,12 +209,7 @@ export default function Sensors() {
 
     return sensors
       .filter((sensor) => {
-        const matchesStatus =
-          statusFilter === "all"
-            ? true
-            : statusFilter === "online"
-              ? sensor.actual !== 0
-              : sensor.actual === 0;
+        const matchesStatus = statusFilter === "all" || getSensorStatus(sensor) === statusFilter;
 
         if (!matchesStatus) {
           return false;
@@ -201,11 +222,10 @@ export default function Sensors() {
         return sensor.name.toLowerCase().includes(normalizedSearch) || sensor.ip.toLowerCase().includes(normalizedSearch);
       })
       .sort((left, right) => {
-        const leftInactive = left.actual === 0 ? 1 : 0;
-        const rightInactive = right.actual === 0 ? 1 : 0;
+        const statusDiff = sensorStatusOrder[getSensorStatus(left)] - sensorStatusOrder[getSensorStatus(right)];
 
-        if (leftInactive !== rightInactive) {
-          return leftInactive - rightInactive;
+        if (statusDiff !== 0) {
+          return statusDiff;
         }
 
         return left.id - right.id;
@@ -300,6 +320,13 @@ export default function Sensors() {
 
       if (window.scheduleType === "one_time" && (!window.startDate || !window.endDate)) {
         return false;
+      }
+
+      if (window.scheduleType === "one_time" && window.id == null) {
+        const startsAt = oneTimeStartsAt(window);
+        if (startsAt == null || startsAt.getTime() < Date.now()) {
+          return false;
+        }
       }
 
       return true;
@@ -439,6 +466,7 @@ export default function Sensors() {
           sensorsLoading={sensorsLoading}
           searchText={searchText}
           statusFilter={statusFilter}
+          canManageDevices={isFullAccess}
           onSearchTextChange={setSearchText}
           onStatusFilterChange={setStatusFilter}
           onCreateSensor={openCreateModal}
@@ -451,9 +479,9 @@ export default function Sensors() {
         />
       )}
 
-      {activeTab === 1 && <SensorRulesTab sensors={sensors} />}
+      {activeTab === 1 && <SensorRulesTab sensors={sensors} canEdit={canEditRules} />}
 
-      {activeTab === 2 && <SensorChatsTab sensors={sensors} />}
+      {activeTab === 2 && isFullAccess && <SensorChatsTab sensors={sensors} />}
 
       <SensorEditModal
         mode={sensorModalMode}
@@ -495,16 +523,17 @@ export default function Sensors() {
         ruleForm={ruleForm}
         saving={ruleModalSaving}
         canSave={canSaveRule}
+        readOnly={!canEditRules}
         deleteConfirmOpen={ruleDeleteConfirmOpen}
         onClose={closeRuleModal}
         onSave={() => void handleSaveRule()}
-        onDelete={ruleEditingSensor?.hasAlertSettings ? () => void handleDeleteRule() : null}
+        onDelete={canEditRules && ruleEditingSensor?.hasAlertSettings ? () => void handleDeleteRule() : null}
         onDeleteCancel={() => {
           if (!ruleModalSaving) {
             setRuleDeleteConfirmOpen(false);
           }
         }}
-        onDeleteRequest={ruleEditingSensor?.hasAlertSettings ? () => setRuleDeleteConfirmOpen(true) : null}
+        onDeleteRequest={canEditRules && ruleEditingSensor?.hasAlertSettings ? () => setRuleDeleteConfirmOpen(true) : null}
         onRuleFormChange={setRuleForm}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@toolpad/core";
 import { useDispatch } from "react-redux";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
@@ -82,6 +82,13 @@ const VideoDevices = () => {
   const [deviceActions, setDeviceActions] = useState<Record<string, DeviceActionState>>({});
   const [screenshotModal, setScreenshotModal] = useState<{ ip: string; url: string } | null>(null);
   const [autoStatusStarted, setAutoStatusStarted] = useState(false);
+  const batchCheckRunning = useRef(false);
+  const [batchChecking, setBatchChecking] = useState(false);
+  const [retryingErrors, setRetryingErrors] = useState(false);
+  const failedDevices = devices.filter((device) => {
+    const action = deviceActions[device.guid];
+    return !device.isTestLocation && !action?.loading && (action?.status === "offline" || action?.status === "ping");
+  });
 
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
@@ -134,12 +141,12 @@ const VideoDevices = () => {
   }, []);
 
   useEffect(() => {
-    if (devicesLoading || autoStatusStarted || devices.length === 0) return;
+    if (devicesLoading || autoStatusStarted || batchChecking || devices.length === 0) return;
 
     setAutoStatusStarted(true);
 
     checkDevicesStatusBatch(devices);
-  }, [autoStatusStarted, devices, devicesLoading]);
+  }, [autoStatusStarted, devices, devicesLoading, batchChecking]);
 
   useEffect(() => {
     if (activeTab === 1) {
@@ -347,6 +354,9 @@ const VideoDevices = () => {
   };
 
   const checkDevicesStatusBatch = async (devicesToCheck: Device[]) => {
+    if (batchCheckRunning.current || devicesToCheck.length === 0) return;
+    batchCheckRunning.current = true;
+    setBatchChecking(true);
     setDeviceActions((current) => {
       const nextState = { ...current };
       devicesToCheck.forEach((device) => {
@@ -358,6 +368,7 @@ const VideoDevices = () => {
     const pendingGuids = new Set(devicesToCheck.map((device) => device.guid));
 
     const applyDeviceStatus = (deviceStatus: DeviceStatusStreamItem) => {
+      if (!pendingGuids.has(deviceStatus.guid)) return;
       pendingGuids.delete(deviceStatus.guid);
 
       setDeviceActions((current) => {
@@ -428,6 +439,7 @@ const VideoDevices = () => {
       if (buffer.trim()) {
         applyDeviceStatus(JSON.parse(buffer) as DeviceStatusStreamItem);
       }
+      if (pendingGuids.size > 0) throw new Error("Проверка завершилась без ответа части устройств");
     } catch {
       setDeviceActions((current) => {
         const nextState = { ...current };
@@ -442,6 +454,19 @@ const VideoDevices = () => {
         });
         return nextState;
       });
+    } finally {
+      batchCheckRunning.current = false;
+      setBatchChecking(false);
+    }
+  };
+
+  const retryFailedDevices = async () => {
+    if (batchCheckRunning.current || failedDevices.length === 0) return;
+    setRetryingErrors(true);
+    try {
+      await checkDevicesStatusBatch(failedDevices);
+    } finally {
+      setRetryingErrors(false);
     }
   };
 
@@ -780,7 +805,7 @@ const VideoDevices = () => {
             onBulkUpdate={openBulkUpdateModal}
           />
 
-          <DeviceStatsCards stats={deviceStats} />
+          <DeviceStatsCards stats={deviceStats} onRetryErrors={() => void retryFailedDevices()} retryingErrors={retryingErrors} retryDisabled={devicesLoading || batchChecking || failedDevices.length === 0} />
 
           {devicesLoading ? (
             <div className={styles.loader}>

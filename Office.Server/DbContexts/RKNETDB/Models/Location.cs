@@ -25,6 +25,16 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("LONGITUDE")]
         public double? Longitude { get; set; }
 
+        [Column("Phone"), MaxLength(10)]
+        public string? Phone { get; set; }
+
+        /// <summary>Группа пользователей Nx Witness, дающая доступ к камерам этой ТТ.</summary>
+        [Column("NXLayout")]
+        public Guid? NXLayout { get; set; }
+
+        [Column("Delivery")]
+        public int Delivery { get; set; }
+
         // ===== Навигация =====
         [ForeignKey(nameof(LocationTypeGuid))]
         public LocationType? LocationType { get; set; }

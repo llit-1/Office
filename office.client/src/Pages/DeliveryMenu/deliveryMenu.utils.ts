@@ -88,7 +88,7 @@ export function formatRkPrice(price: number) {
   return formatPrice(toDisplayPrice(price));
 }
 
-export function formatMeasureUnit(unit?: string | number | null): "гр" | "мл" {
+export function formatMeasureUnit(unit?: string | number | null): "г" | "мл" {
   const normalizedUnit = String(unit ?? "").trim().toLocaleLowerCase("ru-RU");
-  return normalizedUnit === "2" || normalizedUnit === "мл" ? "мл" : "гр";
+  return normalizedUnit === "2" || normalizedUnit === "мл" ? "мл" : "г";
 }

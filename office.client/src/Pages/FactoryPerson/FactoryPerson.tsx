@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import GenericTable, { type Column } from "../../Components/GenericTable/GenericTable";
 import { includesNormalized } from "../../Components/GenericTable/searchUtils";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
@@ -10,6 +11,17 @@ import { callApi, get } from "../../Services/api";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import styles from "./FactoryPerson.module.css";
+import FactoryDictionariesTab, { FactoryDictionaryPicker } from "./FactoryDictionariesTab";
+import FactorySkudTab, { FactorySkudPicker } from "./FactorySkudTab";
+import FactoryStructureTab from "./FactoryStructureTab";
+
+// Вкладки страницы: ключ в ?tab= (у первой ключа нет).
+const TABS = [
+  { key: "", label: "Сотрудники" },
+  { key: "structure", label: "Структура" },
+  { key: "dictionaries", label: "Справочники" },
+  { key: "skud", label: "СКУД" },
+];
 
 const personColumns: Column<FactoryPersonWithNav>[] = [
   { label: "Фамилия", key: "surname" },
@@ -90,7 +102,8 @@ const personColumns: Column<FactoryPersonWithNav>[] = [
 export default function FactoryPersonPage() {
   const tableStateKey = "factory-person-list";
   const dispatch = useDispatch();
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeIndex = Math.max(0, TABS.findIndex((tab) => tab.key && tab.key === searchParams.get("tab")));
   const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
   const debouncedSearchText = useDebouncedValue(searchText);
   const [persons, setPersons] = useState<FactoryPersonWithNav[]>([]);
@@ -113,7 +126,7 @@ export default function FactoryPersonPage() {
     loadPersons();
   }, [dispatch]);
 
-  const handleClick = (index: number) => setActiveIndex(index);
+  const handleClick = (index: number) => setSearchParams(index === 0 ? {} : { tab: TABS[index].key }, { replace: true });
 
   const filteredData = useMemo(() => {
     return persons.filter((p) =>
@@ -126,24 +139,34 @@ export default function FactoryPersonPage() {
       <div className={styles.tt_wrapper}>
         <div className={styles.tabAndSearchWrapper}>
           <TabNavigation
-            items={["Сотрудники"]}
+            items={TABS.map((tab) => tab.label)}
             activeIndex={activeIndex}
             onChange={handleClick}
           />
+          {activeIndex === 2 ? <FactoryDictionaryPicker /> : null}
+          {activeIndex === 3 ? <FactorySkudPicker /> : null}
         </div>
       </div>
 
-      <GenericTable<FactoryPersonWithNav>
-        data={filteredData}
-        columns={personColumns}
-        routeTo="/FactoryPerson/Edit"
-        loading={loading}
-        addOption={true}
-        tableStateKey={tableStateKey}
-        highlightQuery={debouncedSearchText}
-        searchText={searchText}
-        onSearchTextChange={setSearchText}
-      />
+      {activeIndex === 0 ? (
+        <GenericTable<FactoryPersonWithNav>
+          data={filteredData}
+          columns={personColumns}
+          routeTo="/FactoryPerson/Edit"
+          loading={loading}
+          addOption={true}
+          tableStateKey={tableStateKey}
+          highlightQuery={debouncedSearchText}
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
+        />
+      ) : activeIndex === 1 ? (
+        <FactoryStructureTab />
+      ) : activeIndex === 2 ? (
+        <FactoryDictionariesTab />
+      ) : (
+        <FactorySkudTab />
+      )}
     </>
   );
 }

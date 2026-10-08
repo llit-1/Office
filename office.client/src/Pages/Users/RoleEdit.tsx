@@ -3,14 +3,25 @@ import { useDispatch } from "react-redux";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { useNavigate, useParams } from "react-router-dom";
-import styles from "./RoleEdit.module.css";
+import styles from "./AccessEditor.module.css";
+import AccessEditor, { AccessEditorHeading } from "./AccessEditor";
+import Textarea from "../../Components/Textarea/Textarea";
+import DescriptionOutlinedIcon from "@mui/icons-material/DescriptionOutlined";
+import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import Button from "../../Components/Button/Button";
 import Input from "../../Components/Input/Input";
 import { useForm } from "react-hook-form";
 import type { UseFormSetError } from "react-hook-form";
 import { useNotifications } from "@toolpad/core";
-import { callApi, get, post, put, del } from "../../Services/api";
+import {
+  callApi,
+  get,
+  post,
+  put,
+  del,
+  getFriendlyErrorMessage,
+} from "../../Services/api";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import type { OfficeRole } from "../../Interfaces/Users";
 
@@ -35,7 +46,10 @@ export default function RoleEdit() {
   const navigate = useNavigate();
   const notifications = useNotifications();
 
-  const [pageLoading, setPageLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
 
   const {
@@ -43,7 +57,7 @@ export default function RoleEdit() {
     reset,
     handleSubmit,
     setError,
-    formState: { isDirty },
+    formState: { isDirty, errors },
   } = useForm<OfficeRole>({
     defaultValues: DEFAULTS,
     mode: "onBlur",
@@ -52,7 +66,7 @@ export default function RoleEdit() {
   useEffect(() => {
     dispatch(pathSet({ path: "/Users" }));
     dispatch(
-      titleSet({ title: isCreate ? "Создание роли" : "Редактирование роли" })
+      titleSet({ title: isCreate ? "Создание роли" : "Редактирование роли" }),
     );
     dispatch(visibleSet({ visible: true }));
   }, [dispatch, isCreate]);
@@ -61,8 +75,11 @@ export default function RoleEdit() {
     let cancelled = false;
 
     const load = async () => {
+      setPageLoading(true);
+      setLoadError(null);
       if (isCreate) {
         reset(DEFAULTS);
+        setPageLoading(false);
         return;
       }
 
@@ -83,6 +100,12 @@ export default function RoleEdit() {
           ...result.data,
           officeGroup: result.data.officeGroup ?? [],
         });
+      } else {
+        setLoadError(
+          result.ok
+            ? "Не удалось загрузить роль."
+            : getFriendlyErrorMessage(result.error),
+        );
       }
 
       setPageLoading(false);
@@ -93,10 +116,11 @@ export default function RoleEdit() {
     return () => {
       cancelled = true;
     };
-  }, [id, isCreate, notifications, reset, setError]);
+  }, [id, isCreate, notifications, reset, setError, retry]);
 
   const onSubmit = async (model: OfficeRole) => {
     setSaving(true);
+    setSaveError(null);
 
     // лучше отправлять только поля роли, без навигаций (если бэк их не ждёт)
     const payload: OfficeRole = {
@@ -115,12 +139,13 @@ export default function RoleEdit() {
         notifications,
         setError: asApiSetError(setError),
         successMessage: isCreate ? "Роль создана" : "Роль сохранена",
-      }
+      },
     );
 
     setSaving(false);
 
     if (result.ok) navigate("/Users");
+    else setSaveError(getFriendlyErrorMessage(result.error));
   };
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -134,6 +159,7 @@ export default function RoleEdit() {
     if (isCreate || !id) return;
     setConfirmOpen(false);
     setSaving(true);
+    setSaveError(null);
 
     const result = await callApi(del(`/User/roles/${id}`), {
       notifications,
@@ -143,65 +169,99 @@ export default function RoleEdit() {
     setSaving(false);
 
     if (result.ok) navigate("/Users");
+    else setSaveError(getFriendlyErrorMessage(result.error));
   };
 
-  if (pageLoading) {
+  if (pageLoading)
     return (
-      <div className={styles.loadingSpinner}>
-        <LoadingSpinner size={96} label="Загружаем роль…" />
+      <div className={styles.loadingState}>
+        <LoadingSpinner label="Загружаем данные…" />
       </div>
     );
-  }
-
-  return (
-    <div className={styles.roleEditWrapper}>
-      <div className={styles.groups}>
-        <label className={styles.blockLabel}>Основные данные</label>
-        <div className={styles.userInfoBlock}>
-          <Input
-            label="Код роли"
-            {...register("role", { required: "Код роли обязателен" })}
-          />
-          <Input
-            label="Название роли"
-            {...register("name", { required: "Название обязательно" })}
-          />
-          <Input label="Описание роли" {...register("description")} />
-        </div>
-      </div>
-
-      <div className={styles.userEditFooter}>
-        {!isCreate && (
-          <Button
-            variant="danger"
-            onClick={onDelete}
-            disabled={saving}
-          >
-            {saving ? <LoadingSpinner size={24} color="white" /> : "Удалить"}
-          </Button>
-        )}
-
-        <Button
-          variant="primary"
-          onClick={handleSubmit(onSubmit)}
-          disabled={!isDirty && !isCreate}
-          loading={saving}
-        >
-          {isCreate ? (
-            "Создать"
-          ) : (
-            "Сохранить"
-          )}
+  if (loadError)
+    return (
+      <div className={styles.loadError}>
+        <p role="alert">{loadError}</p>
+        <Button onClick={() => setRetry((value) => value + 1)}>
+          Повторить загрузку
         </Button>
       </div>
+    );
+  return (
+    <>
+      <AccessEditor
+        onSubmit={handleSubmit(onSubmit)}
+        onCancel={() => navigate("/Users")}
+        onDelete={onDelete}
+        saving={saving}
+        isDirty={isDirty}
+        isCreate={isCreate}
+        error={saveError}
+      >
+        <section className={styles.sidebar}>
+          <AccessEditorHeading
+            icon={<ShieldOutlinedIcon />}
+            title="Идентификатор роли"
+            description="Код права доступа в системе"
+          />
+          <div>
+            <Input
+              label="Код роли *"
+              {...register("role", { required: "Код роли обязателен" })}
+              aria-invalid={Boolean(errors.role)}
+              aria-describedby={errors.role ? "role-code-error" : undefined}
+            />
+            {errors.role && (
+              <p
+                className={styles.fieldError}
+                id="role-code-error"
+                role="alert"
+              >
+                {errors.role.message}
+              </p>
+            )}
+          </div>
+        </section>
+        <section className={styles.section}>
+          <AccessEditorHeading
+            icon={<DescriptionOutlinedIcon />}
+            title="Описание роли"
+            description="Понятное название и доступные возможности"
+          />
+          <div className={styles.fields}>
+            <div>
+              <Input
+                label="Название роли *"
+                {...register("name", { required: "Название обязательно" })}
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={errors.name ? "role-name-error" : undefined}
+              />
+              {errors.name && (
+                <p
+                  className={styles.fieldError}
+                  id="role-name-error"
+                  role="alert"
+                >
+                  {errors.name.message}
+                </p>
+              )}
+            </div>
+            <Textarea
+              label="Описание роли"
+              wrapperClassName={styles.description}
+              {...register("description")}
+            />
+          </div>
+        </section>
+      </AccessEditor>
       <ConfirmModal
         isOpen={confirmOpen}
-        title={"Подтвердите удаление"}
-        message={"Вы уверены, что хотите удалить роль?"}
+        title="Подтвердите удаление"
+        message="Вы уверены, что хотите удалить роль?"
         onCancel={() => setConfirmOpen(false)}
         onConfirm={handleConfirmDelete}
         panelClassName={styles.confirmModalPanel}
       />
-    </div>
+    </>
   );
 }

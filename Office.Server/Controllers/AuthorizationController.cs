@@ -41,24 +41,44 @@ namespace Office.Server.Controllers
             }
 
             var password = loginModel.Password;
-            var login = loginModel.Login;
-            if (password == null || login == null || !ValidateAdUser(login, password))
+            var login = loginModel.Login?.Trim();
+            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(login) || !ValidateAdUser(login, password))
             {
                 return Unauthorized(new { message = "Данные введены некорректно!" });
             }
 
             var adUser = GetAdUserInfo(login);
-            var officeUser = await OfficeUsersWithRoles().FirstOrDefaultAsync(x => x.Login == login);
+            if (string.IsNullOrWhiteSpace(adUser?.Login))
+            {
+                return Unauthorized(new { message = "Пользователь не найден в AD" });
+            }
+
+            // The directory, not the spelling entered in the form, determines the login.
+            var canonicalLogin = adUser.Login.Trim();
+            var loginKey = canonicalLogin.ToUpperInvariant();
+            var matches = await OfficeUsersWithRoles()
+                .Where(x => x.Login.Trim().ToUpper() == loginKey).Take(2).ToListAsync();
+
+            // Reuse a legacy UPN-only account without losing its ID, permissions or history.
+            // Only use the UPN returned by AD; never infer identity by removing a suffix.
+            if (matches.Count == 0 && !string.IsNullOrWhiteSpace(adUser.UserPrincipalName))
+            {
+                var upnKey = adUser.UserPrincipalName.Trim().ToUpperInvariant();
+                matches = await OfficeUsersWithRoles()
+                    .Where(x => x.Login.Trim().ToUpper() == upnKey).Take(2).ToListAsync();
+            }
+
+            if (matches.Count > 1)
+            {
+                return Conflict(new { message = "Найдено несколько аккаунтов с одинаковым логином. Обратитесь к администратору." });
+            }
+
+            var officeUser = matches.SingleOrDefault();
             if (officeUser == null)
             {
-                if (adUser == null)
-                {
-                    return Unauthorized(new { message = "Пользователь не найден в AD" });
-                }
-
                 officeUser = new OfficeUser
                 {
-                    Login = login,
+                    Login = canonicalLogin,
                     Name = adUser.FirstName?.Trim(),
                     Surname = adUser.LastName?.Trim(),
                     Patronymic = adUser.MiddleName?.Trim(),
@@ -95,8 +115,9 @@ namespace Office.Server.Controllers
 
                 await _rKNETDBContext.SaveChangesAsync();
             }
-            else if (adUser != null)
+            else
             {
+                officeUser.Login = canonicalLogin;
                 officeUser.Name = adUser.FirstName?.Trim();
                 officeUser.Surname = adUser.LastName?.Trim();
                 officeUser.Patronymic = adUser.MiddleName?.Trim();
@@ -212,13 +233,13 @@ namespace Office.Server.Controllers
             public string? position { get; set; }
         }
 
-        private bool ValidateAdUser(string login, string password)
+        protected virtual bool ValidateAdUser(string login, string password)
         {
             using var context = new PrincipalContext(ContextType.Domain);
             return context.ValidateCredentials(login, password);
         }
 
-        private AdUserInfo? GetAdUserInfo(string login)
+        protected virtual AdUserInfo? GetAdUserInfo(string login)
         {
             using var ctx = new PrincipalContext(ContextType.Domain);
             using var user = UserPrincipal.FindByIdentity(ctx, login);
@@ -231,6 +252,7 @@ namespace Office.Server.Controllers
             return new AdUserInfo
             {
                 Login = user.SamAccountName,
+                UserPrincipalName = user.UserPrincipalName,
                 FirstName = de.Properties["givenName"]?.Value?.ToString(),
                 LastName = de.Properties["sn"]?.Value?.ToString(),
                 MiddleName = de.Properties["middleName"]?.Value?.ToString(),
@@ -377,6 +399,7 @@ namespace Office.Server.Controllers
     public class AdUserInfo
     {
         public string? Login { get; set; }
+        public string? UserPrincipalName { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public string? MiddleName { get; set; }

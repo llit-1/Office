@@ -1,72 +1,102 @@
-import { useEffect, useMemo, useState } from "react";
-import styles from "./Orders.module.css";
+import { lazy, Suspense, useEffect } from "react";
 import { useDispatch } from "react-redux";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
+import Button from "../../Components/Button/Button";
+import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
+import StatePanel from "../../Components/StatePanel/StatePanel";
+import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
-import CustomSelect from "./CustomSelect";
-import Button from "../../Components/Button/Button";
+import { getOrdersBootstrap } from "./orders.api";
+import OrdersListPage from "./OrdersListPage";
+import { useActor, useLoader } from "./useOrdersBase";
+import styles from "./Orders.module.css";
 
-const Orders = () => {
+const OrderEditorPage = lazy(() => import("./OrderEditorPage"));
+const OrdersSettingsPage = lazy(() => import("./OrdersSettingsPage"));
+
+type View =
+  | { kind: "list" | "settings" }
+  | { kind: "editor"; mode: "new" | "edit"; param: string };
+
+function resolveView(pathname: string): View | null {
+  const [section = "", param = ""] = pathname.replace(/^\/orders\/?/i, "").split("/");
+  const key = section.toLowerCase();
+  if (!key) return { kind: "list" };
+  if (key === "settings") return { kind: key };
+  // new/:id вкладки, edit/:id заказа
+  if ((key === "new" || key === "edit") && Number(param) > 0) return { kind: "editor", mode: key, param };
+  return null;
+}
+
+const tabs = [
+  { kind: "list", label: "Заказы", path: "/Orders" },
+  { kind: "settings", label: "Настройки", path: "/Orders/settings" },
+];
+
+export default function Orders() {
   const dispatch = useDispatch();
-  const [ttFilter, setTtFilter] = useState("all");
-  const [periodFilter, setPeriodFilter] = useState("current");
-  const [state, setState] = useState(false);
-
-  const ttOptions = useMemo(
-    () => [
-      { value: "all", label: "Все ТТ" },
-      { value: "1", label: "Филиал 1" },
-      { value: "2", label: "Филиал 2" },
-      { value: "3", label: "Филиал 3" },
-    ],
-    []
-  );
-
-  const periodOptions = useMemo(
-    () => [
-      { value: "current", label: "Текущие заказы" },
-      { value: "w1", label: "Неделя 1" },
-      { value: "w2", label: "Неделя 2" },
-      { value: "w3", label: "Неделя 3" },
-    ],
-    []
-  );
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const actor = useActor();
+  const base = useLoader(getOrdersBootstrap);
+  const view = resolveView(pathname);
+  const editing = view?.kind === "editor";
 
   useEffect(() => {
-    dispatch(titleSet({ title: "Заказы ТТ" }));
     dispatch(visibleSet({ visible: true }));
-    dispatch(pathSet({ path: "/" }));
-  }, [dispatch]);
+    dispatch(pathSet({ path: editing ? "/Orders" : "/Main" }));
+    // заголовок редактора уточняет сам редактор, когда узнаёт тип и номер заказа
+    dispatch(titleSet({ title: editing ? "Заказ" : "Заказы ТТ" }));
+  }, [dispatch, editing]);
+
+  if (!view) return <Navigate to="/Orders" replace />;
+  if (view.kind === "settings" && !actor.permissions.canConfigure) return <Navigate to="/Orders" replace />;
+
+  if (!base.data) {
+    return base.error ? (
+      <StatePanel
+        tone="error"
+        icon={<ErrorOutlineRoundedIcon />}
+        title="Раздел заказов недоступен"
+        text="Не удалось загрузить типы заказов и торговые точки. Проверьте соединение и повторите."
+        action={<Button variant="primary" onClick={() => void base.reload()}>Повторить</Button>}
+      />
+    ) : (
+      <div className={styles.loading}><LoadingSpinner size={96} label="Загружаем заказы…" /></div>
+    );
+  }
+
+  const fallback = <div className={styles.loading}><LoadingSpinner size={56} /></div>;
+
+  if (view.kind === "editor") {
+    return (
+      <Suspense fallback={fallback}>
+        <OrderEditorPage key={`${view.mode}:${view.param}`} base={base.data} actor={actor} mode={view.mode} param={view.param} />
+      </Suspense>
+    );
+  }
 
   return (
-    <div className={styles.orderWrapper}>
-      <div className={styles.orderTypeWrapper}>
-        <div className={`${styles.orderType} ${styles.selected}`}>Еженедельный заказ</div>
-        <div className={styles.orderType}>Ежемесячный заказ</div>
-        <div className={styles.orderType}>Регулярный заказ</div>
-        <div className={styles.orderType}>Заказ ценников</div>
-      </div>
-
-      <div className={styles.orderBody}>
-        <div className={styles.settingOrderBody}>
-          <div className={styles.filters}>
-            <CustomSelect options={ttOptions} value={ttFilter} onChange={setTtFilter} />
-            <CustomSelect options={periodOptions} value={periodFilter} onChange={setPeriodFilter} />
-          </div>
-          <Button variant="primary" onClick={() => setState(!state)}>Создать заказ</Button>
+    <div className={styles.page}>
+      {/* вкладки нужны только тому, у кого есть вторая — «Настройки» */}
+      {actor.permissions.canConfigure ? (
+        <div className={styles.tabs}>
+          <TabNavigation
+            items={tabs.map((tab) => tab.label)}
+            activeIndex={tabs.findIndex((tab) => tab.kind === view.kind)}
+            onChange={(index) => navigate(tabs[index].path)}
+          />
         </div>
-
-        <div className={`${styles.orderList} ${state ? styles.orderListExpanded : ""}`}>
-            {[1,2,3,4,5,6,7,8,9,11,12,13,14,15,16,17,18,19,21,23,22,23].map((key) => (
-                <div className={styles.ttCard} key={key}>
-                    <span>ТТ: Филиал 1</span>
-                    <span>Кол-во заказов: 2</span>
-                </div>
-            ))}
-        </div>
-      </div>
+      ) : null}
+      {view.kind === "list" ? (
+        <OrdersListPage base={base.data} actor={actor} />
+      ) : (
+        <Suspense fallback={fallback}>
+          <OrdersSettingsPage base={base.data} actor={actor} onBaseChange={base.reload} />
+        </Suspense>
+      )}
     </div>
   );
-};
-
-export default Orders;
+}

@@ -5,19 +5,24 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Office.Server.DbContexts.RKNETDB;
 
 namespace Office.Server.Controllers;
 
 [ApiController]
 [Route("api/DeliveryMenu")]
-[Authorize(Roles = "Menu,MenuAuditor,MenuAdmin")]
+[Authorize(Roles = "Menu,MenuAuditor")]
 public sealed class DeliveryStopsController(
     RKNETDBContext db,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
-    ILogger<DeliveryStopsController> logger) : ControllerBase
+    ILogger<DeliveryStopsController> logger,
+    IMemoryCache cache) : ControllerBase
 {
+    private const string DeliveryItemCodesCacheKey = "delivery-stops:delivery-item-codes";
+    private static readonly TimeSpan DeliveryItemCodesTtl = TimeSpan.FromMinutes(5);
+
     private static readonly HashSet<Guid> StopLocationTypeGuids =
     [
         Guid.Parse("94AD659C-AF5B-4CA0-50AD-08DBDF6ABE84"),
@@ -53,7 +58,7 @@ public sealed class DeliveryStopsController(
             .Select(x => new StopLocationDto(x.Guid, x.Name, x.Actual, x.RKCode, x.AggregatorsCode)));
     }
 
-    [Authorize(Roles = "MenuAuditor,MenuAdmin")]
+    [Authorize(Roles = "MenuAuditor")]
     [HttpGet("stop-items")]
     public async Task<ActionResult<IReadOnlyList<StopMenuItemDto>>> GetStopItems(CancellationToken cancellationToken)
     {
@@ -66,6 +71,7 @@ public sealed class DeliveryStopsController(
                 throw new StopApiException((int)response.StatusCode, body);
 
             var reference = JsonSerializer.Deserialize<StopMenuReferenceDto>(body, JsonOptions);
+            // в стоп-листах доступен весь справочник R-Keeper, включая позиции вне меню доставки
             var items = FlattenStopMenuItems(reference?.Categories ?? [])
                 .GroupBy(x => x.Rkcode)
                 .Select(group => group.First())
@@ -142,8 +148,10 @@ public sealed class DeliveryStopsController(
     {
         if (!HasStopAccess())
             return Forbid();
-        var isAuditor = User.IsInRole("MenuAuditor") || User.IsInRole("MenuAdmin");
-        var isMenuAdmin = User.IsInRole("MenuAdmin");
+        // Быстрые стопы (уровень 2, «Стопы (Яндекс)») ставит только сотрудник кассы.
+        if (request.PermissionLevel == 2 && !User.IsInRole("Menu"))
+            return Forbid();
+        var isAuditor = User.IsInRole("MenuAuditor");
         var locations = await GetAllowedLocationsAsync(cancellationToken);
         if (locations is null)
             return Unauthorized();
@@ -151,14 +159,13 @@ public sealed class DeliveryStopsController(
         var displayName = await GetCurrentUserDisplayNameAsync(cancellationToken);
         if (request.PermissionLevel == 2
             && isAuditor
-            && !(isMenuAdmin
-                && request.ItemId.HasValue
+            && !(request.ItemId.HasValue
                 && !request.LocationGUID.HasValue
                 && request.Stops is { Count: 1 }
                 && request.Stops[0].Item == request.ItemId
                 && request.Stops[0].LocationGUID.HasValue))
         {
-            return BadRequest(new { message = "Аудитор и администратор создают глобальные стопы только уровня 1." });
+            return BadRequest(new { message = "Быстрый стоп применяется к одной позиции на одной торговой точке. Для глобальных стопов используется уровень 1." });
         }
         var validation = ValidateAndNormalizePack(request, locations, isAuditor, displayName, preservePastBegin: false);
         if (validation.Error is not null)
@@ -167,7 +174,7 @@ public sealed class DeliveryStopsController(
         await MutationLock.WaitAsync(cancellationToken);
         try
         {
-            if (!isAuditor)
+            if (request.PermissionLevel == 2)
             {
                 var stop = validation.Pack!.Stops.Single();
                 var now = MoscowNow();
@@ -193,7 +200,7 @@ public sealed class DeliveryStopsController(
         }
     }
 
-    [Authorize(Roles = "MenuAuditor,MenuAdmin")]
+    [Authorize(Roles = "MenuAuditor")]
     [HttpPut("stops/{id:int}")]
     public async Task<IActionResult> UpdateStopPack(int id, [FromBody] StopPackRequest request, CancellationToken cancellationToken)
     {
@@ -222,7 +229,7 @@ public sealed class DeliveryStopsController(
         }
     }
 
-    [Authorize(Roles = "MenuAuditor,MenuAdmin")]
+    [Authorize(Roles = "MenuAuditor")]
     [HttpDelete("stops/{id:int}")]
     public async Task<IActionResult> DeleteStopPack(int id, CancellationToken cancellationToken)
     {
@@ -242,15 +249,14 @@ public sealed class DeliveryStopsController(
         }
     }
 
-    [Authorize(Roles = "Menu,MenuAdmin")]
+    // Снять быстрый стоп — тоже только сотрудник кассы.
+    [Authorize(Roles = "Menu")]
     [HttpDelete("stops/items/{itemId:int}/locations/{locationGuid:guid}/level-2")]
     public async Task<IActionResult> RemoveLevelTwoStops(
         int itemId,
         Guid locationGuid,
         CancellationToken cancellationToken)
     {
-        if (User.IsInRole("MenuMarketing") && !User.IsInRole("MenuAdmin"))
-            return Forbid();
         var locations = await GetAllowedLocationsAsync(cancellationToken);
         if (locations is null)
             return Unauthorized();
@@ -350,7 +356,7 @@ public sealed class DeliveryStopsController(
             return (null, "Работник может создавать только стопы уровня 2.");
 
         var now = MoscowNow();
-        var begin = permissionLevel == 2 && !isAuditor ? now : AsMoscowLocal(request.Begin);
+        var begin = permissionLevel == 2 ? now : AsMoscowLocal(request.Begin);
         if (begin < now && isAuditor && !preservePastBegin)
             begin = now;
         var end = permissionLevel == 2 ? begin.Date.AddDays(1) : AsMoscowLocal(request.End);
@@ -390,6 +396,67 @@ public sealed class DeliveryStopsController(
         return (pack, null);
     }
 
+
+    /// <summary>Коды всех позиций меню доставки yeapi (кэш на 5 минут); null — меню недоступно.</summary>
+    private async Task<HashSet<int>?> GetDeliveryItemCodesAsync(CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(DeliveryItemCodesCacheKey, out HashSet<int>? cached) && cached is not null)
+            return cached;
+
+        try
+        {
+            var client = httpClientFactory.CreateClient("DeliveryMenuApi");
+            var groups = await ReadJsonAsync<List<DeliveryGroupCodeDto>>(client, $"{MenuApiBaseUrl}/getallgroups", cancellationToken) ?? [];
+            var codes = new HashSet<int>();
+            foreach (var group in groups)
+            {
+                // Ответ несёт картинки в base64; читаем потоком только коды позиций.
+                var items = await ReadJsonAsync<List<DeliveryItemCodeDto>>(
+                    client, $"{MenuApiBaseUrl}/groups/{group.Id}/items", cancellationToken) ?? [];
+                foreach (var item in items)
+                    if (item.Rkcode > 0) codes.Add(item.Rkcode);
+            }
+
+            cache.Set(DeliveryItemCodesCacheKey, codes, DeliveryItemCodesTtl);
+            return codes;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Could not load delivery menu item codes");
+            return null;
+        }
+    }
+
+    private async Task<Dictionary<int, string>?> GetReferenceItemNamesAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient("DeliveryMenuApi");
+            var reference = await ReadJsonAsync<StopMenuReferenceDto>(client, $"{MenuApiBaseUrl}/getmenu", cancellationToken);
+            return FlattenStopMenuItems(reference?.Categories ?? [])
+                .GroupBy(x => x.Rkcode)
+                .ToDictionary(x => x.Key, x => x.First().RkName);
+        }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Could not load stop menu reference names");
+            return null;
+        }
+    }
+
+    private static async Task<T?> ReadJsonAsync<T>(HttpClient client, string url, CancellationToken cancellationToken)
+    {
+        using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        return await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, cancellationToken);
+    }
+
+    private sealed record DeliveryGroupCodeDto(int Id);
+
+    private sealed record DeliveryItemCodeDto(int Rkcode);
+
     private async Task<List<DbContexts.RKNETDB.Models.Location>?> GetAllowedLocationsAsync(CancellationToken cancellationToken)
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
@@ -403,7 +470,7 @@ public sealed class DeliveryStopsController(
             return null;
 
         // Auditors see all locations of the types supported by stop lists, including inactive ones.
-        if (User.IsInRole("MenuAuditor") || User.IsInRole("MenuAdmin"))
+        if (User.IsInRole("MenuAuditor"))
             return await db.Locations
                 .AsNoTracking()
                 .Where(x => x.Actual == 1
@@ -571,8 +638,7 @@ public sealed class DeliveryStopsController(
 
     private static bool IsEffective(StopDto stop, DateTime now) => stop.Begin <= now && stop.End > now;
     private bool HasStopAccess() => User.IsInRole("MenuAuditor")
-        || User.IsInRole("MenuAdmin")
-        || (User.IsInRole("Menu") && !User.IsInRole("MenuMarketing"));
+        || User.IsInRole("Menu");
     private static DateTime MoscowNow() => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, MoscowTimeZone);
     private static DateTime AsMoscowLocal(DateTime value) => value.Kind switch
     {

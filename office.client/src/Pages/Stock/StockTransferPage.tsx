@@ -1,692 +1,682 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@toolpad/core";
-import { useSelector } from "react-redux";
-import Select from "../../Components/Select/Select";
+import AddRoundedIcon from "@mui/icons-material/AddRounded";
+import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
+import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
+import PersonAddAlt1RoundedIcon from "@mui/icons-material/PersonAddAlt1Rounded";
+import QrCodeScannerRoundedIcon from "@mui/icons-material/QrCodeScannerRounded";
+import RefreshRoundedIcon from "@mui/icons-material/RefreshRounded";
+import SendRoundedIcon from "@mui/icons-material/SendRounded";
+import SensorsRoundedIcon from "@mui/icons-material/SensorsRounded";
 import Button from "../../Components/Button/Button";
+import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import Input from "../../Components/Input/Input";
-import Modal from "../../Components/Modal/Modal";
-import Textarea from "../../Components/Textarea/Textarea";
-import { get, getFriendlyErrorMessage } from "../../Services/api";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
+import Select from "../../Components/Select/Select";
+import Textarea from "../../Components/Textarea/Textarea";
+import HolderCreateModal from "./components/HolderCreateModal";
+import { ScannerStatus, StockBadge, StockState } from "./components/StockUi";
+import { getStockErrorMessage, getStockLookups, getStockObjectSummary, sendStockTransfer } from "./stock.api";
+import type { StockHolderOption, StockLookups, StockObject } from "./stock.types";
+import { formatObjectCode, objectsLabel, readSessionValue, toObjectCode, writeSessionValue } from "./stock.utils";
+import useRfidScanner from "./useRfidScanner";
+import shared from "./StockShared.module.css";
 import styles from "./StockTransfer.module.css";
-import type { RootState } from "../../Store";
 
-type WarehouseHolder = {
-  id: number;
-  surname: string;
-  name: string;
-  patronymic?: string | null;
-  jobTitle?: string | null;
-  department?: string | null;
-  actual: number;
-};
-
-type Location = {
-  guid: string;
-  name: string;
-  actual: number;
-};
-
-type StockSearchData = {
-  holders: WarehouseHolder[];
-  locations: Location[];
-  categories?: WarehouseCategoryNode[];
-};
-
-type WarehouseCategoryNode = {
-  id: number | null;
-  name?: string | null;
-  parent: number | null;
-  actual?: number | null;
-};
-
-type WarehouseObjectResponse = {
-  warehouseCategoriesId?: number | null;
-  name?: string | null;
-  warehouseCategories?: WarehouseCategoryNode | null;
-  warehouseSubCategory?: { name?: string | null } | null;
-  warehouseSubCategories?: { name?: string | null } | null;
-  location?: { name?: string | null } | null;
-};
-
-type ExternalTokenResponse = {
-  token: string;
-};
-
-type TransferDraft = {
+type DraftRow = {
   code: string;
-  category: string;
-  subCategory: string;
-  name: string;
-  startLocation: string;
-  endLocationGuid: string | null;
-  endLocationName: string;
-  newHolderId: number | null;
-  newHolderName: string;
-  filledBy: string;
+  status: "loading" | "ready" | "error";
+  object: StockObject | null;
+  error: string;
   comment: string;
+  /** Назначение запоминается в момент добавления объекта, как в старом портале. */
+  locationGuid: string;
+  holderId: string;
 };
 
-type HolderForm = {
-  surname: string;
-  name: string;
-  patronymic: string;
-  jobTitle: string;
-  department: string;
+type StoredDraft = {
+  locationGuid: string;
+  holderId: string;
+  comment: string;
+  rows: Array<{ code: string; object: StockObject; comment: string; locationGuid?: string; holderId?: string }>;
 };
 
-const emptyHolderForm: HolderForm = {
-  surname: "",
-  name: "",
-  patronymic: "",
-  jobTitle: "",
-  department: "",
-};
+const DRAFT_STORAGE_KEY = "office.stock.transfer-draft";
+const CODE_HINT = "";
+const CODE_ERROR = "Код должен содержать до 24 символов: цифры 0–9 и буквы A–F.";
+const EMPTY_OPTION = { value: "", label: "Не выбрано" };
 
-const EXTERNAL_WAREHOUSE_API = "https://warehouseapi.ludilove.ru/api";
-const GET_ALL_HOLDERS_URL = `${EXTERNAL_WAREHOUSE_API}/holder/GetAllHolders`;
-const POST_HOLDER_URL = `${EXTERNAL_WAREHOUSE_API}/holder/PostHolder`;
-const GET_OBJECT_URL = `${EXTERNAL_WAREHOUSE_API}/objects/getObject`;
-const SET_TRANSFER_HISTORY_URL = `${EXTERNAL_WAREHOUSE_API}/transfer/SetObjectHistory`;
+const hasDestination = (row: Pick<DraftRow, "locationGuid" | "holderId">) => Boolean(row.locationGuid || row.holderId);
 
-const normalizeRfidCode = (value: string) => {
-  return value
-    .toUpperCase()
-    .replace(/Ф/g, "A")
-    .replace(/И/g, "B")
-    .replace(/С/g, "C")
-    .replace(/В/g, "D")
-    .replace(/У/g, "E")
-    .replace(/А/g, "F");
-};
+function readStoredDraft(): StoredDraft | null {
+  const draft = readSessionValue<StoredDraft>(DRAFT_STORAGE_KEY);
+  return draft && Array.isArray(draft.rows) ? draft : null;
+}
 
-const isScannerChar = (key: string) => /[0-9a-zA-Zа-яА-ЯёЁ]/.test(key);
-
-const sortHolders = (items: WarehouseHolder[]) => [...items].sort((a, b) => a.surname.localeCompare(b.surname));
-
-const getTextOrDash = (value?: string | null) => {
-  if (typeof value !== "string") return "-";
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : "-";
-};
-
-const getShortCode = (value: string) => value.slice(-8);
-
-const StockTransferPage = () => {
-  const [isLoading, setIsLoading] = useState(false);
-  const [holders, setHolders] = useState<WarehouseHolder[]>([]);
-  const [locations, setLocations] = useState<Location[]>([]);
-
-  const [holderId, setHolderId] = useState("");
-  const [locationGuid, setLocationGuid] = useState("");
-  const [codeInput, setCodeInput] = useState("");
-  const [comment, setComment] = useState("");
-
-  const [drafts, setDrafts] = useState<TransferDraft[]>([]);
-  const [scannedCodes, setScannedCodes] = useState<Set<string>>(new Set());
-
-  const [isScanning, setIsScanning] = useState(false);
-  const scanBufferRef = useRef("");
-  const duplicateScanWarningsRef = useRef<Set<string>>(new Set());
-  const warehouseTokenRef = useRef<string | null>(null);
-  const categoryCacheRef = useRef<Map<number, WarehouseCategoryNode>>(new Map());
-
-  const [isAddHolderOpen, setIsAddHolderOpen] = useState(false);
-  const [holderForm, setHolderForm] = useState<HolderForm>(emptyHolderForm);
-
+export default function StockTransferPage() {
   const notifications = useNotifications();
-  const authFullName = useSelector((state: RootState) => state.auth.fullName);
-  const authUserId = useSelector((state: RootState) => state.auth.id);
+  const fieldId = useId();
+  const [initialDraft] = useState(readStoredDraft);
 
-  const getWarehouseApiToken = async (forceRefresh = false) => {
-    if (!forceRefresh && warehouseTokenRef.current) {
-      return warehouseTokenRef.current;
-    }
+  const [lookups, setLookups] = useState<StockLookups | null>(null);
+  const [lookupsError, setLookupsError] = useState("");
+  const [locationGuid, setLocationGuid] = useState(initialDraft?.locationGuid ?? "");
+  const [holderId, setHolderId] = useState(initialDraft?.holderId ?? "");
+  const [comment, setComment] = useState(initialDraft?.comment ?? "");
+  const [rows, setRows] = useState<DraftRow[]>(() =>
+    (initialDraft?.rows ?? []).map((row) => ({
+      ...row,
+      status: "ready" as const,
+      error: "",
+      locationGuid: row.locationGuid ?? initialDraft?.locationGuid ?? "",
+      holderId: row.holderId ?? initialDraft?.holderId ?? "",
+    })));
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [flashCode, setFlashCode] = useState<string | null>(null);
+  const [attempted, setAttempted] = useState(false);
+  const [confirm, setConfirm] = useState<"send" | "clear" | null>(null);
+  const [sending, setSending] = useState(false);
+  const [holderModalOpen, setHolderModalOpen] = useState(false);
 
-    const response = await get<ExternalTokenResponse>("/stock/external/token", {
-      params: { forceRefresh },
-    });
-    const token = response?.token?.trim();
-    if (!token) {
-      throw new Error("Не удалось получить токен внешней складской API.");
-    }
+  // Коды проверяются синхронно: два быстрых скана одной метки не должны добавить две строки.
+  const codesRef = useRef(new Set(rows.map((row) => row.code)));
+  const rowsRef = useRef(rows);
+  const flashTimerRef = useRef<number | undefined>(undefined);
+  rowsRef.current = rows;
 
-    warehouseTokenRef.current = token;
-    return token;
-  };
-
-  const requestWarehouseApi = async <T,>(url: string, init?: RequestInit): Promise<T> => {
-    const send = async (forceRefresh: boolean): Promise<T> => {
-      const token = await getWarehouseApiToken(forceRefresh);
-      const headers = new Headers(init?.headers ?? {});
-      headers.set("Authorization", `Bearer ${token}`);
-      if (init?.body && !headers.has("Content-Type")) {
-        headers.set("Content-Type", "application/json");
-      }
-
-      const response = await fetch(url, { ...init, headers });
-
-      if (response.status === 401 && !forceRefresh) {
-        warehouseTokenRef.current = null;
-        return send(true);
-      }
-
-      if (!response.ok) {
-        let errorMessage = `Ошибка запроса (${response.status})`;
-        try {
-          const body = await response.json() as { message?: string; title?: string; detail?: string };
-          errorMessage = body.message || body.title || body.detail || errorMessage;
-        } catch {
-          const text = await response.text();
-          if (text) {
-            errorMessage = text;
-          }
-        }
-        throw new Error(errorMessage);
-      }
-
-      if (response.status === 204) {
-        return undefined as T;
-      }
-
-      const text = await response.text();
-      return (text ? JSON.parse(text) : undefined) as T;
-    };
-
-    return send(false);
-  };
-
-  const getCategoryById = async (id: number): Promise<WarehouseCategoryNode | null> => {
-    if (!Number.isFinite(id)) return null;
-
-    const cached = categoryCacheRef.current.get(id);
-    if (cached) return cached;
-
+  const loadLookups = useCallback(async (force = false) => {
+    setLookupsError("");
     try {
-      const category = await get<WarehouseCategoryNode>(`/stock/categories/${id}`);
-      if (category?.id != null) {
-        categoryCacheRef.current.set(category.id, category);
-      }
-      return category ?? null;
-    } catch {
-      return null;
+      setLookups(await getStockLookups(force));
+    } catch (error) {
+      setLookupsError(getStockErrorMessage(error, "Не удалось загрузить торговые точки и держателей."));
     }
-  };
-
-  const resolveCategoryPath = async (objectData: WarehouseObjectResponse) => {
-    let nameNode: WarehouseCategoryNode | null = objectData.warehouseCategories ?? null;
-    if (nameNode?.id != null) {
-      categoryCacheRef.current.set(nameNode.id, nameNode);
-    }
-
-    if ((!nameNode || nameNode.id == null) && objectData.warehouseCategoriesId != null) {
-      nameNode = categoryCacheRef.current.get(objectData.warehouseCategoriesId) ?? await getCategoryById(objectData.warehouseCategoriesId);
-    }
-
-    const name = getTextOrDash(objectData.warehouseCategories?.name ?? objectData.name ?? nameNode?.name);
-
-    let subCategory = "-";
-    let category = "-";
-
-    const subCategoryId = nameNode?.parent ?? null;
-    if (subCategoryId != null) {
-      const subCategoryNode = categoryCacheRef.current.get(subCategoryId) ?? await getCategoryById(subCategoryId);
-      subCategory = getTextOrDash(subCategoryNode?.name);
-
-      const categoryId = subCategoryNode?.parent ?? null;
-      if (categoryId != null) {
-        const categoryNode = categoryCacheRef.current.get(categoryId) ?? await getCategoryById(categoryId);
-        category = getTextOrDash(categoryNode?.name);
-      }
-    }
-
-    return { category, subCategory, name };
-  };
+  }, []);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setIsLoading(true);
-        const data = await get<StockSearchData>("/stock/search-data");
-        setLocations(Array.isArray(data?.locations) ? data.locations : []);
-        const categories = Array.isArray(data?.categories) ? data.categories : [];
-        const nextCategoryCache = new Map<number, WarehouseCategoryNode>();
-        categories.forEach((item) => {
-          if (item?.id != null) {
-            nextCategoryCache.set(item.id, item);
-          }
-        });
-        categoryCacheRef.current = nextCategoryCache;
+    void loadLookups();
+  }, [loadLookups]);
 
-        const fallbackHolders = Array.isArray(data?.holders) ? sortHolders(data.holders) : [];
+  // Сохранённый черновик мог ссылаться на точку или держателя, которых больше нет.
+  useEffect(() => {
+    if (!lookups) return;
+    const isKnownLocation = (guid: string) => !guid || lookups.locations.some((location) => location.guid === guid);
+    const isKnownHolder = (id: string) => !id || lookups.holders.some((holder) => String(holder.id) === id);
 
-        try {
-          const externalHolders = await requestWarehouseApi<WarehouseHolder[]>(GET_ALL_HOLDERS_URL);
-          setHolders(Array.isArray(externalHolders) ? sortHolders(externalHolders) : fallbackHolders);
-        } catch {
-          setHolders(fallbackHolders);
-        }
-      } catch {
-        notifications.show("Не удалось загрузить данные для передачи.", { severity: "error", autoHideDuration: 3000 });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!isKnownLocation(locationGuid)) setLocationGuid("");
+    if (!isKnownHolder(holderId)) setHolderId("");
+    setRows((prev) => (prev.every((row) => isKnownLocation(row.locationGuid) && isKnownHolder(row.holderId))
+      ? prev
+      : prev.map((row) => ({
+        ...row,
+        locationGuid: isKnownLocation(row.locationGuid) ? row.locationGuid : "",
+        holderId: isKnownHolder(row.holderId) ? row.holderId : "",
+      }))));
+  }, [lookups, locationGuid, holderId]);
 
-    loadData();
-  }, [notifications]);
+  useEffect(() => {
+    const storedRows = rows.flatMap((row) => row.status === "ready" && row.object
+      ? [{ code: row.code, object: row.object, comment: row.comment, locationGuid: row.locationGuid, holderId: row.holderId }]
+      : []);
+    const isEmpty = !locationGuid && !holderId && !comment.trim() && storedRows.length === 0;
+    writeSessionValue(DRAFT_STORAGE_KEY, isEmpty ? null : { locationGuid, holderId, comment, rows: storedRows });
+  }, [rows, locationGuid, holderId, comment]);
 
-  const holderOptions = useMemo(
-    () =>
-      holders
-        .filter((holder) => holder.actual === 1)
-        .map((holder) => ({
-          value: String(holder.id),
-          label: [holder.surname, holder.name, holder.patronymic ?? ""].filter(Boolean).join(" "),
-        })),
-    [holders],
+  useEffect(() => () => window.clearTimeout(flashTimerRef.current), []);
+
+  const locationNames = useMemo(
+    () => new Map((lookups?.locations ?? []).map((location) => [location.guid, location.name])),
+    [lookups],
   );
+  const holderNames = useMemo(
+    () => new Map((lookups?.holders ?? []).map((holder) => [String(holder.id), holder.fullName])),
+    [lookups],
+  );
+
+  const describeDestination = useCallback((location: string, holder: string) => [
+    location ? `на точку «${locationNames.get(location) ?? "…"}»` : "",
+    holder ? `держателю ${holderNames.get(holder) ?? "…"}` : "",
+  ].filter(Boolean).join(" и "), [locationNames, holderNames]);
 
   const locationOptions = useMemo(
-    () =>
-      locations
-        .filter((location) => location.actual === 1)
-        .map((location) => ({ value: location.guid, label: location.name })),
-    [locations],
+    () => lookups
+      ? [EMPTY_OPTION, ...lookups.locations
+        .filter((location) => location.actual || location.guid === locationGuid)
+        .map((location) => ({ value: location.guid, label: location.name }))]
+      : [],
+    [lookups, locationGuid],
   );
 
-  const selectedHolder = holderOptions.find((item) => item.value === holderId) ?? null;
-  const selectedLocation = locationOptions.find((item) => item.value === locationGuid) ?? null;
+  const holderOptions = useMemo(
+    () => lookups
+      ? [EMPTY_OPTION, ...lookups.holders
+        .filter((holder) => holder.actual || String(holder.id) === holderId)
+        .map((holder) => ({ value: String(holder.id), label: holder.fullName }))]
+      : [],
+    [lookups, holderId],
+  );
 
-  const filledBy = useMemo(() => {
-    return authFullName?.trim() || (authUserId ? `User #${authUserId}` : "Текущий пользователь");
-  }, [authFullName, authUserId]);
+  const selectedHolder = lookups?.holders.find((holder) => String(holder.id) === holderId) ?? null;
+  const holderMeta = [selectedHolder?.jobTitle, selectedHolder?.department].filter(Boolean).join(" · ");
 
-  const addDraftByCode = async (raw: string, source: "manual" | "scanner" = "manual") => {
-    const prepared = normalizeRfidCode(raw.trim());
-    if (!prepared) return;
+  const changeDestination = (nextLocation: string, nextHolder: string) => {
+    setLocationGuid(nextLocation);
+    setHolderId(nextHolder);
+    if (!nextLocation && !nextHolder) return;
 
-    const code = prepared.padStart(24, "0");
-    if (code.length !== 24) {
-      notifications.show("Код должен содержать 24 символа.", { severity: "error", autoHideDuration: 3000 });
-      return;
-    }
+    // Объекты, добавленные до выбора назначения, получают его автоматически. Уже назначенные не меняются.
+    setRows((prev) => (prev.some((row) => !hasDestination(row))
+      ? prev.map((row) => (hasDestination(row) ? row : { ...row, locationGuid: nextLocation, holderId: nextHolder }))
+      : prev));
+  };
 
-    if (!selectedLocation && !selectedHolder) {
-      notifications.show("Выберите конечную точку или нового держателя.", { severity: "error", autoHideDuration: 3000 });
-      return;
-    }
+  const flashRow = useCallback((code: string) => {
+    setFlashCode(code);
+    window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashCode(null), 1600);
+  }, []);
 
-    if (scannedCodes.has(code)) {
-      if (source === "scanner") {
-        if (!duplicateScanWarningsRef.current.has(code)) {
-          duplicateScanWarningsRef.current.add(code);
-          notifications.show("Этот код уже добавлен.", { severity: "warning", autoHideDuration: 7000 });
-        }
-      } else {
-        notifications.show("Этот код уже добавлен.", { severity: "warning", autoHideDuration: 2500 });
-      }
-      return;
-    }
-
-    let objectData: WarehouseObjectResponse;
+  const loadRow = useCallback(async (code: string) => {
     try {
-      objectData = await requestWarehouseApi<WarehouseObjectResponse>(`${GET_OBJECT_URL}?id=${encodeURIComponent(code)}`);
+      const object = await getStockObjectSummary(code);
+      setRows((prev) => prev.map((row) => (row.code === code ? { ...row, status: "ready", object, error: "" } : row)));
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось получить данные объекта."), {
-        severity: "error",
-        autoHideDuration: 3500,
-      });
+      const message = getStockErrorMessage(error, "Не удалось получить данные объекта.");
+      setRows((prev) => prev.map((row) => (row.code === code ? { ...row, status: "error", error: message } : row)));
+    }
+  }, []);
+
+  const addCode = useCallback((raw: string, source: "manual" | "scanner") => {
+    if (source === "manual" && !raw.trim()) {
+      setCodeError("Введите код объекта.");
       return;
     }
 
-    const categoryPath = await resolveCategoryPath(objectData);
+    const code = toObjectCode(raw);
+    if (!code) {
+      if (source === "manual") setCodeError(CODE_ERROR);
+      return;
+    }
 
-    const draft: TransferDraft = {
-      code,
-      category: categoryPath.category,
-      subCategory: categoryPath.subCategory,
-      name: categoryPath.name,
-      startLocation: getTextOrDash(objectData.location?.name),
-      endLocationGuid: selectedLocation?.value ?? null,
-      endLocationName: selectedLocation?.label ?? "",
-      newHolderId: selectedHolder ? Number(selectedHolder.value) : null,
-      newHolderName: selectedHolder?.label ?? "",
-      filledBy,
-      comment,
-    };
-
-    setDrafts((prev) => [...prev, draft]);
-    setScannedCodes((prev) => {
-      const next = new Set(prev);
-      next.add(code);
-      return next;
-    });
-    setCodeInput("");
     if (source === "manual") {
-      notifications.show("Объект добавлен в таблицу передачи.", { severity: "success", autoHideDuration: 2500 });
+      setCodeInput("");
+      setCodeError("");
     }
-  };
 
-  const handleAddDraft = () => {
-    void addDraftByCode(codeInput, "manual");
-  };
+    if (codesRef.current.has(code)) {
+      flashRow(code);
+      const existing = rowsRef.current.find((row) => row.code === code);
+      const destinationChanged = existing
+        && (locationGuid || holderId)
+        && (existing.locationGuid !== locationGuid || existing.holderId !== holderId);
 
-  const toggleScan = () => {
-    setIsScanning((prev) => {
-      const next = !prev;
-      if (next) {
-        duplicateScanWarningsRef.current.clear();
+      if (destinationChanged) {
+        // Повторное сканирование переназначает объект на текущие точку и держателя, как в старом портале.
+        setRows((prev) => prev.map((row) => (row.code === code ? { ...row, locationGuid, holderId } : row)));
+        notifications.show(
+          `Объект ${formatObjectCode(code)} теперь передаётся ${describeDestination(locationGuid, holderId)}`,
+          { severity: "info", autoHideDuration: 3500 },
+        );
+      } else {
+        notifications.show(`Объект ${formatObjectCode(code)} уже в списке`, { severity: "info", autoHideDuration: 2500 });
       }
-      return next;
-    });
-    scanBufferRef.current = "";
-  };
-
-  useEffect(() => {
-    if (!isScanning) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      event.preventDefault();
-
-      if (event.key === "Enter") {
-        const completed = scanBufferRef.current;
-        scanBufferRef.current = "";
-
-        if (completed.length === 24) {
-          void addDraftByCode(completed, "scanner");
-        }
-        return;
-      }
-
-      if (event.key.length === 1 && isScannerChar(event.key)) {
-        const next = (scanBufferRef.current + event.key).slice(0, 24);
-        scanBufferRef.current = next;
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isScanning, selectedHolder, selectedLocation, scannedCodes, comment, filledBy, notifications]);
-
-  const updateDraftComment = (index: number, value: string) => {
-    setDrafts((prev) => prev.map((item, i) => (i === index ? { ...item, comment: value } : item)));
-  };
-
-  const clearAllFields = () => {
-    setDrafts([]);
-    setScannedCodes(new Set());
-    setCodeInput("");
-    setComment("");
-    setHolderId("");
-    setLocationGuid("");
-    setIsScanning(false);
-    scanBufferRef.current = "";
-    duplicateScanWarningsRef.current.clear();
-  };
-
-  const sendTransfer = async () => {
-    if (drafts.length === 0) {
-      notifications.show("Добавьте хотя бы один объект.", { severity: "error", autoHideDuration: 3000 });
       return;
     }
 
-    const payload = drafts.map((draft) => ({
-      WarehouseObjectsId: draft.code,
-      User: draft.filledBy,
-      NewHolder: draft.newHolderId,
-      Location: draft.endLocationGuid,
-      DateTime: new Date().toISOString(),
-      Comment: draft.comment,
-      WarehouseAction: 2,
-    }));
+    codesRef.current.add(code);
+    setRows((prev) => [
+      { code, status: "loading", object: null, error: "", comment: "", locationGuid, holderId },
+      ...prev,
+    ]);
+    void loadRow(code);
+  }, [describeDestination, flashRow, holderId, loadRow, locationGuid, notifications]);
 
+  useRfidScanner(scanning, (code) => addCode(code, "scanner"));
+
+  const removeRow = (code: string) => {
+    codesRef.current.delete(code);
+    setRows((prev) => prev.filter((row) => row.code !== code));
+  };
+
+  const retryRow = (code: string) => {
+    setRows((prev) => prev.map((row) => (row.code === code ? { ...row, status: "loading", error: "" } : row)));
+    void loadRow(code);
+  };
+
+  const updateRowComment = (code: string, value: string) => {
+    setRows((prev) => prev.map((row) => (row.code === code ? { ...row, comment: value } : row)));
+  };
+
+  const applyDestinationToAll = () => {
+    setRows((prev) => prev.map((row) => ({ ...row, locationGuid, holderId })));
+  };
+
+  const readyRows = rows.filter((row) => row.status === "ready");
+  const loadingCount = rows.filter((row) => row.status === "loading").length;
+  const errorCount = rows.filter((row) => row.status === "error").length;
+  const unassignedCount = rows.filter((row) => !hasDestination(row)).length;
+  const hasCurrentDestination = Boolean(locationGuid || holderId);
+  const differentDestinationCount = hasCurrentDestination
+    ? rows.filter((row) => row.locationGuid !== locationGuid || row.holderId !== holderId).length
+    : 0;
+  const commentMissing = comment.trim().length < 2;
+  const showDestinationError = attempted && unassignedCount > 0 && !hasCurrentDestination;
+  const showCommentError = attempted && commentMissing;
+  const isPristine = rows.length === 0 && !locationGuid && !holderId && !comment && !codeInput;
+
+  // Список показывает новые объекты сверху, а сводка назначений идёт в порядке добавления.
+  const destinationGroups = Array.from(
+    [...readyRows]
+      .reverse()
+      .filter(hasDestination)
+      .reduce((groups, row) => {
+        const key = `${row.locationGuid}|${row.holderId}`;
+        const group = groups.get(key) ?? { text: describeDestination(row.locationGuid, row.holderId), count: 0 };
+        group.count += 1;
+        return groups.set(key, group);
+      }, new Map<string, { text: string; count: number }>())
+      .values(),
+  );
+
+  const issues = [
+    unassignedCount > 0 ? `укажите, куда передать ${objectsLabel(unassignedCount)}` : "",
+    commentMissing ? "заполните комментарий" : "",
+    rows.length === 0 ? "добавьте объекты" : "",
+    loadingCount > 0 ? "дождитесь загрузки данных объектов" : "",
+    errorCount > 0 ? "уберите объекты с ошибками" : "",
+  ].filter(Boolean);
+
+  const rowProblems = [
+    loadingCount > 0 ? `загружается: ${loadingCount}` : "",
+    errorCount > 0 ? `с ошибкой: ${errorCount}` : "",
+  ].filter(Boolean).join(" · ");
+
+  const destinationSummary = destinationGroups.length === 0
+    ? "Назначение не выбрано"
+    : destinationGroups.length === 1
+      ? `Передать ${destinationGroups[0].text}`
+      : `Разные назначения: ${destinationGroups.length}`;
+
+  const confirmMessage = destinationGroups.length === 1
+    ? `Передать ${objectsLabel(readyRows.length)} ${destinationGroups[0].text}? Операция попадёт в историю каждого объекта.`
+    : `Передать ${objectsLabel(readyRows.length)}: ${destinationGroups
+      .map((group) => `${objectsLabel(group.count)} — ${group.text}`)
+      .join("; ")}. Операция попадёт в историю каждого объекта.`;
+
+  const resetForm = () => {
+    codesRef.current.clear();
+    setRows([]);
+    setLocationGuid("");
+    setHolderId("");
+    setComment("");
+    setCodeInput("");
+    setCodeError("");
+    setAttempted(false);
+    setScanning(false);
+  };
+
+  const requestSend = () => {
+    setAttempted(true);
+    if (issues.length === 0) setConfirm("send");
+  };
+
+  const send = async () => {
+    setConfirm(null);
+    setSending(true);
     try {
-      await requestWarehouseApi(SET_TRANSFER_HISTORY_URL, {
-        method: "POST",
-        body: JSON.stringify(payload),
+      const result = await sendStockTransfer({
+        locationGuid: null,
+        holderId: null,
+        comment: comment.trim(),
+        items: readyRows.map((row) => ({
+          code: row.code,
+          locationGuid: row.locationGuid || null,
+          holderId: row.holderId ? Number(row.holderId) : null,
+          comment: row.comment.trim() || null,
+        })),
       });
-      notifications.show("Данные успешно отправлены.", { severity: "success", autoHideDuration: 3000 });
-      clearAllFields();
+      notifications.show(`Передано: ${objectsLabel(result.count)}`, { severity: "success", autoHideDuration: 4000 });
+      resetForm();
     } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось отправить данные передачи."), {
-        severity: "error",
-        autoHideDuration: 5000,
-      });
+      notifications.show(
+        getStockErrorMessage(error, "Не удалось передать объекты. Данные формы сохранены — попробуйте ещё раз."),
+        { severity: "error", autoHideDuration: 6000 },
+      );
+    } finally {
+      setSending(false);
     }
   };
 
-  const canAddHolder = holderForm.surname.trim().length > 0 && holderForm.name.trim().length > 0;
-
-  const handleAddHolder = async () => {
-    if (!canAddHolder) return;
-
-    const surname = holderForm.surname.trim();
-    const name = holderForm.name.trim();
-    const patronymic = holderForm.patronymic.trim();
-    const jobTitle = holderForm.jobTitle.trim();
-    const department = holderForm.department.trim();
-
+  const handleHolderCreated = async (holder: StockHolderOption | null) => {
+    setHolderModalOpen(false);
     try {
-      await requestWarehouseApi(POST_HOLDER_URL, {
-        method: "POST",
-        body: JSON.stringify({
-        Surname: surname,
-        Name: name,
-        Patronymic: patronymic || null,
-        JobTitle: jobTitle || null,
-        Department: department || null,
-        Actual: 1,
-        }),
-      });
+      setLookups(await getStockLookups(true));
+    } catch {
+      // Список обновится при следующем открытии вкладки.
+    }
 
-      const externalHolders = await requestWarehouseApi<WarehouseHolder[]>(GET_ALL_HOLDERS_URL);
-      const nextHolders = Array.isArray(externalHolders) ? sortHolders(externalHolders) : [];
-      setHolders(nextHolders);
-
-      const matchedHolder = nextHolders
-        .filter((holder) => {
-          const holderSurname = holder.surname.trim().toLowerCase();
-          const holderName = holder.name.trim().toLowerCase();
-          const holderPatronymic = (holder.patronymic ?? "").trim().toLowerCase();
-          return holderSurname === surname.toLowerCase()
-            && holderName === name.toLowerCase()
-            && holderPatronymic === patronymic.toLowerCase();
-        })
-        .sort((a, b) => b.id - a.id)[0];
-
-      if (matchedHolder) {
-        setHolderId(String(matchedHolder.id));
-      }
-
-      setHolderForm(emptyHolderForm);
-      setIsAddHolderOpen(false);
-      notifications.show("Держатель добавлен.", { severity: "success", autoHideDuration: 2500 });
-    } catch (error) {
-      notifications.show(getFriendlyErrorMessage(error, "Не удалось добавить держателя."), {
-        severity: "error",
-        autoHideDuration: 3500,
-      });
+    if (holder) {
+      changeDestination(locationGuid, String(holder.id));
+      notifications.show(`Держатель ${holder.fullName} добавлен и выбран`, { severity: "success", autoHideDuration: 3000 });
+    } else {
+      notifications.show("Держатель добавлен. Выберите его в списке.", { severity: "success", autoHideDuration: 3000 });
     }
   };
-
-  if (isLoading) {
-    return <div className={styles.loaderWrapper}><LoadingSpinner size={96} label="Загружаем передачу…" /></div>;
-  }
 
   return (
-    <div className={styles.transferWrapper}>
-      <div className={styles.mainFieldsWrapper}>
-        <div className={styles.mainFields}>
-          <Select
-            label="Конечная точка"
-            options={locationOptions}
-            value={locationGuid}
-            onChange={(e) => setLocationGuid(e.target.value)}
-            placeholder="Выберите конечную точку"
-            search
-          />
-
-          <div className={styles.holderSelectWrapper}>
-            <Select
-              label="Новый держатель"
-              options={holderOptions}
-              value={holderId}
-              onChange={(e) => setHolderId(e.target.value)}
-              placeholder="Выберите держателя"
-              search
-            />
-            <button className={styles.addHolder} onClick={() => setIsAddHolderOpen(true)}>Добавить</button>
-          </div>
-        </div>
-
-        <div className={styles.mainFields + " " + styles.codeInputSection}>
-          <div className={styles.holderSelectWrapper}>
-            <Input
-              label="Код объекта"
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value)}
-              maxLength={24}
-              placeholder="000000000000000000000000"
-            />
-
-            <button className={styles.addHolder} onClick={handleAddDraft}>Добавить</button>
-          </div>
-
-          <button
-            className={`${styles.scanBtn} ${isScanning ? styles.scanBtnActive : ""}`}
-            onClick={toggleScan}
-          >
-            <span>{isScanning ? "Остановить сканирование" : "Сканировать"}</span>
-            {isScanning && (
-              <span className={styles.scanState}>
-                <span className={styles.scanStateDot}></span>
-                Активно
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      <div className={`${styles.mainFields} ${styles.commentSection}`}>
-        <Textarea
-          label="Комментарий"
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Пожалуйста, укажите номер заявки или другие данные по перемещению"
-        />
-      </div>
-
-      <div className={styles.mainFields}>
-        <div className={styles.headerDrafts}>
-          <p className={styles.colCode}>ID</p>
-          <p className={styles.colCategory}>Категория</p>
-          <p className={styles.colSubCategory}>Подкатегория</p>
-          <p className={styles.colName}>Наименование</p>
-          <p className={styles.colStartLocation}>Начальная точка</p>
-          <p className={styles.colEndLocation}>Конечная точка</p>
-          <p className={styles.colNewHolder}>Новый держатель</p>
-          <p className={styles.colFilledBy}>Заполнил</p>
-          <p className={styles.colComment}>Комментарий</p>
-        </div>
-
-        <div className={styles.bodyDrafts}>
-          {drafts.length === 0 && <div className={styles.emptyDrafts}>Нет добавленных объектов</div>}
-
-          {drafts.map((draft, index) => (
-            <div className={styles.rowDrafts} key={`${draft.code}-${index}`}>
-              <div className={`${styles.draftField} ${styles.colCode}`}>
-                <span className={styles.draftFieldLabel}>ID</span>
-                <span className={styles.draftFieldValue}>{getShortCode(draft.code)}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colCategory}`}>
-                <span className={styles.draftFieldLabel}>Категория</span>
-                <span className={styles.draftFieldValue}>{draft.category}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colSubCategory}`}>
-                <span className={styles.draftFieldLabel}>Подкатегория</span>
-                <span className={styles.draftFieldValue}>{draft.subCategory}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colName}`}>
-                <span className={styles.draftFieldLabel}>Наименование</span>
-                <span className={styles.draftFieldValue}>{draft.name}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colStartLocation}`}>
-                <span className={styles.draftFieldLabel}>Начальная точка</span>
-                <span className={styles.draftFieldValue}>{draft.startLocation}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colEndLocation}`}>
-                <span className={styles.draftFieldLabel}>Конечная точка</span>
-                <span className={styles.draftFieldValue}>{draft.endLocationName || "-"}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colNewHolder}`}>
-                <span className={styles.draftFieldLabel}>Новый держатель</span>
-                <span className={styles.draftFieldValue}>{draft.newHolderName || "-"}</span>
-              </div>
-              <div className={`${styles.draftField} ${styles.colFilledBy}`}>
-                <span className={styles.draftFieldLabel}>Заполнил</span>
-                <span className={styles.draftFieldValue}>{draft.filledBy}</span>
-              </div>
-              <label className={`${styles.draftCommentField} ${styles.colComment}`}>
-                <span className={styles.draftFieldLabel}>Комментарий</span>
-                <input
-                  className={styles.commentRowInput}
-                  value={draft.comment}
-                  onChange={(e) => updateDraftComment(index, e.target.value)}
-                  placeholder="Комментарий"
-                />
-              </label>
+    <div className={shared.page}>
+      <div className={styles.layout}>
+        <section className={`${shared.panel} ${styles.paramsPanel}`} aria-labelledby={`${fieldId}-params`}>
+          <header className={shared.panelHeader}>
+            <div className={shared.panelHeading}>
+              <h2 id={`${fieldId}-params`} className={shared.panelTitle}>Куда передаём</h2>
             </div>
-          ))}
-        </div>
-      </div>
+          </header>
 
-      <div className={styles.buttonsWrapper}>
-        <Button variant="secondary" onClick={clearAllFields}>Очистить</Button>
-        <Button variant="primary" onClick={() => void sendTransfer()}>Отправить</Button>
-      </div>
+          <div className={`${shared.panelBody} ${styles.paramsBody}`}>
+            {lookupsError ? (
+              <div className={styles.lookupsError} role="alert">
+                <span>{lookupsError}</span>
+                <Button variant="secondary" size="sm" onClick={() => void loadLookups(true)}>Повторить</Button>
+              </div>
+            ) : null}
 
-      <Modal
-        isOpen={isAddHolderOpen}
-        onClose={() => setIsAddHolderOpen(false)}
-        title="Добавление держателя"
-        size="sm"
-      >
-        <div className={styles.addHolderModalFields}>
-          <Input
-            label="Фамилия"
-            value={holderForm.surname}
-            onChange={(e) => setHolderForm((prev) => ({ ...prev, surname: e.target.value }))}
-          />
-          <Input
-            label="Имя"
-            value={holderForm.name}
-            onChange={(e) => setHolderForm((prev) => ({ ...prev, name: e.target.value }))}
-          />
-          <Input
-            label="Отчество"
-            value={holderForm.patronymic}
-            onChange={(e) => setHolderForm((prev) => ({ ...prev, patronymic: e.target.value }))}
-          />
-          <Input
-            label="Должность"
-            value={holderForm.jobTitle}
-            onChange={(e) => setHolderForm((prev) => ({ ...prev, jobTitle: e.target.value }))}
-          />
-          <Input
-            label="Отдел"
-            value={holderForm.department}
-            onChange={(e) => setHolderForm((prev) => ({ ...prev, department: e.target.value }))}
-          />
+            <div className={`${shared.field} ${showDestinationError ? shared.invalid : ""}`}>
+              <Select
+                label="Конечная точка"
+                options={locationOptions}
+                value={locationGuid}
+                onChange={(event) => changeDestination(event.target.value, holderId)}
+                placeholder={lookups ? "Не выбрано" : "Загружаем точки…"}
+                disabled={!lookups}
+                search
+              />
+            </div>
 
-          <div className={styles.addHolderModalButtons}>
-            <Button variant="primary" disabled={!canAddHolder} onClick={handleAddHolder}>Добавить</Button>
-            <Button variant="secondary" onClick={() => setIsAddHolderOpen(false)}>Закрыть</Button>
+            <div className={`${shared.field} ${showDestinationError ? shared.invalid : ""}`}>
+              <div className={styles.holderRow}>
+                <Select
+                  label="Новый держатель"
+                  wrapperClassName={styles.holderSelect}
+                  options={holderOptions}
+                  value={holderId}
+                  onChange={(event) => changeDestination(locationGuid, event.target.value)}
+                  placeholder={lookups ? "Не выбрано" : "Загружаем держателей…"}
+                  disabled={!lookups}
+                  search
+                />
+                <button
+                  type="button"
+                  className={`${shared.iconButton} ${shared.iconButtonLarge}`}
+                  aria-label="Добавить держателя"
+                  title="Добавить держателя"
+                  onClick={() => setHolderModalOpen(true)}
+                  disabled={!lookups}
+                >
+                  <PersonAddAlt1RoundedIcon />
+                </button>
+              </div>
+              {holderMeta ? <p className={shared.fieldHint}>{holderMeta}</p> : null}
+              {showDestinationError ? (
+                <p className={shared.fieldError}>Выберите конечную точку или держателя — они назначатся объектам без назначения.</p>
+              ) : null}
+            </div>
+
+            {differentDestinationCount > 0 ? (
+              <div className={styles.applyAll}>
+                <Button variant="secondary" size="sm" onClick={applyDestinationToAll}>
+                  Применить ко всем объектам ({differentDestinationCount})
+                </Button>
+                <p className={shared.fieldHint}>У части объектов в списке другое назначение.</p>
+              </div>
+            ) : null}
+
+            <div className={`${shared.field} ${styles.commentField} ${showCommentError ? shared.invalid : ""}`}>
+              <Textarea
+                label="Комментарий *"
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                maxLength={1000}
+                placeholder="Номер заявки или основание перемещения"
+                aria-required
+                aria-invalid={showCommentError || undefined}
+                aria-describedby={`${fieldId}-comment-help`}
+              />
+              <p id={`${fieldId}-comment-help`} className={showCommentError ? shared.fieldError : shared.fieldHint}>
+                {showCommentError ? "Укажите комментарий — хотя бы 2 символа." : "Попадёт в историю каждого объекта."}
+              </p>
+            </div>
           </div>
-        </div>
-      </Modal>
+        </section>
+
+        <section className={`${shared.panel} ${styles.objectsPanel}`} aria-labelledby={`${fieldId}-objects`}>
+          <header className={shared.panelHeader}>
+            <div className={shared.panelTitleRow}>
+              <h2 id={`${fieldId}-objects`} className={shared.panelTitle}>Объекты</h2>
+              <StockBadge tone="neutral">{rows.length}</StockBadge>
+            </div>
+            <Button
+              variant="secondary"
+              aria-pressed={scanning}
+              leadingIcon={<SensorsRoundedIcon />}
+              onClick={() => setScanning((value) => !value)}
+            >
+              {scanning ? "Остановить сканер" : "Сканировать"}
+            </Button>
+          </header>
+
+          <div className={styles.addBar}>
+            <form
+              className={styles.addForm}
+              onSubmit={(event) => {
+                event.preventDefault();
+                addCode(codeInput, "manual");
+              }}
+              noValidate
+            >
+              <div className={`${shared.field} ${styles.codeField} ${codeError ? shared.invalid : ""}`}>
+                <Input
+                  label="Код объекта"
+                  className={shared.codeInput}
+                  value={codeInput}
+                  onChange={(event) => {
+                    setCodeInput(event.target.value);
+                    if (codeError) setCodeError("");
+                  }}
+                  placeholder="E28011700000020F1A2B3C4D"
+                  maxLength={40}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={codeError ? true : undefined}
+                  aria-describedby={`${fieldId}-code-help`}
+                />
+                <p id={`${fieldId}-code-help`} className={codeError ? shared.fieldError : shared.fieldHint}>
+                  {codeError || CODE_HINT}
+                </p>
+              </div>
+              <Button type="submit" variant="secondary" size="lg" leadingIcon={<AddRoundedIcon />}>
+                Добавить
+              </Button>
+            </form>
+            {scanning ? (
+              <ScannerStatus>Сканер включён — подносите метки по очереди, объекты появятся в списке.</ScannerStatus>
+            ) : null}
+          </div>
+
+          <div className={styles.rows}>
+            {rows.length === 0 ? (
+              <StockState
+                icon={<QrCodeScannerRoundedIcon />}
+                title="Список пуст"
+                text={scanning
+                  ? "Подносите метки к считывателю — объекты появятся здесь."
+                  : "Выберите, куда передаём, затем отсканируйте метки или введите код объекта вручную."}
+              />
+            ) : (
+              <table className={`${shared.table} ${styles.table}`}>
+                <caption className={shared.srOnly}>Объекты к передаче</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Объект</th>
+                    <th scope="col">Сейчас</th>
+                    <th scope="col">Куда</th>
+                    <th scope="col">Комментарий к объекту</th>
+                    <th scope="col"><span className={shared.srOnly}>Действия</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr
+                      key={row.code}
+                      className={styles.row}
+                      data-status={row.status}
+                      data-flash={flashCode === row.code || undefined}
+                    >
+                      <td className={styles.objectCell}>
+                        <div className={styles.objectInfo}>
+                          {row.status === "ready" && row.object ? (
+                            <>
+                              <span className={styles.objectName}>{row.object.name}</span>
+                              {row.object.categoryPath.length > 1 ? (
+                                <span className={shared.muted}>{row.object.categoryPath.slice(0, -1).join(" / ")}</span>
+                              ) : null}
+                            </>
+                          ) : row.status === "loading" ? (
+                            <span className={styles.rowLoading}>
+                              <LoadingSpinner size={24} />
+                              Загружаем данные объекта…
+                            </span>
+                          ) : (
+                            <span className={styles.rowError}>
+                              <ErrorOutlineRoundedIcon aria-hidden="true" />
+                              {row.error}
+                            </span>
+                          )}
+                          <span className={`${shared.code} ${styles.rowCode}`}>{formatObjectCode(row.code)}</span>
+                        </div>
+                      </td>
+                      <td className={styles.currentCell}>
+                        <span className={shared.cellLabel}>Сейчас</span>
+                        {row.object ? (
+                          <div className={styles.objectInfo}>
+                            <span>{row.object.locationName ?? "Точка не указана"}</span>
+                            <span className={shared.muted}>{row.object.holderName ?? "Без держателя"}</span>
+                          </div>
+                        ) : (
+                          <span className={shared.muted}>—</span>
+                        )}
+                      </td>
+                      <td className={styles.destinationCell}>
+                        <span className={shared.cellLabel}>Куда</span>
+                        {hasDestination(row) ? (
+                          <div className={styles.objectInfo}>
+                            {row.locationGuid ? <span>{locationNames.get(row.locationGuid) ?? "Точка"}</span> : null}
+                            {row.holderId ? (
+                              <span className={row.locationGuid ? shared.muted : undefined}>
+                                {holderNames.get(row.holderId) ?? "Держатель"}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span className={styles.destinationMissing}>Не указано</span>
+                        )}
+                      </td>
+                      <td className={styles.commentCell}>
+                        <Input
+                          label={`Комментарий к объекту ${row.code}`}
+                          labelVisible={false}
+                          wrapperClassName={shared.compactField}
+                          value={row.comment}
+                          onChange={(event) => updateRowComment(row.code, event.target.value)}
+                          placeholder="Как в общем комментарии"
+                          maxLength={1000}
+                          disabled={row.status !== "ready"}
+                        />
+                      </td>
+                      <td className={styles.actionsCell}>
+                        <div className={styles.rowActions}>
+                          {row.status === "error" ? (
+                            <button
+                              type="button"
+                              className={shared.iconButton}
+                              aria-label={`Повторить загрузку объекта ${row.code}`}
+                              title="Повторить"
+                              onClick={() => retryRow(row.code)}
+                            >
+                              <RefreshRoundedIcon />
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            className={`${shared.iconButton} ${shared.iconButtonDanger}`}
+                            aria-label={`Убрать объект ${row.code} из списка`}
+                            title="Убрать из списка"
+                            onClick={() => removeRow(row.code)}
+                          >
+                            <DeleteOutlineRoundedIcon />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          <footer className={styles.footer}>
+            <div className={styles.summary} aria-live="polite">
+              {attempted && issues.length > 0 ? (
+                <p className={styles.issues}>Чтобы передать: {issues.join(", ")}.</p>
+              ) : (
+                <>
+                  <span className={styles.summaryTitle}>
+                    {readyRows.length > 0 ? `К передаче: ${objectsLabel(readyRows.length)}` : "Объекты не добавлены"}
+                  </span>
+                  <span className={shared.muted}>{rowProblems || destinationSummary}</span>
+                </>
+              )}
+            </div>
+            <div className={styles.footerActions}>
+              <Button variant="ghost" onClick={() => setConfirm("clear")} disabled={sending || isPristine}>
+                Очистить
+              </Button>
+              <Button variant="primary" loading={sending} leadingIcon={<SendRoundedIcon />} onClick={requestSend}>
+                Передать
+              </Button>
+            </div>
+          </footer>
+        </section>
+      </div>
+
+      <ConfirmModal
+        isOpen={confirm === "send"}
+        title="Подтвердите передачу"
+        message={confirmMessage}
+        confirmLabel="Передать"
+        cancelLabel="Отмена"
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => void send()}
+      />
+      <ConfirmModal
+        isOpen={confirm === "clear"}
+        title="Очистить форму?"
+        message="Список объектов, точка, держатель и комментарий будут сброшены."
+        confirmLabel="Очистить"
+        cancelLabel="Отмена"
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          setConfirm(null);
+          resetForm();
+        }}
+      />
+      <HolderCreateModal
+        isOpen={holderModalOpen}
+        onClose={() => setHolderModalOpen(false)}
+        onCreated={(holder) => void handleHolderCreated(holder)}
+      />
     </div>
   );
-};
-
-export default StockTransferPage;
+}

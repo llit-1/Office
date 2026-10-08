@@ -1,31 +1,37 @@
-﻿import { useEffect, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
+import type { RootState } from "../../Store";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import styles from "./Stock.module.css";
+import StockCardPage from "./StockCardPage";
+import StockSearchPage from "./StockSearchPage";
 import StockStructurePage from "./StockStructurePage";
 import StockTransferPage from "./StockTransferPage";
-import StockSearchPage from "./StockSearchPage";
-import StockStubPage from "./StockStubPage";
+
+const STOCK_ADMIN_ROLE = "StockAdmin";
+const DEFAULT_TAB_PATH = "/Stock/Transfer";
 
 const Stock = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { tab } = useParams();
+  const isStockAdmin = useSelector((state: RootState) => state.userData.roles.includes(STOCK_ADMIN_ROLE));
 
   const tabs = useMemo(
     () => [
-      { key: "Structure", label: "Структура" },
+      ...(isStockAdmin ? [{ key: "Structure", label: "Структура" }] : []),
       { key: "Transfer", label: "Передача" },
       { key: "Search", label: "Поиск" },
       { key: "Card", label: "Карточка" },
     ],
-    [],
+    [isStockAdmin],
   );
 
   const activeIndex = tabs.findIndex((item) => item.key === tab);
+  const activeKey = tabs[activeIndex]?.key;
 
   useEffect(() => {
     dispatch(pathSet({ path: "/Main" }));
@@ -35,7 +41,7 @@ const Stock = () => {
 
   useEffect(() => {
     if (activeIndex !== -1) return;
-    navigate("/Stock/Structure", { replace: true });
+    navigate(DEFAULT_TAB_PATH, { replace: true });
   }, [activeIndex, navigate]);
 
   return (
@@ -43,15 +49,15 @@ const Stock = () => {
       <div className={styles.tt_wrapper}>
         <TabNavigation
           items={tabs.map((item) => item.label)}
-          activeIndex={activeIndex >= 0 ? activeIndex : 0}
+          activeIndex={Math.max(activeIndex, 0)}
           onChange={(index) => navigate(`/Stock/${tabs[index].key}`)}
         />
       </div>
 
-      {activeIndex === 0 && <StockStructurePage />}
-      {activeIndex === 1 && <StockTransferPage />}
-      {activeIndex === 2 && <StockSearchPage />}
-      {activeIndex === 3 && <StockStubPage />}
+      {activeKey === "Structure" && <StockStructurePage />}
+      {activeKey === "Transfer" && <StockTransferPage />}
+      {activeKey === "Search" && <StockSearchPage />}
+      {activeKey === "Card" && <StockCardPage />}
     </>
   );
 };

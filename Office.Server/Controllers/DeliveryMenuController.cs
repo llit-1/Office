@@ -8,6 +8,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    // MenuAuditor сюда не входит: меню нужно только «Стопам (Яндекс)», а они доступны лишь сотруднику кассы (Menu).
     [Authorize(Roles = "MenuMarketing,Menu,MenuAdmin")]
     public class DeliveryMenuController : ControllerBase
     {
@@ -75,6 +76,23 @@ namespace Office.Server.Controllers
         [Authorize(Roles = "MenuMarketing,MenuAdmin")]
         public Task<IActionResult> SetItemActual(int id, [FromBody] SetActualRequest body, CancellationToken cancellationToken) =>
             ForwardAsync(HttpMethod.Put, $"items/{id}/{(body.Actual ? "actual" : "unactual")}", null, null, cancellationToken);
+
+        // Декларации соответствия (закон о платформенной экономике): Яндекс требует их в legalInfo позиций.
+        [HttpGet("declarations/actual")]
+        [Authorize(Roles = "MenuMarketing,MenuAdmin")]
+        public Task<IActionResult> GetActualDeclarations(CancellationToken cancellationToken) =>
+            ForwardAsync(HttpMethod.Get, "declarations/actual", null, "[]", cancellationToken);
+
+        // Поиск декларации в реестре по номеру; 404 — не найдена, пробрасывается как есть.
+        [HttpPost("declarations/lookup")]
+        [Authorize(Roles = "MenuMarketing,MenuAdmin")]
+        public Task<IActionResult> LookupDeclaration([FromBody] JsonElement body, CancellationToken cancellationToken) =>
+            ForwardAsync(HttpMethod.Post, "declarations/lookup", body, null, cancellationToken);
+
+        [HttpPost("declarations")]
+        [Authorize(Roles = "MenuMarketing,MenuAdmin")]
+        public Task<IActionResult> CreateDeclaration([FromBody] JsonElement body, CancellationToken cancellationToken) =>
+            ForwardAsync(HttpMethod.Post, "declarations", body, null, cancellationToken);
 
         private async Task<IActionResult> ForwardAsync(
             HttpMethod method,

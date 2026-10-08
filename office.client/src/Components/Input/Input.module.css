@@ -40,6 +40,27 @@
     color: var(--color-text-muted);
 }
 
+/* iOS Safari рисует значение date/time-поля во внутреннем блоке и не центрирует его по вертикали:
+   при фиксированной высоте поля текст прижимается к верху. Центрируем через line-height на высоту поля.
+   @supports (-webkit-touch-callout: none) срабатывает только в iOS/iPadOS Safari — Android и десктоп не трогаем. */
+@supports (-webkit-touch-callout: none) {
+    .input[type="date"],
+    .input[type="time"],
+    .input[type="month"],
+    .input[type="datetime-local"] {
+        padding-block: 0;
+        line-height: var(--control-height-lg);
+    }
+
+    .input[type="date"]::-webkit-date-and-time-value,
+    .input[type="time"]::-webkit-date-and-time-value,
+    .input[type="month"]::-webkit-date-and-time-value,
+    .input[type="datetime-local"]::-webkit-date-and-time-value {
+        margin: 0;
+        line-height: var(--control-height-lg);
+    }
+}
+
 @media (max-width: 900px) {
     .sizeMedium,
     .sizeSmall {

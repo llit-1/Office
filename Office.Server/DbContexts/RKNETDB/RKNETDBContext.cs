@@ -9,6 +9,11 @@ namespace Office.Server.DbContexts.RKNETDB
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // Locations has active INSERT/UPDATE triggers. SQL Server rejects
+            // EF's direct OUTPUT clause for this table; keep trigger-compatible SQL.
+            modelBuilder.Entity<Location>()
+                .ToTable("Locations", table => table.UseSqlOutputClause(false));
+
             // ===== OfficeUser ↔ Locations =====
             modelBuilder.Entity<OfficeUser>()
                 .HasMany(u => u.Locations)
@@ -97,6 +102,9 @@ namespace Office.Server.DbContexts.RKNETDB
                 .WithMany(d => d.DepartmentWorkshopJobTitles)
                 .HasForeignKey(e => new { e.FactoryDepartmentId, e.FactoryWorkshopId })
                 .HasPrincipalKey(d => new { d.FactoryDepartmentId, d.FactoryWorkshopId });
+
+            modelBuilder.Entity<FactorySKUDGroupReader>()
+                .HasKey(e => new { e.GroupId, e.ReaderId });
 
             // FactoryPerson has DB triggers; disable OUTPUT clause to avoid SQL error 334.
             modelBuilder.Entity<FactoryPerson>()
@@ -200,6 +208,9 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<FactorySKUDWorkLog> FactorySKUDWorkLog { get; set; }
         public DbSet<FactoryWorkshop> FactoryWorkshop { get; set; }
         public DbSet<FactorySKUDGroup> FactorySKUDGroup { get; set; }
+        public DbSet<FactorySKUDGroupReader> FactorySKUDGroupReader { get; set; }
+        public DbSet<FactorySKUDController> FactorySKUDController { get; set; }
+        public DbSet<FactorySKUDReader> FactorySKUDReader { get; set; }
         public DbSet<WarehouseCategories> WarehouseCategories { get; set; }
         public DbSet<WarehouseHolder> WarehouseHolders { get; set; }
         public DbSet<OfficeBid> OfficeBids { get; set; }
@@ -214,5 +225,10 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<OfficeKnowledgeFavorite> OfficeKnowledgeFavorites { get; set; }
         public DbSet<OfficeKnowledgeHistory> OfficeKnowledgeHistory { get; set; }
         public DbSet<OfficeKnowledgeIndexError> OfficeKnowledgeIndexErrors { get; set; }
+        public DbSet<OfficeReportSetting> OfficeReportSettings { get; set; } // ссылки раздела «Отчёты»
+        public DbSet<SaleObject> SaleObjects { get; set; } // позиции чеков R-Keeper
+        public DbSet<SaleObjectAgregator> SaleObjectsAgregators { get; set; } // позиции заказов агрегаторов
+        public DbSet<CurrencyType> CurrencyTypes { get; set; } // типы валют R-Keeper
+        public DbSet<LastUser> LastUsers { get; set; } // последний пользователь отчёта «Выручка»
     }
 }

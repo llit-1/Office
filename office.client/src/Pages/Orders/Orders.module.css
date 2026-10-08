@@ -1,195 +1,380 @@
-.orderWrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    width: 100%;
-    height: 100%;
-}
+/* Общие паттерны раздела «Заказы»: каркас, панели, чипы, компактные контролы. */
 
-.orderTypeWrapper {
-    display: flex;
-    flex-direction: row;
-    padding: 12px;
-    border-radius: var(--radius-control);
-    box-shadow: 0px 4px 5px 0px var(--color-overlay);
-    gap: 12px;
-    background-color: var(--color-surface);
-}
-
-.orderType {
-    padding: 12px 16px;
-    background-color: var(--color-overlay-soft);
-    border-radius: var(--radius-control);
-    font-size: 16px;
-    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear, opacity 0.2s linear, box-shadow 0.2s linear, transform 0.2s linear;
-}
-
-.orderType.selected {
-    background-color: var(--color-primary-solid);
-    color: var(--color-on-primary-solid);
-    cursor: pointer;
-}
-
-.orderType:not(.selected):hover {
-    cursor: pointer;
-    background-color: var(--color-overlay-soft);
-}
-
-.orderBody {
-    width: 100%;
-    height: 100%;
-    background-color: var(--color-surface);
-    border-radius: var(--radius-control);
-    padding: 12px;
-    box-shadow: 0px 4px 5px 0px var(--color-overlay);
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    max-height: calc(100% - 70px);
-}
-
-.settingOrderBody {
-    width: 100%;
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
-    justify-content: space-between;
-}
-
-.filters {
-    display: flex;
-    gap: 12px;
-    flex-direction: row;
-}
-
-.createOrderBtn {
-    border-radius: var(--radius-control);
-    border: none;
-    padding: 12px 16px;
-    background: var(--color-primary-solid);
-    color: var(--color-on-primary-solid);
-    box-shadow: 0 2px 6px var(--color-overlay-soft);
-    border: 1px solid var(--color-surface-muted);
-    font-weight: 500;
-    font-size: 16px;
-    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear, opacity 0.2s linear, box-shadow 0.2s linear, transform 0.2s linear;
-}
-
-.createOrderBtn:hover {
-    cursor: pointer;
-    background: var(--color-primary-hover);
-}
-
-.orderList {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 16px;
-    height: fit-content;
-    overflow: hidden;
-    transition: background-color 0.5s linear, border-color 0.5s linear, color 0.5s linear, opacity 0.5s linear, box-shadow 0.5s linear, transform 0.5s linear;
-    border: 1px solid var(--color-border);
-    padding: 16px;
-    border-radius: var(--radius-control);
-    background: var(--color-bg);
-    box-shadow: inset -1px -1px 8px 0px var(--color-overlay-strong);
-}
-
-.orderListExpanded {
-  height: 115px;
-}
-
-.orderItem {
-  width: 100%;
+.page {
+  /* опорный блок для визуально скрытых подписей: без него они позиционируются от окна,
+     не прокручиваются вместе со списком и добавляют странице лишнюю прокрутку */
+  position: relative;
+  min-width: 0;
+  min-height: 100%;
   display: flex;
-  background-color: var(--color-primary-soft);
-  min-height: 45px;
-  border-radius: var(--radius-control);
-  padding: 4px 16px;
-  transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear, opacity 0.2s linear, box-shadow 0.2s linear, transform 0.2s linear;
   flex-direction: column;
+  gap: var(--space-4);
+  color: var(--color-text);
 }
 
-.titleItem {
+.tabs {
+  width: 100%;
+  min-width: 0;
+}
+
+.tabs > div {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tabs > div > div {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.loading {
+  min-height: 320px;
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+}
+
+.panel {
+  min-width: 0;
   display: flex;
-  justify-content: space-between;
-  flex-direction: row;
-  width: 100%;
-  align-items: center;
-  height: 45px;
-}
-
-.orderItem:hover {
-  cursor: pointer;
-  background-color: var(--color-primary-soft);
-}
-
-/* ВАЖНО: плавность делаем через max-height/opacity, не display:none */
-.collapse {
-  width: 100%;
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 260ms ease, opacity 200ms ease;
-}
-
-.collapse.open {
-  max-height: 200px; /* можно увеличить, если внутри будет больше контента */
-  opacity: 1;
-}
-
-/* Внутренний “второй уровень” */
-.collapseInner {
-  width: 100%;
-  overflow: hidden;
-  max-height: 0;
-  opacity: 0;
-  transition: max-height 240ms ease, opacity 180ms ease;
-}
-
-.collapseInner.open {
-  max-height: 140px;
-  opacity: 1;
-}
-
-.orderDetails {
-  width: 100%;
-  border-radius: var(--radius-control);
-  margin-top: 8px;
-  padding: 12px 12px;
-  background: var(--color-surface);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-/* Просто чтобы визуально уровни отличались */
-.level1 {
-  background: var(--color-warning-bg);
-}
-
-.level2 {
-  background: var(--color-surface);
+  flex-direction: column;
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
 }
 
-.ttCard {
-    background: var(--color-warning-bg);
-    border-radius: var(--radius-control);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    padding: 16px;
-    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear, opacity 0.2s linear, box-shadow 0.2s linear, transform 0.2s linear;
-    color: var(--color-text);
+.panelHeader {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.ttCard span {
-    font-size: 16px;
-    font-weight: 600;
+.panelHeading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
-.ttCard:hover {
-    cursor: pointer;
-    border-color: var(--color-primary);
+.panelTitle {
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--line-height-title-sm);
+  overflow-wrap: anywhere;
 }
 
+.panelSubtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Поле поиска тулбара: иконка + ввод без плавающей подписи */
+.searchField {
+  min-width: 0;
+  height: var(--control-height-md);
+  display: flex;
+  flex: 1 1 220px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  transition: border-color var(--duration-fast) var(--easing-standard);
+}
+
+.searchField:focus-within {
+  border-color: var(--color-primary);
+}
+
+.searchField svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  flex: none;
+}
+
+.searchField input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.searchField input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.searchField input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.compactField {
+  height: var(--control-height-md);
+  min-height: var(--control-height-md);
+}
+
+.iconButton {
+  width: var(--control-height-sm);
+  height: var(--control-height-sm);
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.iconButton svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+}
+
+.iconButton:hover:not(:disabled) {
+  border-color: var(--color-border);
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.iconButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.iconButtonDanger:hover:not(:disabled) {
+  border-color: var(--color-danger-border);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.iconButtonOutlined {
+  width: var(--control-height-md);
+  height: var(--control-height-md);
+  border-color: var(--color-border);
+  background: var(--color-surface);
+}
+
+/* Чипы-фильтры со счётчиком */
+.chips {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  min-height: var(--control-height-sm);
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  font-weight: var(--font-weight-body-emphasis);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.chip:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface);
+  color: var(--color-text);
+}
+
+.chipCount {
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+}
+
+.chip[aria-pressed="true"] .chipCount {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+/* Переключатель из двух-трёх вариантов */
+.segmented {
+  flex: none;
+  display: inline-flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+}
+
+.segment {
+  min-height: var(--space-8);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  font-weight: var(--font-weight-body-emphasis);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.segment svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+}
+
+.segment:hover {
+  color: var(--color-text);
+}
+
+/* как у выбранного чипа: одинаково читается в светлой и тёмной теме */
+.segment[aria-pressed="true"],
+.segment[aria-selected="true"] {
+  background: var(--color-primary-surface);
+  color: var(--color-text);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-control);
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+}
+
+.notice svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  flex: none;
+}
+
+.noticeWarning {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.noticeDanger {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.noticeBody {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (pointer: coarse) {
+  .iconButton {
+    width: var(--touch-target-min);
+    height: var(--touch-target-min);
+  }
+
+  .chip {
+    min-height: var(--control-height-md);
+  }
+
+  .segment {
+    min-height: var(--control-height-sm);
+  }
+}
+
+@media (max-width: 760px) {
+  .panelHeader {
+    padding: var(--space-3);
+  }
+
+  /* iOS увеличивает страницу при фокусе на поле с шрифтом меньше 16px */
+  .searchField {
+    height: var(--touch-target-min);
+  }
+}

@@ -10,7 +10,9 @@ import type { MaintenanceWindowFormState, SensorRow } from "../sensors.types";
 import {
   defaultMaintenanceWindowFormState,
   formatMaintenanceSchedule,
+  oneTimeStartsAt,
   scheduleTypeOptions,
+  todayIso,
   weekDays,
 } from "../sensors.utils";
 import styles from "../Sensors.module.css";
@@ -35,6 +37,7 @@ interface SensorRuleModalProps {
   ruleForm: RuleModalState;
   saving: boolean;
   canSave: boolean;
+  readOnly?: boolean;
   deleteConfirmOpen: boolean;
   onClose: () => void;
   onSave: () => void;
@@ -53,6 +56,7 @@ export default function SensorRuleModal({
   ruleForm,
   saving,
   canSave,
+  readOnly = false,
   deleteConfirmOpen,
   onClose,
   onSave,
@@ -106,7 +110,7 @@ export default function SensorRuleModal({
                 options={availableSensorOptions}
                 value={ruleForm.roomId}
                 onChange={(event) => updateRuleForm({ roomId: event.target.value })}
-                disabled={editingRoomId !== null}
+                disabled={editingRoomId !== null || readOnly}
                 search
               />
 
@@ -115,6 +119,7 @@ export default function SensorRuleModal({
                 type="number"
                 step="0.1"
                 value={ruleForm.minTemperature}
+                disabled={readOnly}
                 onChange={(event) => updateRuleForm({ minTemperature: event.target.value })}
               />
 
@@ -123,6 +128,7 @@ export default function SensorRuleModal({
                 type="number"
                 step="0.1"
                 value={ruleForm.maxTemperature}
+                disabled={readOnly}
                 onChange={(event) => updateRuleForm({ maxTemperature: event.target.value })}
               />
 
@@ -131,6 +137,7 @@ export default function SensorRuleModal({
                 type="number"
                 min={1}
                 value={ruleForm.violationDelayMinutes}
+                disabled={readOnly}
                 onChange={(event) => updateRuleForm({ violationDelayMinutes: event.target.value })}
               />
 
@@ -139,6 +146,7 @@ export default function SensorRuleModal({
                 type="number"
                 min={1}
                 value={ruleForm.repeatDelayMinutes}
+                disabled={readOnly}
                 onChange={(event) => updateRuleForm({ repeatDelayMinutes: event.target.value })}
               />
 
@@ -147,6 +155,7 @@ export default function SensorRuleModal({
                 type="number"
                 min={1}
                 value={ruleForm.recoveryDelayMinutes}
+                disabled={readOnly}
                 onChange={(event) => updateRuleForm({ recoveryDelayMinutes: event.target.value })}
               />
 
@@ -156,6 +165,7 @@ export default function SensorRuleModal({
                 onChange={(checked) => updateRuleForm({ isEnabled: checked })}
                 ariaLabel="Правило активно"
                 small
+                disabled={readOnly}
                 containerClassName={`${styles.rulesToggleCard} ${styles.rulesToggleCardWide}`}
                 labelClassName={styles.rulesToggleTitle}
               />
@@ -168,137 +178,172 @@ export default function SensorRuleModal({
                 <h3>График технических работ</h3>
               </div>
 
-              <button
-                type="button"
-                className={styles.addRuleButtonSecondary}
-                onClick={() =>
-                  onRuleFormChange({
-                    ...ruleForm,
-                    maintenanceWindows: [...ruleForm.maintenanceWindows, { ...defaultMaintenanceWindowFormState }],
-                  })
-                }
-              >
-                <AddRoundedIcon fontSize="small" />
-                <span>Добавить окно</span>
-              </button>
+              {!readOnly && (
+                <button
+                  type="button"
+                  className={styles.addRuleButtonSecondary}
+                  onClick={() =>
+                    onRuleFormChange({
+                      ...ruleForm,
+                      maintenanceWindows: [...ruleForm.maintenanceWindows, { ...defaultMaintenanceWindowFormState }],
+                    })
+                  }
+                >
+                  <AddRoundedIcon fontSize="small" />
+                  <span>Добавить окно</span>
+                </button>
+              )}
             </div>
 
             {ruleForm.maintenanceWindows.length === 0 ? (
               <div className={styles.ruleCardEmpty}>Окна техработ пока не добавлены.</div>
             ) : (
               <div className={styles.ruleModalMaintenanceList}>
-                {ruleForm.maintenanceWindows.map((window, index) => (
-                  <div key={`${window.id ?? "new"}-${index}`} className={styles.ruleModalMaintenanceCard}>
-                    <div className={styles.ruleModalMaintenanceHeader}>
-                      <strong>{window.name.trim() || `Окно ${index + 1}`}</strong>
-                      <button
-                        type="button"
-                        className={`${styles.tableIconButton} ${styles.maintenanceDeleteButton}`}
-                        onClick={() => removeMaintenanceWindow(index)}
-                        title="Удалить окно"
-                      >
-                        <DeleteOutlineRoundedIcon fontSize="small" />
-                      </button>
-                    </div>
+                {ruleForm.maintenanceWindows.map((window, index) => {
+                  const isExisting = window.id != null;
+                  const isRecurring = window.scheduleType === "daily" || window.scheduleType === "weekly";
+                  const lockSchedule = readOnly || (isExisting && isRecurring);
+                  const oneTimeStartDateTime = window.scheduleType === "one_time" ? oneTimeStartsAt(window) : null;
+                  const oneTimeStarted =
+                    isExisting && oneTimeStartDateTime != null && oneTimeStartDateTime.getTime() <= Date.now();
+                  const lockOneTimeStart = readOnly || oneTimeStarted;
 
-                    <div className={styles.rulesModalGrid}>
-                      <Input
-                        label="Название окна"
-                        value={window.name}
-                        onChange={(event) => updateMaintenanceWindow(index, { name: event.target.value })}
-                        maxLength={120}
-                      />
+                  return (
+                    <div key={`${window.id ?? "new"}-${index}`} className={styles.ruleModalMaintenanceCard}>
+                      <div className={styles.ruleModalMaintenanceHeader}>
+                        <strong>{window.name.trim() || `Окно ${index + 1}`}</strong>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            className={`${styles.tableIconButton} ${styles.maintenanceDeleteButton}`}
+                            onClick={() => removeMaintenanceWindow(index)}
+                            title="Удалить окно"
+                          >
+                            <DeleteOutlineRoundedIcon fontSize="small" />
+                          </button>
+                        )}
+                      </div>
 
-                      <Select
-                        label="Тип расписания"
-                        options={scheduleTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
-                        value={window.scheduleType}
-                        onChange={(event) =>
-                          updateMaintenanceWindow(index, {
-                            scheduleType: event.target.value as MaintenanceWindowFormState["scheduleType"],
-                            daysOfWeekMask: event.target.value === "weekly" ? window.daysOfWeekMask : 0,
-                            startDate: event.target.value === "one_time" ? window.startDate : "",
-                            endDate: event.target.value === "one_time" ? window.endDate : "",
-                          })
-                        }
-                      />
+                      <div className={styles.rulesModalGrid}>
+                        <Input
+                          label="Название окна"
+                          value={window.name}
+                          disabled={readOnly}
+                          onChange={(event) => updateMaintenanceWindow(index, { name: event.target.value })}
+                          maxLength={120}
+                        />
 
-                      <Input
-                        label="Начало"
-                        type="time"
-                        value={window.startTime}
-                        onChange={(event) => updateMaintenanceWindow(index, { startTime: event.target.value })}
-                      />
+                        <Select
+                          label="Тип расписания"
+                          options={scheduleTypeOptions.map((option) => ({ value: option.value, label: option.label }))}
+                          value={window.scheduleType}
+                          disabled={readOnly || isExisting}
+                          title={isExisting ? "Тип расписания нельзя менять после создания. Удалите окно и создайте новое." : undefined}
+                          onChange={(event) =>
+                            updateMaintenanceWindow(index, {
+                              scheduleType: event.target.value as MaintenanceWindowFormState["scheduleType"],
+                              daysOfWeekMask: event.target.value === "weekly" ? window.daysOfWeekMask : 0,
+                              startDate: event.target.value === "one_time" ? window.startDate : "",
+                              endDate: event.target.value === "one_time" ? window.endDate : "",
+                            })
+                          }
+                        />
 
-                      <Input
-                        label="Окончание"
-                        type="time"
-                        value={window.endTime}
-                        onChange={(event) => updateMaintenanceWindow(index, { endTime: event.target.value })}
-                      />
-                    </div>
+                        <Input
+                          label="Начало"
+                          type="time"
+                          value={window.startTime}
+                          disabled={lockSchedule || lockOneTimeStart}
+                          title={
+                            lockSchedule && !readOnly
+                              ? "Время нельзя менять после создания. Удалите окно и создайте новое с нужным временем."
+                              : oneTimeStarted && !readOnly
+                                ? "Время начала уже наступило, его нельзя изменить."
+                                : undefined
+                          }
+                          onChange={(event) => updateMaintenanceWindow(index, { startTime: event.target.value })}
+                        />
 
-                    {window.scheduleType === "weekly" && (
-                      <div className={styles.daysPicker}>
-                        <span className={styles.daysPickerLabel}>Дни недели</span>
-                        <div className={styles.daysPickerGrid}>
-                          {weekDays.map((day) => {
-                            const selected = Boolean(window.daysOfWeekMask & day.value);
-                            return (
-                              <button
-                                key={day.value}
-                                type="button"
-                                className={`${styles.dayChip} ${selected ? styles.dayChipActive : ""}`}
-                                onClick={() => toggleWeekDay(index, day.value)}
-                              >
-                                {day.label}
-                              </button>
-                            );
-                          })}
+                        <Input
+                          label="Окончание"
+                          type="time"
+                          value={window.endTime}
+                          disabled={lockSchedule}
+                          title={lockSchedule && !readOnly ? "Время нельзя менять после создания. Удалите окно и создайте новое с нужным временем." : undefined}
+                          onChange={(event) => updateMaintenanceWindow(index, { endTime: event.target.value })}
+                        />
+                      </div>
+
+                      {window.scheduleType === "weekly" && (
+                        <div className={styles.daysPicker}>
+                          <span className={styles.daysPickerLabel}>Дни недели</span>
+                          <div className={styles.daysPickerGrid}>
+                            {weekDays.map((day) => {
+                              const selected = Boolean(window.daysOfWeekMask & day.value);
+                              return (
+                                <button
+                                  key={day.value}
+                                  type="button"
+                                  className={`${styles.dayChip} ${selected ? styles.dayChipActive : ""}`}
+                                  onClick={() => toggleWeekDay(index, day.value)}
+                                  disabled={lockSchedule}
+                                  title={lockSchedule && !readOnly ? "Дни недели нельзя менять после создания. Удалите окно и создайте новое." : undefined}
+                                >
+                                  {day.label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {window.scheduleType === "one_time" && (
-                      <div className={styles.inlineRuleFields}>
-                        <Input
-                          label="Дата начала"
-                          type="date"
-                          value={window.startDate}
-                          onChange={(event) => updateMaintenanceWindow(index, { startDate: event.target.value })}
-                        />
+                      {window.scheduleType === "one_time" && (
+                        <div className={styles.inlineRuleFields}>
+                          <Input
+                            label="Дата начала"
+                            type="date"
+                            value={window.startDate}
+                            min={lockOneTimeStart ? undefined : todayIso()}
+                            disabled={lockOneTimeStart}
+                            title={oneTimeStarted && !readOnly ? "Дата начала уже наступила, её нельзя изменить." : undefined}
+                            onChange={(event) => updateMaintenanceWindow(index, { startDate: event.target.value })}
+                          />
 
-                        <Input
-                          label="Дата окончания"
-                          type="date"
-                          value={window.endDate}
-                          onChange={(event) => updateMaintenanceWindow(index, { endDate: event.target.value })}
-                        />
-                      </div>
-                    )}
+                          <Input
+                            label="Дата окончания"
+                            type="date"
+                            value={window.endDate}
+                            disabled={readOnly}
+                            onChange={(event) => updateMaintenanceWindow(index, { endDate: event.target.value })}
+                          />
+                        </div>
+                      )}
 
-                    <div className={styles.maintenancePreviewBadge}>{formatMaintenanceSchedule(window)}</div>
-                  </div>
-                ))}
+                      <div className={styles.maintenancePreviewBadge}>{formatMaintenanceSchedule(window)}</div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
         </div>
 
         <div className={styles.editActions}>
-          {onDeleteRequest && (
+          {!readOnly && onDeleteRequest && (
             <Button variant="danger" className={styles.editDeleteAction} onClick={onDeleteRequest} disabled={saving}>
               Удалить
             </Button>
           )}
 
           <Button variant="secondary" onClick={onClose} disabled={saving}>
-            Отмена
+            {readOnly ? "Закрыть" : "Отмена"}
           </Button>
 
-          <Button variant="primary" onClick={onSave} disabled={!canSave} loading={saving}>
-            {saving ? "Сохраняем..." : editingRoomId !== null ? "Сохранить" : "Создать"}
-          </Button>
+          {!readOnly && (
+            <Button variant="primary" onClick={onSave} disabled={!canSave} loading={saving}>
+              {saving ? "Сохраняем..." : editingRoomId !== null ? "Сохранить" : "Создать"}
+            </Button>
+          )}
         </div>
       </Modal>
 

@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using Office.Server.Nx;
+using Office.Server.Reports;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 
@@ -14,10 +16,12 @@ namespace Office.Server.Controllers
     public class UserController : ControllerBase
     {
         private readonly RKNETDBContext _context;
+        private readonly NxUserSyncService _nxUserSync;
 
-        public UserController(RKNETDBContext context)
+        public UserController(RKNETDBContext context, NxUserSyncService nxUserSync)
         {
             _context = context;
+            _nxUserSync = nxUserSync;
         }
 
         // 1) Получение всех пользователей
@@ -92,6 +96,15 @@ namespace Office.Server.Controllers
             officeUserModel.Locations = _context.Locations.Include(x => x.LocationType).ToList();
             officeUserModel.officeGroups = _context.OfficeGroup.Include(x => x.OfficeRole).ToList();
             officeUserModel.officeBids = _context.OfficeBids.Where(x => x.OfficeUser.Id == id && x.Status == 0).ToList();
+
+            var reportLinks = await _context.OfficeReportSettings.AsNoTracking()
+                .Where(x => x.OfficeUserId == id && (x.ReportCode == ReportCatalog.Profit || x.ReportCode == ReportCatalog.ProfitPro))
+                .ToListAsync();
+            officeUserModel.ReportLinks = new UserReportLinksModel
+            {
+                Profit = reportLinks.FirstOrDefault(x => x.ReportCode == ReportCatalog.Profit)?.Value,
+                ProfitPro = reportLinks.FirstOrDefault(x => x.ReportCode == ReportCatalog.ProfitPro)?.Value,
+            };
             return officeUserModel;
         }
 
@@ -102,11 +115,46 @@ namespace Office.Server.Controllers
             var user = await _context.OfficeUser
                 .Include(u => u.Locations)
                 .Include(u => u.OfficeGroup)
+                    .ThenInclude(g => g.OfficeRole)
                 .FirstOrDefaultAsync(u => u.Id == model.Id);
             if (user == null)
                 return NotFound();
 
-            user.Login = model.Login;
+            // Ссылки проверяются до изменения пользователя, чтобы ошибка не сохранила остальные поля частично.
+            if (model.ReportLinks is not null)
+            {
+                foreach (var (link, title) in new[] { (model.ReportLinks.Profit, "«Выручка»"), (model.ReportLinks.ProfitPro, "«Выручка Pro»") })
+                {
+                    if (ReportSettingsWriter.Clean(link) is string value && ReportSettingsWriter.Validate(ReportKind.PowerBi, value) is string error)
+                        return BadRequest(new { message = $"Ссылка на отчёт {title}: {error}" });
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Login))
+                return BadRequest(new { message = "Укажите логин пользователя." });
+
+            // Доступы в Nx зависят от набора ТТ, роли NX и активности — запоминаем состояние до правок,
+            // чтобы не дёргать Nx, когда меняли только ФИО, должность или ссылки на отчёты.
+            var nxStateBefore = GetNxRelevantState(user);
+
+            // Preserve editing of existing users while AD is unavailable unless the login changes.
+            if (!string.Equals(user.Login, model.Login.Trim(), StringComparison.Ordinal))
+            {
+                using var directory = new PrincipalContext(ContextType.Domain);
+                using var adUser = UserPrincipal.FindByIdentity(directory, model.Login.Trim());
+                var canonicalLogin = adUser?.SamAccountName?.Trim();
+                if (string.IsNullOrWhiteSpace(canonicalLogin))
+                    return BadRequest(new { message = "Пользователь не найден в AD." });
+
+                var loginKey = canonicalLogin.ToUpperInvariant();
+                var upnKey = adUser!.UserPrincipalName?.Trim().ToUpperInvariant();
+                if (await _context.OfficeUser.AnyAsync(x =>
+                    x.Id != user.Id && (x.Login.Trim().ToUpper() == loginKey ||
+                        (upnKey != null && x.Login.Trim().ToUpper() == upnKey))))
+                    return Conflict(new { message = "Пользователь с этим логином уже существует." });
+
+                user.Login = canonicalLogin;
+            }
             user.Name = model.Name;
             user.Surname = model.Surname;
             user.Patronymic = model.Patronymic;
@@ -138,9 +186,39 @@ namespace Office.Server.Controllers
                     user.Locations.Add(l);
             }
 
+            if (model.ReportLinks is not null)
+            {
+                await ReportSettingsWriter.StageAsync(_context, ReportCatalog.Profit, user.Id, model.ReportLinks.Profit, User?.Identity?.Name);
+                await ReportSettingsWriter.StageAsync(_context, ReportCatalog.ProfitPro, user.Id, model.ReportLinks.ProfitPro, User?.Identity?.Name);
+            }
+
+            var nxWarnings = new List<string>();
+
+            if (!GetNxRelevantState(user).Equals(nxStateBefore))
+            {
+                try
+                {
+                    nxWarnings = await _nxUserSync.SyncUserAsync(user);
+                }
+                catch (NxException ex)
+                {
+                    // Синхронизация не прошла — сохранять доступы только на портале нельзя, иначе они разъедутся.
+                    return BadRequest(new { message = $"Не удалось применить изменения в NX: {ex.Message}" });
+                }
+            }
+
             await _context.SaveChangesAsync();
-            return Ok(user);
+            return Ok(new { user, nxWarnings });
         }
+
+        /// <summary>Поля пользователя, от которых зависят его группы в Nx.</summary>
+        private static NxRelevantState GetNxRelevantState(OfficeUser user) => new(
+            user.Actual,
+            user.DefaultLocations,
+            NxUserSyncService.HasNxRole(user),
+            string.Join(",", user.Locations.Select(l => l.Guid).OrderBy(guid => guid)));
+
+        private readonly record struct NxRelevantState(int Actual, int DefaultLocations, bool HasNxRole, string LocationGuids);
 
         [HttpPost("users/bids/{bidId:int}/close")]
         public async Task<IActionResult> CloseUserBid(int bidId)
@@ -330,6 +408,7 @@ namespace Office.Server.Controllers
             public List<Location> Locations { get; set; } = new();
             public List<OfficeGroup> officeGroups { get; set; } = new();
             public List<OfficeBid> officeBids { get; set; } = new List<OfficeBid>();
+            public UserReportLinksModel ReportLinks { get; set; } = new();
             public OfficeUserModel(OfficeUser officeUser)
             {
                 OfficeUser = officeUser;
@@ -351,6 +430,15 @@ namespace Office.Server.Controllers
             public List<int> OfficeGroup { get; set; } = new List<int>();
             public List<Guid> Locations { get; set; } = new List<Guid>();
             public int DefaultLocations { get; set; }
+
+            /// <summary>Персональные ссылки «Выручки». null — не менять, пустая строка — удалить ссылку.</summary>
+            public UserReportLinksModel? ReportLinks { get; set; }
+        }
+
+        public class UserReportLinksModel
+        {
+            public string? Profit { get; set; }
+            public string? ProfitPro { get; set; }
         }
 
         public class AdDirectoryUserModel

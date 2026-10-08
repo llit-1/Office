@@ -44,12 +44,18 @@ function getDayMask(date: Date) {
   return jsDay === 0 ? 64 : 1 << (jsDay - 1);
 }
 
-function normalizeDateOnly(value: string) {
+function combineDateAndMinutes(value: string, minutesOfDay: number) {
   const date = new Date(value);
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    Math.floor(minutesOfDay / 60),
+    minutesOfDay % 60,
+  ).getTime();
 }
 
-function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: MaintenanceWindowItem[]) {
+export function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: MaintenanceWindowItem[]) {
   if (maintenanceWindows.length === 0) {
     return false;
   }
@@ -57,7 +63,6 @@ function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: Maint
   const date = new Date(pointDate);
   const dayMask = getDayMask(date);
   const minutesOfDay = date.getHours() * 60 + date.getMinutes();
-  const currentDateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 
   return maintenanceWindows.some((window) => {
     if (!window.isEnabled) {
@@ -66,6 +71,38 @@ function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: Maint
 
     const startMinutes = parseTimeToMinutes(window.startTime);
     const endMinutes = parseTimeToMinutes(window.endTime);
+
+    if (window.scheduleType === "one_time") {
+      if (!window.startDate || !window.endDate) {
+        return false;
+      }
+
+      // A one-off window is one continuous stretch, so the dates and times form a
+      // single interval instead of the time range repeating on each date in it.
+      // That is why startTime may exceed endTime here without meaning the
+      // overnight wrap that daily and weekly windows use.
+      const startsAt = combineDateAndMinutes(window.startDate, startMinutes);
+      const endsAt = combineDateAndMinutes(window.endDate, endMinutes);
+
+      if (endsAt < startsAt) {
+        return false;
+      }
+
+      const pointTime = date.getTime();
+      return pointTime >= startsAt && pointTime <= endsAt;
+    }
+
+    // Recurring windows can't be edited after creation (only deleted and
+    // re-created), so their applicability is bounded by the lifespan of this
+    // specific row rather than matching every point in history.
+    const pointTime = date.getTime();
+    const createdAt = new Date(window.createdAt).getTime();
+    const deletedAt = window.deletedAt ? new Date(window.deletedAt).getTime() : null;
+
+    if (pointTime < createdAt || (deletedAt != null && pointTime > deletedAt)) {
+      return false;
+    }
+
     const isOvernight = endMinutes < startMinutes;
     const timeMatches = isOvernight
       ? minutesOfDay >= startMinutes || minutesOfDay <= endMinutes
@@ -81,16 +118,6 @@ function isPointInMaintenanceWindow(pointDate: string, maintenanceWindows: Maint
 
     if (window.scheduleType === "weekly") {
       return Boolean((window.daysOfWeekMask ?? 0) & dayMask);
-    }
-
-    if (window.scheduleType === "one_time") {
-      if (!window.startDate || !window.endDate) {
-        return false;
-      }
-
-      const startDateOnly = normalizeDateOnly(window.startDate);
-      const endDateOnly = normalizeDateOnly(window.endDate);
-      return currentDateOnly >= startDateOnly && currentDateOnly <= endDateOnly;
     }
 
     return false;

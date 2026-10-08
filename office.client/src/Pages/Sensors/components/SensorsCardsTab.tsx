@@ -3,18 +3,36 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import ShowChartRoundedIcon from "@mui/icons-material/ShowChartRounded";
 import Button from "../../../Components/Button/Button";
 import LoadingSpinner from "../../../Components/LoadingSpinner/LoadingSpinner";
-import type { SensorRow } from "../sensors.types";
+import type { SensorRow, SensorStatus, SensorStatusFilter } from "../sensors.types";
+import { getSensorStatus } from "../sensors.utils";
 import styles from "../Sensors.module.css";
 import dashboard from "../../../styles/entity-dashboard.module.css";
+
+const statusMeta: Record<SensorStatus, { label: string; filterLabel: string; card: string; dot: string }> = {
+  ok: { label: "В норме", filterLabel: "Норма", card: dashboard.cardSuccess, dot: dashboard.statusSuccess },
+  pending: { label: "Отклонение", filterLabel: "Отклонение", card: dashboard.cardWarning, dot: dashboard.statusWarning },
+  violation: { label: "Нарушение", filterLabel: "Нарушение", card: dashboard.cardDanger, dot: dashboard.statusDanger },
+  inactive: { label: "Неактивны", filterLabel: "Неактивные", card: dashboard.cardInactive, dot: dashboard.statusInactive },
+};
+
+const statusList: SensorStatus[] = ["ok", "pending", "violation", "inactive"];
+
+const statusTitles: Record<SensorStatus, string> = {
+  ok: "Нарушений нет",
+  pending: "Температура вне диапазона, уведомление ещё не отправлено",
+  violation: "Идёт нарушение, уведомление отправлено",
+  inactive: "Датчик неактивен",
+};
 
 interface SensorsCardsTabProps {
   sensors: SensorRow[];
   filteredSensors: SensorRow[];
   sensorsLoading: boolean;
   searchText: string;
-  statusFilter: "all" | "online" | "offline";
+  statusFilter: SensorStatusFilter;
+  canManageDevices: boolean;
   onSearchTextChange: (value: string) => void;
-  onStatusFilterChange: (value: "all" | "online" | "offline") => void;
+  onStatusFilterChange: (value: SensorStatusFilter) => void;
   onCreateSensor: () => void;
   onEditSensor: (sensor: SensorRow) => void;
   onOpenRuleSettings: (sensor: SensorRow) => void;
@@ -27,6 +45,7 @@ export default function SensorsCardsTab({
   sensorsLoading,
   searchText,
   statusFilter,
+  canManageDevices,
   onSearchTextChange,
   onStatusFilterChange,
   onCreateSensor,
@@ -34,8 +53,13 @@ export default function SensorsCardsTab({
   onOpenRuleSettings,
   onOpenChart,
 }: SensorsCardsTabProps) {
-  const onlineCount = sensors.filter((sensor) => sensor.actual !== 0).length;
-  const offlineCount = sensors.filter((sensor) => sensor.actual === 0).length;
+  const statusCounts = sensors.reduce<Record<SensorStatus, number>>(
+    (counts, sensor) => {
+      counts[getSensorStatus(sensor)] += 1;
+      return counts;
+    },
+    { ok: 0, pending: 0, violation: 0, inactive: 0 },
+  );
 
   return (
     <section className={`${styles.contentSection} ${dashboard.section}`}>
@@ -52,9 +76,11 @@ export default function SensorsCardsTab({
               />
             </label>
 
-            <Button variant="primary" onClick={onCreateSensor}>
-              Добавить датчик
-            </Button>
+            {canManageDevices && (
+              <Button variant="primary" onClick={onCreateSensor}>
+                Добавить датчик
+              </Button>
+            )}
           </div>
 
           <div className={dashboard.filterGroup}>
@@ -65,38 +91,34 @@ export default function SensorsCardsTab({
             >
               Все
             </button>
-            <button
-              type="button"
-              className={`${dashboard.filterButton} ${statusFilter === "online" ? dashboard.filterButtonActive : ""}`}
-              onClick={() => onStatusFilterChange("online")}
-            >
-              Активные
-            </button>
-            <button
-              type="button"
-              className={`${dashboard.filterButton} ${statusFilter === "offline" ? dashboard.filterButtonActive : ""}`}
-              onClick={() => onStatusFilterChange("offline")}
-            >
-              Неактивные
-            </button>
+            {statusList.map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={`${dashboard.filterButton} ${statusFilter === status ? dashboard.filterButtonActive : ""}`}
+                onClick={() => onStatusFilterChange(status)}
+              >
+                {statusMeta[status].filterLabel}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className={`${dashboard.metricsGrid} ${dashboard.metricsGridThree}`}>
+        <div className={`${dashboard.metricsGrid} ${styles.sensorMetricsGrid}`}>
           <article className={dashboard.metricCard}>
             <span className={dashboard.metricLabel}>Всего</span>
             <strong className={dashboard.metricValue}>{sensors.length}</strong>
           </article>
 
-          <article className={dashboard.metricCard}>
-            <span className={dashboard.metricLabel}>Активны</span>
-            <strong className={dashboard.metricValue}>{onlineCount}</strong>
-          </article>
-
-          <article className={dashboard.metricCard}>
-            <span className={dashboard.metricLabel}>Неактивны</span>
-            <strong className={dashboard.metricValue}>{offlineCount}</strong>
-          </article>
+          {statusList.map((status) => (
+            <article key={status} className={dashboard.metricCard} title={statusTitles[status]}>
+              <span className={`${dashboard.metricLabel} ${styles.sensorMetricLabel}`}>
+                <span className={`${styles.sensorMetricDot} ${statusMeta[status].dot}`} aria-hidden="true" />
+                {statusMeta[status].label}
+              </span>
+              <strong className={dashboard.metricValue}>{statusCounts[status]}</strong>
+            </article>
+          ))}
         </div>
 
         {sensorsLoading ? (
@@ -108,45 +130,30 @@ export default function SensorsCardsTab({
         ) : (
           <div className={dashboard.cardsGrid}>
             {filteredSensors.map((sensor) => {
-              const stateClassName =
-                sensor.actual === 0
-                  ? dashboard.cardInactive
-                  : sensor.state === "OK"
-                    ? dashboard.cardSuccess
-                    : sensor.state === "Pending"
-                      ? dashboard.cardWarning
-                      : sensor.state === "Warning"
-                        ? dashboard.cardDanger
-                        : "";
+              const status = getSensorStatus(sensor);
 
-              const dotClassName =
-                sensor.actual === 0
-                  ? dashboard.statusInactive
-                  : sensor.state === "OK"
-                    ? dashboard.statusSuccess
-                    : sensor.state === "Pending"
-                      ? dashboard.statusWarning
-                      : sensor.state === "Warning"
-                        ? dashboard.statusDanger
-                        : "";
-
-              const isGraphDisabled = sensor.actual === 0;
+              const isGraphDisabled = status === "inactive";
 
               return (
                 <article
                   key={sensor.id}
-                  className={`${dashboard.card} ${stateClassName}`}
-                  onClick={() => onEditSensor(sensor)}
-                  role="button"
-                  tabIndex={0}
+                  className={`${dashboard.card} ${statusMeta[status].card}`}
+                  title={statusTitles[status]}
+                  onClick={() => {
+                    if (canManageDevices) {
+                      onEditSensor(sensor);
+                    }
+                  }}
+                  role={canManageDevices ? "button" : undefined}
+                  tabIndex={canManageDevices ? 0 : undefined}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
+                    if (canManageDevices && (event.key === "Enter" || event.key === " ")) {
                       event.preventDefault();
                       onEditSensor(sensor);
                     }
                   }}
                 >
-                  <span className={`${dashboard.statusDot} ${dotClassName}`} aria-hidden="true" />
+                  <span className={`${dashboard.statusDot} ${statusMeta[status].dot}`} aria-hidden="true" />
 
                   <div className={styles.sensorCardHeader}>
                     <h3 className={styles.sensorTitle} title={sensor.name}>

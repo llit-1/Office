@@ -3,6 +3,7 @@ import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import Button from "../../../Components/Button/Button";
 import type { FilterState, SortMode } from "../videoDevices.types";
 import dashboard from "../../../styles/entity-dashboard.module.css";
+import styles from "../VideoDevices.module.css";
 
 type DeviceCounts = {
   video: number;
@@ -44,7 +45,7 @@ export default function DeviceControls({
   onBulkUpdate,
 }: DeviceControlsProps) {
   return (
-    <div className={dashboard.toolbar}>
+    <div className={`${dashboard.toolbar} ${styles.deviceToolbar}`}>
       <div className={dashboard.toolbarGroup}>
         <label className={dashboard.search}>
           <SearchRoundedIcon fontSize="small" />
@@ -69,7 +70,7 @@ export default function DeviceControls({
       </div>
 
       <div className={dashboard.toolbarEnd}>
-        <div className={dashboard.filterGroup}>
+        <div className={`${dashboard.filterGroup} ${styles.deviceFilters}`}>
           {filterItems.map(([key, getLabel]) => (
             <button
               type="button"

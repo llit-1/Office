@@ -4,14 +4,17 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.PowerBi;
 using Office.Server.DbContexts.PowerBi.Models;
+using Office.Server.Sensors;
 
 namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Sensors")]
+    [Authorize(Roles = "Sensors,SensorsView,SensorsEdit")]
     public class SensorsController : ControllerBase
     {
+        private const string FullAccessRole = "Sensors";
+        private const string EditRole = "SensorsEdit";
         private static readonly HashSet<string> AllowedScheduleTypes = new(StringComparer.OrdinalIgnoreCase)
         {
             "daily",
@@ -72,16 +75,19 @@ namespace Office.Server.Controllers
         [HttpGet("rooms")]
         public async Task<IActionResult> GetRooms()
         {
-            var settingsRoomIds = await _powerBiContext.SensorAlertSettings
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+
+            var settingsByRoom = await _powerBiContext.SensorAlertSettings
                 .AsNoTracking()
-                .Select(x => x.RoomId)
-                .ToListAsync();
-            var settingsRoomIdSet = settingsRoomIds.ToHashSet();
+                .ToDictionaryAsync(x => x.RoomId);
 
             var rooms = await _powerBiContext.SensorRooms
                 .AsNoTracking()
+                .Where(x => allowedRoomIds == null || allowedRoomIds.Contains(x.Id))
                 .OrderBy(x => x.Name)
                 .ToListAsync();
+
+            var states = await CalculateRoomStatesAsync(rooms, settingsByRoom);
 
             return Ok(rooms.Select(x => new
             {
@@ -90,14 +96,20 @@ namespace Office.Server.Controllers
                 ip = x.Ip,
                 temp = x.Temp,
                 actual = x.Actual,
-                state = x.State,
-                hasAlertSettings = settingsRoomIdSet.Contains(x.Id)
+                state = states.GetValueOrDefault(x.Id, SensorStatusCalculator.Ok),
+                hasAlertSettings = settingsByRoom.ContainsKey(x.Id)
             }));
         }
 
         [HttpGet("{roomId:int}/history")]
         public async Task<IActionResult> GetRoomHistory(int roomId, [FromQuery] int hours = 24)
         {
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var normalizedHours = hours switch
             {
                 24 => 24,
@@ -130,10 +142,13 @@ namespace Office.Server.Controllers
         [HttpGet("rules")]
         public async Task<IActionResult> GetRules()
         {
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+
             try
             {
                 var rooms = await _powerBiContext.SensorRooms
                     .AsNoTracking()
+                    .Where(x => allowedRoomIds == null || allowedRoomIds.Contains(x.Id))
                     .Select(x => new
                     {
                         x.Id,
@@ -148,6 +163,7 @@ namespace Office.Server.Controllers
 
                 var windows = await _powerBiContext.SensorMaintenanceWindows
                     .AsNoTracking()
+                    .Where(x => !x.IsDeleted)
                     .OrderBy(x => x.Name)
                     .ThenBy(x => x.StartTime)
                     .ToListAsync();
@@ -205,6 +221,12 @@ namespace Office.Server.Controllers
         [HttpGet("{roomId:int}/settings")]
         public async Task<IActionResult> GetRoomSettings(int roomId)
         {
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var roomExists = await _powerBiContext.SensorRooms.AsNoTracking().AnyAsync(x => x.Id == roomId);
             if (!roomExists)
             {
@@ -254,6 +276,17 @@ namespace Office.Server.Controllers
         [HttpPut("{roomId:int}/settings")]
         public async Task<IActionResult> SaveRoomSettings(int roomId, [FromBody] SaveSensorAlertSettingsRequest request)
         {
+            if (!CanEditRules)
+            {
+                return Forbid();
+            }
+
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var roomExists = await _powerBiContext.SensorRooms.AsNoTracking().AnyAsync(x => x.Id == roomId);
             if (!roomExists)
             {
@@ -307,6 +340,17 @@ namespace Office.Server.Controllers
         [HttpDelete("{roomId:int}/settings")]
         public async Task<IActionResult> DeleteRoomSettings(int roomId)
         {
+            if (!CanEditRules)
+            {
+                return Forbid();
+            }
+
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var roomExists = await _powerBiContext.SensorRooms.AsNoTracking().AnyAsync(x => x.Id == roomId);
             if (!roomExists)
             {
@@ -317,7 +361,7 @@ namespace Office.Server.Controllers
             {
                 var settings = await _powerBiContext.SensorAlertSettings.FirstOrDefaultAsync(x => x.RoomId == roomId);
                 var maintenanceWindows = await _powerBiContext.SensorMaintenanceWindows
-                    .Where(x => x.RoomId == roomId)
+                    .Where(x => x.RoomId == roomId && !x.IsDeleted)
                     .ToListAsync();
 
                 if (settings == null && maintenanceWindows.Count == 0)
@@ -325,9 +369,11 @@ namespace Office.Server.Controllers
                     return NotFound(new { message = "Правило для этого датчика не найдено." });
                 }
 
-                if (maintenanceWindows.Count > 0)
+                var deletedAt = DateTime.UtcNow;
+                foreach (var window in maintenanceWindows)
                 {
-                    _powerBiContext.SensorMaintenanceWindows.RemoveRange(maintenanceWindows);
+                    window.IsDeleted = true;
+                    window.DeletedAt = deletedAt;
                 }
 
                 if (settings != null)
@@ -346,8 +392,14 @@ namespace Office.Server.Controllers
         }
 
         [HttpGet("{roomId:int}/maintenance-windows")]
-        public async Task<IActionResult> GetMaintenanceWindows(int roomId)
+        public async Task<IActionResult> GetMaintenanceWindows(int roomId, [FromQuery] bool includeDeleted = false)
         {
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var roomExists = await _powerBiContext.SensorRooms.AsNoTracking().AnyAsync(x => x.Id == roomId);
             if (!roomExists)
             {
@@ -358,7 +410,7 @@ namespace Office.Server.Controllers
             {
                 var windows = await _powerBiContext.SensorMaintenanceWindows
                     .AsNoTracking()
-                    .Where(x => x.RoomId == roomId)
+                    .Where(x => x.RoomId == roomId && (includeDeleted || !x.IsDeleted))
                     .OrderBy(x => x.Name)
                     .ThenBy(x => x.StartTime)
                     .ToListAsync();
@@ -374,6 +426,17 @@ namespace Office.Server.Controllers
         [HttpPost("{roomId:int}/maintenance-windows")]
         public async Task<IActionResult> CreateMaintenanceWindow(int roomId, [FromBody] SaveSensorMaintenanceWindowRequest request)
         {
+            if (!CanEditRules)
+            {
+                return Forbid();
+            }
+
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(roomId))
+            {
+                return Forbid();
+            }
+
             var roomExists = await _powerBiContext.SensorRooms.AsNoTracking().AnyAsync(x => x.Id == roomId);
             if (!roomExists)
             {
@@ -386,6 +449,11 @@ namespace Office.Server.Controllers
                 return validationError;
             }
 
+            if (NormalizeScheduleType(request.ScheduleType) == "one_time" && !IsOneTimeStartInFuture(request))
+            {
+                return BadRequest(new { message = "Дата и время начала не могут быть в прошлом." });
+            }
+
             var window = new SensorMaintenanceWindow
             {
                 RoomId = roomId,
@@ -396,7 +464,8 @@ namespace Office.Server.Controllers
                 EndTime = request.EndTime!.Value,
                 StartDate = request.StartDate?.Date,
                 EndDate = request.EndDate?.Date,
-                IsEnabled = request.IsEnabled
+                IsEnabled = request.IsEnabled,
+                CreatedAt = DateTime.UtcNow
             };
 
             _powerBiContext.SensorMaintenanceWindows.Add(window);
@@ -416,6 +485,11 @@ namespace Office.Server.Controllers
         [HttpPut("maintenance-windows/{windowId:int}")]
         public async Task<IActionResult> UpdateMaintenanceWindow(int windowId, [FromBody] SaveSensorMaintenanceWindowRequest request)
         {
+            if (!CanEditRules)
+            {
+                return Forbid();
+            }
+
             SensorMaintenanceWindow? window;
             try
             {
@@ -431,10 +505,22 @@ namespace Office.Server.Controllers
                 return NotFound(new { message = "Окно техработ не найдено." });
             }
 
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(window.RoomId))
+            {
+                return Forbid();
+            }
+
             var validationError = ValidateMaintenanceWindowRequest(request);
             if (validationError != null)
             {
                 return validationError;
+            }
+
+            var updateGuardError = ValidateMaintenanceWindowUpdate(window, request);
+            if (updateGuardError != null)
+            {
+                return updateGuardError;
             }
 
             window.Name = request.Name!.Trim();
@@ -461,6 +547,11 @@ namespace Office.Server.Controllers
         [HttpDelete("maintenance-windows/{windowId:int}")]
         public async Task<IActionResult> DeleteMaintenanceWindow(int windowId)
         {
+            if (!CanEditRules)
+            {
+                return Forbid();
+            }
+
             SensorMaintenanceWindow? window;
             try
             {
@@ -476,7 +567,14 @@ namespace Office.Server.Controllers
                 return NotFound(new { message = "Окно техработ не найдено." });
             }
 
-            _powerBiContext.SensorMaintenanceWindows.Remove(window);
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            if (allowedRoomIds != null && !allowedRoomIds.Contains(window.RoomId))
+            {
+                return Forbid();
+            }
+
+            window.IsDeleted = true;
+            window.DeletedAt = DateTime.UtcNow;
 
             try
             {
@@ -491,6 +589,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpGet("chats")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> GetChats()
         {
             try
@@ -554,6 +653,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpGet("chats/{chatId:int}")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> GetChatById(int chatId)
         {
             try
@@ -594,6 +694,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpPost("chats")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> CreateChat([FromBody] SaveSensorChatRequest request)
         {
             var validationError = await ValidateSensorChatRequest(request);
@@ -651,6 +752,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpPut("chats/{chatId:int}")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> UpdateChat(int chatId, [FromBody] SaveSensorChatRequest request)
         {
             var validationError = await ValidateSensorChatRequest(request);
@@ -733,6 +835,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpDelete("chats/{chatId:int}")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> DeleteChat(int chatId)
         {
             SensorChat? chat;
@@ -764,6 +867,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> CreateRoom([FromBody] SaveSensorRoomRequest request)
         {
             var validationError = ValidateSensorRoomRequest(request);
@@ -787,6 +891,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpPut("{roomId:int}")]
+        [Authorize(Roles = "Sensors")]
         public async Task<IActionResult> UpdateRoom(int roomId, [FromBody] SaveSensorRoomRequest request)
         {
             var room = await _powerBiContext.SensorRooms.FirstOrDefaultAsync(x => x.Id == roomId);
@@ -919,6 +1024,67 @@ namespace Office.Server.Controllers
             return null;
         }
 
+        /// <summary>
+        /// Whether a one_time window's configured start date+time is not before now.
+        /// Only meaningful when the caller is actually setting/moving the start
+        /// (a fresh create, or an update of a window that hasn't started yet) —
+        /// re-saving an already-started window's unchanged start must not be
+        /// re-validated against "now" or it would reject every such save.
+        /// </summary>
+        private static bool IsOneTimeStartInFuture(SaveSensorMaintenanceWindowRequest request)
+        {
+            var startsAt = request.StartDate!.Value.Date + request.StartTime!.Value;
+            return startsAt >= DateTime.Now;
+        }
+
+        private static IActionResult? ValidateMaintenanceWindowUpdate(SensorMaintenanceWindow existing, SaveSensorMaintenanceWindowRequest request)
+        {
+            var newScheduleType = NormalizeScheduleType(request.ScheduleType);
+
+            if (existing.ScheduleType != newScheduleType)
+            {
+                return new BadRequestObjectResult(new { message = "Тип расписания нельзя менять после создания. Удалите окно и создайте новое." });
+            }
+
+            if (existing.ScheduleType is "daily" or "weekly")
+            {
+                var scheduleChanged =
+                    existing.StartTime != request.StartTime ||
+                    existing.EndTime != request.EndTime ||
+                    existing.DaysOfWeekMask != request.DaysOfWeekMask;
+
+                if (scheduleChanged)
+                {
+                    return new BadRequestObjectResult(new
+                    {
+                        message = "Расписание повторяющегося окна техработ нельзя менять после создания. Удалите окно и создайте новое с нужным временем."
+                    });
+                }
+            }
+
+            if (existing.ScheduleType == "one_time" && existing.StartDate.HasValue)
+            {
+                var existingStartsAt = existing.StartDate.Value.Date + existing.StartTime;
+
+                if (existingStartsAt <= DateTime.Now)
+                {
+                    // Already started: the start moment is a fact now, not a plan —
+                    // neither the date nor the time-of-day may move.
+                    if (request.StartDate?.Date != existing.StartDate.Value.Date || request.StartTime != existing.StartTime)
+                    {
+                        return new BadRequestObjectResult(new { message = "Время начала уже наступило, его нельзя изменить." });
+                    }
+                }
+                else if (!IsOneTimeStartInFuture(request))
+                {
+                    // Not started yet, but the caller is moving it — still can't land in the past.
+                    return new BadRequestObjectResult(new { message = "Дата и время начала не могут быть в прошлом." });
+                }
+            }
+
+            return null;
+        }
+
         private async Task<IActionResult?> ValidateSensorChatRequest(SaveSensorChatRequest request)
         {
             var name = request.Name?.Trim();
@@ -975,6 +1141,64 @@ namespace Office.Server.Controllers
             return null;
         }
 
+        /// <summary>
+        /// Статус считается по показаниям, а не по SensorRooms.State: внешний сервис уведомлений это поле не обновляет.
+        /// Показания и окна техработ читаются одним запросом на все датчики с включённым правилом.
+        /// </summary>
+        private async Task<Dictionary<int, string>> CalculateRoomStatesAsync(
+            List<SensorRoom> rooms,
+            Dictionary<int, SensorAlertSetting> settingsByRoom)
+        {
+            var now = DateTime.Now;
+            var ruledRooms = rooms
+                .Where(room => room.Actual != 0
+                    && settingsByRoom.TryGetValue(room.Id, out var settings)
+                    && settings.IsEnabled
+                    && (settings.MinTemperature is not null || settings.MaxTemperature is not null))
+                .Select(room => room.Id)
+                .ToList();
+            if (ruledRooms.Count == 0)
+                return new Dictionary<int, string>();
+
+            var lookBack = ruledRooms.Max(roomId => SensorStatusCalculator.LookBack(settingsByRoom[roomId]));
+            var from = now - lookBack;
+
+            var points = await _powerBiContext.SensorData
+                .AsNoTracking()
+                .Where(x => ruledRooms.Contains(x.RoomId) && x.Date >= from)
+                .Select(x => new SensorDataPoint { RoomId = x.RoomId, Temperature = x.Temperature, Date = x.Date })
+                .ToListAsync();
+
+            List<SensorMaintenanceWindow> windows;
+            try
+            {
+                windows = await _powerBiContext.SensorMaintenanceWindows
+                    .AsNoTracking()
+                    .Where(x => ruledRooms.Contains(x.RoomId) && !x.IsDeleted)
+                    .ToListAsync();
+            }
+            catch (SqlException ex) when (IsMissingObjectError(ex))
+            {
+                windows = new List<SensorMaintenanceWindow>();
+            }
+
+            var pointsByRoom = points.ToLookup(x => x.RoomId);
+            var windowsByRoom = windows.ToLookup(x => x.RoomId);
+
+            return ruledRooms.ToDictionary(
+                roomId => roomId,
+                roomId =>
+                {
+                    var settings = settingsByRoom[roomId];
+                    var roomFrom = now - SensorStatusCalculator.LookBack(settings);
+                    return SensorStatusCalculator.Calculate(
+                        settings,
+                        pointsByRoom[roomId].Where(point => point.Date >= roomFrom),
+                        windowsByRoom[roomId].ToList(),
+                        now);
+                });
+        }
+
         private static string NormalizeScheduleType(string? value) => value?.Trim().ToLowerInvariant() ?? string.Empty;
 
         private static object MapRoom(SensorRoom room) => new
@@ -1011,7 +1235,9 @@ namespace Office.Server.Controllers
             endTime = window.EndTime.ToString(@"hh\:mm"),
             startDate = window.StartDate?.ToString("yyyy-MM-dd"),
             endDate = window.EndDate?.ToString("yyyy-MM-dd"),
-            isEnabled = window.IsEnabled
+            isEnabled = window.IsEnabled,
+            createdAt = window.CreatedAt.ToString("o"),
+            deletedAt = window.DeletedAt?.ToString("o")
         };
 
         private static string MapMaintenanceSummary(SensorMaintenanceWindow window)
@@ -1028,5 +1254,53 @@ namespace Office.Server.Controllers
         }
 
         private static bool IsMissingObjectError(SqlException ex) => ex.Number == 208;
+
+        private bool HasFullAccess => User.IsInRole(FullAccessRole);
+
+        private bool CanEditRules => User.IsInRole(FullAccessRole) || User.IsInRole(EditRole);
+
+        /// <summary>
+        /// Null means unrestricted (full access). An empty set means the user
+        /// has no chats bound to any sensor, so nothing is visible to them.
+        /// </summary>
+        private async Task<HashSet<int>?> GetAllowedRoomIdsAsync()
+        {
+            if (HasFullAccess)
+            {
+                return null;
+            }
+
+            var login = User.Identity?.Name;
+            if (string.IsNullOrEmpty(login))
+            {
+                return new HashSet<int>();
+            }
+
+            var chatIds = await _powerBiContext.SensorChatUsers
+                .AsNoTracking()
+                .Where(x => x.UserLogin.ToLower() == login.ToLower())
+                .Select(x => x.ChatId)
+                .ToListAsync();
+
+            if (chatIds.Count == 0)
+            {
+                return new HashSet<int>();
+            }
+
+            var activeChatIds = await _powerBiContext.SensorChats
+                .AsNoTracking()
+                .Where(x => chatIds.Contains(x.Id) && x.Actual == 1)
+                .Select(x => x.Id)
+                .ToListAsync();
+
+            var roomIds = await _powerBiContext.SensorChatRooms
+                .AsNoTracking()
+                .Where(x => activeChatIds.Contains(x.ChatId))
+                .Select(x => x.RoomId)
+                .Distinct()
+                .ToListAsync();
+
+            return roomIds.ToHashSet();
+        }
     }
 }

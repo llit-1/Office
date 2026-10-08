@@ -1,0 +1,109 @@
+.page {
+  height: 100%;
+}
+
+.viewer {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  border: 0;
+  border-radius: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.toolbar {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  min-width: 0;
+  margin: 0;
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--line-height-title-sm);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.frameWrap {
+  position: relative;
+  min-height: 480px;
+  flex: 1 1 auto;
+  background: var(--color-surface-muted);
+}
+
+.frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.frameLoader {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  background: var(--color-surface);
+}
+
+.rotateHint {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .toolbar {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actions > button:not([aria-label]) {
+    flex: 1 1 auto;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 640px) {
+  .rotateHint {
+    display: block;
+    margin: 0;
+    padding: var(--space-2) var(--space-3);
+    background: var(--color-info-bg);
+    color: var(--color-info-text);
+    font-size: var(--font-size-compact);
+    line-height: var(--line-height-compact);
+  }
+
+  .frameWrap {
+    min-height: 60dvh;
+  }
+}

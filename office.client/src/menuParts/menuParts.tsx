@@ -1,5 +1,6 @@
 import type { SvgIconComponent } from "@mui/icons-material";
 import AddShoppingCartOutlinedIcon from "@mui/icons-material/AddShoppingCartOutlined";
+import AssessmentOutlinedIcon from "@mui/icons-material/AssessmentOutlined";
 import CalculateRoundedIcon from "@mui/icons-material/CalculateOutlined";
 import CameraAltOutlinedIcon from "@mui/icons-material/CameraAltOutlined";
 import DeviceThermostatOutlinedIcon from "@mui/icons-material/DeviceThermostatOutlined";
@@ -7,11 +8,13 @@ import FactoryOutlinedIcon from "@mui/icons-material/FactoryOutlined";
 import GroupOutlinedIcon from "@mui/icons-material/GroupOutlined";
 import HomeIcon from "@mui/icons-material/HomeOutlined";
 import PaymentsOutlinedIcon from "@mui/icons-material/PaymentsOutlined";
+import PointOfSaleOutlinedIcon from "@mui/icons-material/PointOfSaleOutlined";
 import RestaurantMenuOutlinedIcon from "@mui/icons-material/RestaurantMenuOutlined";
 import StorageOutlinedIcon from "@mui/icons-material/StorageOutlined";
 import StorefrontOutlinedIcon from "@mui/icons-material/StorefrontOutlined";
 import TvOutlinedIcon from "@mui/icons-material/TvOutlined";
 import MenuBookOutlinedIcon from "@mui/icons-material/MenuBookOutlined";
+import { reportRoles } from "../Pages/Reports/reportRoles";
 
 export interface MenuPart {
   name: string;
@@ -70,14 +73,21 @@ export const menuParts: MenuPart[] = [
     Icon: StorageOutlinedIcon,
     path: "/Stock",
     img: "/img/stock.svg",
-    requiredRole: "Stock",
+    requiredRole: ["Stock", "StockAdmin"],
   },
   {
-    name: "Меню",
+    name: "Доставка",
     Icon: RestaurantMenuOutlinedIcon,
-    path: "/DeliveryMenu",
+    path: "/Delivery",
     img: "/img/menu.svg",
-      requiredRole: ["MenuMarketing", "MenuAuditor", "MenuAdmin", "Menu"],
+    requiredRole: ["MenuMarketing", "DeliveryRequests", "MenuAdmin"],
+  },
+  {
+    name: "Касса",
+    Icon: PointOfSaleOutlinedIcon,
+    path: "/Cash",
+    img: "/img/cash-register.svg",
+    requiredRole: ["MenuAuditor", "Menu", "CashUpdate"],
   },
   {
     name: "Видео на ТТ",
@@ -91,7 +101,7 @@ export const menuParts: MenuPart[] = [
     Icon: DeviceThermostatOutlinedIcon,
     path: "/Sensors",
     img: "/img/thermometer.svg",
-    requiredRole: "Sensors",
+    requiredRole: ["Sensors", "SensorsView", "SensorsEdit"],
   },
   {
     name: "Зарплата",
@@ -106,5 +116,12 @@ export const menuParts: MenuPart[] = [
     path: "/KnowledgeLibrary",
     img: "/img/book.svg",
     requiredRole: ["KnowledgeLibrary", "KnowledgeLibraryAdmin"],
+  },
+  {
+    name: "Отчёты",
+    Icon: AssessmentOutlinedIcon,
+    path: "/Reports",
+    img: "/img/reports.svg",
+    requiredRole: reportRoles,
   },
 ];

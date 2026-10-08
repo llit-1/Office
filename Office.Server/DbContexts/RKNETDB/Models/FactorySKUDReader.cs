@@ -12,6 +12,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
 
         public string? Ip { get; set; }
 
+        [Column("Controller")]
         public int? ControllerId { get; set; }
 
         public int Relay { get; set; }
@@ -22,6 +23,7 @@ namespace Office.Server.DbContexts.RKNETDB.Models
 
         public string? SecurityMonitor { get; set; }
 
+        [ForeignKey(nameof(ControllerId))]
         public virtual FactorySKUDController? Controller { get; set; }
 
         public virtual ICollection<FactorySKUDWorkLog> FactorySKUDWorkLogs { get; set; } = new HashSet<FactorySKUDWorkLog>();

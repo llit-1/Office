@@ -1,0 +1,189 @@
+/* Карточка заказа: на широком экране — боковая панель справа, на телефоне — лист на всю высоту. */
+.panel.panel {
+  max-width: 680px;
+  height: 100%;
+  margin-left: auto;
+}
+
+.body.body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.scroll {
+  min-height: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  overflow-y: auto;
+}
+
+.scroll > * {
+  width: 100%;
+}
+
+.meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+}
+
+.meta > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.metaWide {
+  grid-column: 1 / -1;
+}
+
+.meta dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.meta dd {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body-emphasis);
+  line-height: var(--line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.meta dd span {
+  font-weight: var(--font-weight-body);
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.linesHead,
+.line,
+.linesTotal {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 120px;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.lines:not(:has(.lineSum)) .linesHead,
+.lines:not(:has(.lineSum)) .line,
+.lines:not(:has(.lineSum)) .linesTotal {
+  grid-template-columns: minmax(0, 1fr) 72px;
+}
+
+.linesHead {
+  padding: 0 0 var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.linesHead > :not(:first-child),
+.line > :not(:first-child),
+.linesTotal > :not(:first-child) {
+  text-align: right;
+}
+
+.line {
+  min-height: var(--control-height-lg);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+
+.lineName,
+.lineSum {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.lineName span {
+  line-height: var(--line-height-compact);
+  overflow-wrap: anywhere;
+}
+
+.line small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.linesTotal {
+  padding: var(--space-3) 0 0;
+  font-weight: 600;
+}
+
+.footnote {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+/* отмена отделена от основных действий */
+.cancelAction {
+  margin-right: auto;
+  color: var(--color-danger-text);
+}
+
+@media (max-width: 640px) {
+  .panel.panel {
+    height: calc(100dvh - var(--space-4));
+  }
+
+  .scroll {
+    padding: var(--space-3);
+  }
+
+  .meta {
+    grid-template-columns: 1fr;
+  }
+
+  .linesHead,
+  .line,
+  .linesTotal {
+    grid-template-columns: minmax(0, 1fr) 56px 96px;
+    gap: var(--space-2);
+  }
+
+  /* основные действия — в ряд, отмена — отдельной строкой под ними */
+  .actions {
+    flex-wrap: wrap;
+    padding-inline: var(--space-3);
+  }
+
+  .actions > button {
+    flex: 1 1 0;
+  }
+
+  .actions > .cancelAction {
+    order: 1;
+    flex: 1 1 100%;
+    margin-right: 0;
+  }
+}

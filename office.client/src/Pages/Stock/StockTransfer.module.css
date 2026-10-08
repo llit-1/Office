@@ -1,489 +1,283 @@
-.mainFields {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    background: var(--color-surface);
-    padding: 16px;
-    border-radius: var(--radius-control);
-    width: 100%;
-    border: 1px solid var(--color-border);
+.layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-4);
 }
 
-.holderSelectWrapper {
-    display: flex;
-    flex-direction: row;
-    gap: 12px;
+.paramsPanel {
+  position: sticky;
+  top: 0;
 }
 
-.transferWrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    height: calc(100% - 50px);
+.lookupsError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 3px solid var(--color-danger);
+  color: var(--color-danger-text);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
 }
 
-.loaderWrapper {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 320px;
+.holderRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
-.addHolder {
-    padding: 0 12px;
-    border-radius: var(--radius-control);
-    border: none;
-    background-color: var(--color-primary-solid);
-    color: var(--color-on-primary-solid);
-    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
-    font-size: 14px;
-    font-weight: 600;
+.holderSelect {
+  flex: 1 1 auto;
 }
 
-.addHolder:hover {
-    background-color: var(--color-primary-600);
-    cursor: pointer;
+.applyAll {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
 }
 
-.mainFieldsWrapper {
+.objectsPanel {
+  min-height: 520px;
+}
+
+.addBar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.addForm {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.codeField {
+  flex: 1 1 360px;
+  max-width: 520px;
+}
+
+.rows {
+  min-width: 0;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow-x: auto;
+}
+
+.row {
+  transition: background-color var(--duration-slow) var(--easing-standard);
+}
+
+.row[data-flash="true"] {
+  background: var(--color-selected);
+}
+
+.row[data-status="error"] {
+  background: color-mix(in srgb, var(--color-danger-bg) 55%, var(--color-surface));
+}
+
+.objectCell {
+  min-width: 220px;
+}
+
+.currentCell,
+.destinationCell {
+  min-width: 160px;
+}
+
+.commentCell {
+  width: 26%;
+  min-width: 200px;
+}
+
+.actionsCell {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.objectInfo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.objectName {
+  color: var(--color-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.destinationMissing {
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.rowCode {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.rowLoading,
+.rowError {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.rowLoading {
+  color: var(--color-text-muted);
+}
+
+.rowError {
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.rowError svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+  flex: none;
+}
+
+.rowActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: auto;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+  background: var(--color-surface);
+}
+
+.summary {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+}
+
+.summaryTitle {
+  color: var(--color-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.issues {
+  margin: 0;
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.footerActions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+@media (max-width: 1100px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .paramsPanel {
+    position: static;
+  }
+
+  .paramsPanel .paramsBody {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-}
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
 
-.commentSection {
-    height: fit-content;
-}
-
-.scanBtn {
-    width: 100%;
-    border: none;
-    border-radius: var(--radius-control);
-    font-weight: 600;
-    font-size: 14px;
-    background: var(--color-surface-muted);
-    color: var(--color-text);
-    padding: 12px;
-    transition: background-color 0.2s var(--easing-standard), border-color 0.2s var(--easing-standard), color 0.2s var(--easing-standard), opacity 0.2s var(--easing-standard), box-shadow 0.2s var(--easing-standard), transform 0.2s var(--easing-standard);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    height: 50px;
-}
-
-.scanBtn:hover {
-    cursor: pointer;
-    background: var(--color-surface-muted);
-}
-
-.scanBtnActive {
-    border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-transparent));
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 35%, var(--color-transparent));
-    animation: scanPulse 1.6s ease-out infinite;
-}
-
-.scanState {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--color-primary);
-    white-space: nowrap;
-}
-
-.scanStateDot {
-    width: 8px;
-    height: 8px;
-    border-radius: var(--radius-pill);
-    background: var(--color-primary);
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 55%, var(--color-transparent));
-    animation: scanDotPulse 1.2s ease-in-out infinite;
-}
-
-@keyframes scanPulse {
-    0% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 32%, var(--color-transparent));
-    }
-
-    70% {
-        box-shadow: 0 0 0 8px color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
-    }
-
-    100% {
-        box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 0%, var(--color-transparent));
-    }
-}
-
-@keyframes scanDotPulse {
-    0% {
-        transform: scale(1);
-        opacity: 0.95;
-    }
-
-    50% {
-        transform: scale(1.2);
-        opacity: 1;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 0.95;
-    }
-}
-
-.buttonsWrapper {
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.submitButton {
-    border-radius: var(--radius-control);
-    border: none;
-    padding: 12px 12px;
-    font-weight: 600;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background-color 0.25s linear, border-color 0.25s linear, color 0.25s linear, opacity 0.25s linear, box-shadow 0.25s linear, transform 0.25s linear;
-    color: var(--color-white);
-    background-color: var(--color-bg-strong);
-}
-
-.submitButton:hover {
-    background: var(--color-border);
-}
-
-.btnSend {
-    background-color: var(--color-primary);
-}
-
-.btnSend:hover {
-    background-color: var(--color-primary-600);
-}
-
-.btnSend:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.headerDrafts,
-.rowDrafts {
-    display: grid;
-    grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(170px, 1.35fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(110px, 1fr) minmax(170px, 1.35fr);
-    gap: 8px;
-    align-items: center;
-}
-
-.headerDrafts {
-    background: var(--color-primary-soft);
-    padding: 12px;
-    border-radius: var(--radius-control);
-    width: 100%;
-    color: var(--color-white);
-}
-
-.headerDrafts p,
-.draftFieldValue {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.bodyDrafts {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 335px;
-    overflow: auto;
-    padding-right: 4px;
-}
-
-.rowDrafts {
-    background: var(--color-surface-muted);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    padding: 8px 12px;
-}
-
-.draftField,
-.draftCommentField {
-    min-width: 0;
-}
-
-.draftField {
-    display: flex;
-    align-items: center;
-}
-
-.draftFieldLabel {
-    display: none;
-}
-
-.draftFieldValue {
-    width: 100%;
-}
-
-.draftCommentField {
-    display: flex;
-    align-items: center;
-}
-
-.commentRowInput {
-    width: 100%;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-control);
-    padding: 8px 8px;
-    font-size: 14px;
-    color: var(--color-text);
-    background-color: var(--color-surface);
-    white-space: nowrap;
-    min-width: 0;
-}
-
-.commentRowInput:focus {
-    border: 2px solid var(--color-primary);
-    outline: none;
-}
-
-.emptyDrafts {
-    color: var(--color-text-subtle);
-    font-size: 14px;
-    padding: 8px 0;
-}
-
-.addHolderModalFields {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.addHolderModalButtons {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-}
-
-@media (max-width: 1400px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(190px, 1.45fr) minmax(110px, 1fr) minmax(130px, 1.2fr) minmax(110px, 1fr) minmax(170px, 1.35fr);
-    }
-
-    .colStartLocation {
-        display: none;
-    }
-}
-
-@media (max-width: 1240px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(110px, 1fr) minmax(200px, 1.55fr) minmax(120px, 1fr) minmax(140px, 1.25fr) minmax(170px, 1.35fr);
-    }
-
-    .colFilledBy {
-        display: none;
-    }
-}
-
-@media (max-width: 1120px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: minmax(70px, 1.05fr) minmax(110px, 1fr) minmax(120px, 1fr) minmax(220px, 1.7fr) minmax(140px, 1.25fr) minmax(150px, 1.35fr);
-    }
-
-    .colComment {
-        display: none;
-    }
-}
-
-@media (max-width: 980px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1.9fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
-    }
-
-    .colCategory {
-        display: none;
-    }
-}
-
-@media (max-width: 900px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: 76px minmax(0, 2.2fr) minmax(0, 1.1fr) minmax(0, 1.1fr);
-    }
-
-    .colSubCategory {
-        display: none;
-    }
+  .lookupsError,
+  .applyAll,
+  .commentField {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
-    .mainFieldsWrapper {
-        grid-template-columns: 1fr;
-    }
-
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: 74px minmax(0, 1fr) minmax(0, 0.8fr);
-    }
-
-    .colNewHolder {
-        display: none;
-    }
-}
-
-@media (max-width: 620px) {
-    .headerDrafts,
-    .rowDrafts {
-        grid-template-columns: 72px minmax(0, 1fr);
-    }
-
-    .colEndLocation {
-        display: none;
-    }
-
-    .headerDrafts p,
-    .draftFieldValue,
-    .commentRowInput {
-        font-size: 13px;
-    }
-
-    .rowDrafts {
-        padding: 8px;
-    }
-}
-
-.codeInputSection {
+  .paramsPanel .paramsBody {
     display: flex;
-    justify-content: space-between;
-}
+  }
 
-@media (max-width: 768px) {
-    .transferWrapper {
-        gap: 16px;
-    }
+  .addBar {
+    padding: var(--space-5) var(--space-3) var(--space-3);
+  }
 
-    .mainFieldsWrapper {
-        grid-template-columns: 1fr;
-        gap: 16px;
-    }
+  .addForm {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-    .mainFields {
-        gap: 16px;
-        padding: 16px;
-        border-radius: var(--radius-lg);
-        box-shadow: 0 10px 28px color-mix(in srgb, var(--color-black) 8%, var(--color-transparent));
-    }
+  .codeField {
+    flex-basis: auto;
+    max-width: none;
+  }
 
-    .holderSelectWrapper,
-    .codeInputSection,
-    .addHolderModalButtons,
-    .buttonsWrapper {
-        flex-direction: column;
-    }
+  .rows .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--space-3);
+    padding: var(--space-3);
+  }
 
-    .holderSelectWrapper {
-        gap: 12px;
-    }
+  .rows .objectCell,
+  .rows .currentCell,
+  .rows .destinationCell,
+  .rows .commentCell {
+    width: auto;
+    min-width: 0;
+  }
 
-    .addHolder,
-    .submitButton {
-        width: 100%;
-        min-height: 48px;
-        padding: 12px 16px;
-    }
+  .rows .objectCell {
+    grid-column: 1;
+    grid-row: 1;
+  }
 
-    .scanBtn {
-        min-height: 56px;
-        height: auto;
-        padding: 16px 16px;
-        border-radius: var(--radius-card);
-        align-items: flex-start;
-        flex-direction: column;
-    }
+  .rows .actionsCell {
+    grid-column: 2;
+    grid-row: 1;
+    width: auto;
+  }
 
-    .scanState {
-        font-size: var(--font-size-caption);
-        letter-spacing: 0.04em;
-    }
+  .rows .currentCell,
+  .rows .destinationCell,
+  .rows .commentCell {
+    grid-column: 1 / -1;
+  }
 
-    .headerDrafts {
-        display: none;
-    }
+  .footer {
+    padding: var(--space-3);
+    padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  }
 
-    .bodyDrafts {
-        max-height: none;
-        overflow: visible;
-        padding-right: 0;
-        gap: 12px;
-    }
+  .footerActions {
+    width: 100%;
+  }
 
-    .rowDrafts {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 16px;
-        border-radius: var(--radius-lg);
-        background: linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--color-surface) 94%, var(--color-white)) 0%,
-            color-mix(in srgb, var(--color-surface-muted) 88%, var(--color-white)) 100%
-        );
-        border-color: color-mix(in srgb, var(--color-border) 75%, var(--color-transparent));
-        box-shadow: 0 10px 24px color-mix(in srgb, var(--color-black) 6%, var(--color-transparent));
-    }
-
-    .draftField,
-    .draftCommentField {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        padding: 12px 12px;
-        border-radius: var(--radius-card);
-        background: color-mix(in srgb, var(--color-surface) 92%, var(--color-transparent));
-        border: 1px solid color-mix(in srgb, var(--color-border) 65%, var(--color-transparent));
-    }
-
-    .draftFieldLabel {
-        display: block;
-        color: var(--color-text-muted);
-        font-family: var(--font-uppercase);
-        font-size: var(--font-size-caption);
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-    }
-
-    .draftFieldValue {
-        white-space: normal;
-        overflow: visible;
-        text-overflow: clip;
-        font-size: 14px;
-        line-height: 1.4;
-        color: var(--color-text);
-    }
-
-    .commentRowInput {
-        min-height: 44px;
-        padding: 12px 12px;
-        border-radius: var(--radius-card);
-        font-size: 13px;
-    }
-
-    .buttonsWrapper {
-        padding-top: 4px;
-    }
-
-    .addHolderModalButtons {
-        gap: 12px;
-    }
+  .footerActions > * {
+    flex: 1 1 0;
+  }
 }

@@ -31,5 +31,11 @@ namespace Office.Server.DbContexts.PowerBi.Models
         public DateTime? EndDate { get; set; }
 
         public bool IsEnabled { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+
+        public bool IsDeleted { get; set; }
+
+        public DateTime? DeletedAt { get; set; }
     }
 }

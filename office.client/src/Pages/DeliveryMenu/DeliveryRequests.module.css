@@ -1,0 +1,990 @@
+.page {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  color: var(--color-text);
+  padding-top: 10px;
+}
+
+/* ===== Верхняя панель: точка и действия ===== */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.locationSelect {
+  flex: 0 1 360px;
+  min-width: 220px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.toolbarStatus {
+  display: inline-flex;
+}
+
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* На широком экране «Подгрузить продажи» — первой, как и раньше; на телефоне порядок задаёт сетка. */
+.toolbarActionSales {
+  order: -1;
+}
+
+/* ===== Панель с результатом запроса ===== */
+
+.panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.panelHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.panelTitle {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-heading);
+}
+
+.panelCount {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  font-weight: var(--font-weight-body);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.panelBody {
+  position: relative;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.panelLoading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+}
+
+.iconButton {
+  width: 32px;
+  height: 32px;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.iconButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.iconButtonActive {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ===== Период и поиск в заголовке заказов ===== */
+
+.segmented {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.segmented button {
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-compact);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--color-border);
+}
+
+.segmented button:hover:not(.segmentActive) {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.segmented .segmentActive {
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.search {
+  height: 32px;
+  width: 200px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+.search:focus-within {
+  border-color: var(--color-primary);
+}
+
+.search input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-compact);
+}
+
+.customPeriod {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.customPeriod > :not(button):not(.fieldError) {
+  flex: 0 1 240px;
+  min-width: 200px;
+}
+
+.customPeriod > button {
+  flex: none;
+}
+
+.customPeriod .fieldError {
+  flex-basis: 100%;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chips button {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-text-secondary, var(--color-text));
+  font: inherit;
+  font-size: var(--font-size-compact);
+  cursor: pointer;
+}
+
+.chips button span {
+  color: var(--color-text-muted);
+}
+
+.chips button:hover:not(.chipActive) {
+  background: var(--color-hover);
+}
+
+.chips .chipActive {
+  border-color: var(--color-primary-border, var(--color-primary));
+  background: var(--color-primary-surface);
+  color: var(--color-primary);
+}
+
+.chips .chipActive span {
+  color: inherit;
+}
+
+.pager {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+}
+
+/* ===== Таблица ответа ===== */
+
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-compact);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table th {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.clickableRow {
+  cursor: pointer;
+}
+
+.clickableRow:hover td {
+  background: var(--color-hover);
+}
+
+.clickableRow:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+.selectCell {
+  width: var(--space-8);
+}
+
+.raw {
+  max-height: 360px;
+  margin: 0;
+  padding: var(--space-3);
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ===== Сообщения ===== */
+
+.empty {
+  margin: 0;
+  padding: var(--space-4);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  text-align: center;
+}
+
+.error,
+.success {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+}
+
+.error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.hint,
+.fieldError {
+  margin: 0;
+  padding: 0 var(--space-3);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.hint {
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.fieldError {
+  color: var(--color-danger-text);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+/* ===== Формы и модалки ===== */
+
+.field {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.inlineField {
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-2);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4) var(--space-3);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.modalLoading {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+}
+
+.detailsBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.srOnly,
+.srOnlyLabel span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ===== Карточка заказа ===== */
+
+.orderCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.orderCard + .orderCard {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.orderHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.orderNumber {
+  font-family: var(--font-heading);
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-heading);
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+}
+
+.fields div {
+  min-width: 0;
+}
+
+.fields dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.fields dd {
+  margin: 2px 0 0;
+  font-size: var(--font-size-compact);
+  line-height: var(--line-height-compact);
+  overflow-wrap: anywhere;
+}
+
+.orderSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.orderSection h3 {
+  margin: 0;
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.itemsTable td {
+  white-space: normal;
+  vertical-align: top;
+}
+
+.itemsTable tfoot th,
+.itemsTable tfoot td {
+  border-top: 1px solid var(--color-border);
+  border-bottom: 0;
+  background: var(--color-surface-muted);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.itemsTable tfoot th {
+  text-align: right;
+  color: var(--color-text);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap !important;
+}
+
+.itemName {
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.itemNote {
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.itemRemoved td {
+  color: var(--color-text-muted);
+}
+
+.itemRemoved .itemName {
+  text-decoration: line-through;
+}
+
+.modifications {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.rawToggle {
+  align-self: flex-start;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-caption);
+  cursor: pointer;
+}
+
+.rawToggle:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+/* ===== Журнал запросов по заказу ===== */
+
+.logHeading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logLoading {
+  min-height: 80px;
+  display: grid;
+  place-items: center;
+}
+
+.logList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.logEntry + .logEntry {
+  border-top: 1px solid var(--color-border);
+}
+
+.logEntryFailed {
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+
+.logHeader {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-compact);
+  text-align: left;
+  cursor: pointer;
+}
+
+.logHeader:hover {
+  background: var(--color-hover);
+}
+
+.logTime {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.logTitle {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.logTitle strong {
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.logTitle code {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logChevron {
+  color: var(--color-text-muted);
+  transition: transform var(--duration-fast) var(--easing-standard);
+}
+
+.logChevronOpen {
+  transform: rotate(180deg);
+}
+
+.logErrors {
+  margin: 0;
+  padding: 0 var(--space-3) var(--space-2) calc(var(--space-3) + 118px);
+  list-style: none;
+  color: var(--color-danger-text);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.logBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-3);
+}
+
+.logMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--font-size-caption);
+}
+
+.logMeta dt {
+  color: var(--color-text-muted);
+}
+
+.logMeta dd {
+  margin: 0;
+}
+
+.logLabel {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+/* ===== Выбор точек и массовые действия ===== */
+
+.scopePicker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scopeTitle {
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+/* Переключатель на всю ширину: сегменты одинаковые, рамка ниже продолжает его. */
+.scopeSegmented {
+  display: flex;
+  width: 100%;
+  margin-bottom: 5px;
+}
+
+.scopeSegmented button {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 36px;
+}
+
+.scopeSummary {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  font-size: var(--font-size-compact);
+}
+
+.scopeSummary svg {
+  color: var(--color-text-muted);
+}
+
+.scopeSummary .scopeCount {
+  margin-left: auto;
+}
+
+.scopeBox {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.scopeTools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-muted);
+}
+
+.scopeTools .search {
+  flex: 1 1 200px;
+  width: auto;
+}
+
+.scopeCount {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  font-variant-numeric: tabular-nums;
+}
+
+.linkButton {
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--color-primary);
+  font: inherit;
+  font-size: var(--font-size-compact);
+  cursor: pointer;
+}
+
+.linkButton:hover:not(:disabled) {
+  background: var(--color-hover);
+}
+
+.linkButton:disabled {
+  color: var(--color-disabled-text);
+  cursor: default;
+}
+
+.scopeList {
+  max-height: 240px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  align-content: start;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.scopeOption {
+  min-width: 0;
+  padding: var(--space-1) 0;
+  font-size: var(--font-size-compact);
+}
+
+.scopeOption span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scopeEmpty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: var(--space-3) 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  text-align: center;
+}
+
+.bulk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  font-size: var(--font-size-compact);
+}
+
+.bulkHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.bulkCounts {
+  display: inline-flex;
+  gap: var(--space-3);
+  font-weight: var(--font-weight-body);
+}
+
+.bulkOk {
+  color: var(--color-success-text);
+}
+
+.bulkFail {
+  color: var(--color-danger-text);
+}
+
+.progress {
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--color-border);
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-primary);
+  transition: width var(--duration-normal) var(--easing-standard);
+}
+
+.bulkErrors {
+  max-height: 180px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.bulkErrors li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-2);
+}
+
+.bulkErrors strong {
+  font-weight: var(--font-weight-body-emphasis);
+}
+
+.bulkErrors span {
+  color: var(--color-danger-text);
+}
+
+@media (max-width: 760px) {
+  .logHeader {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .logTime {
+    grid-column: 1 / -1;
+  }
+
+  .logErrors {
+    padding-left: var(--space-3);
+  }
+
+  .toolbar,
+  .panel {
+    padding: var(--space-3);
+  }
+
+  .locationSelect {
+    flex: 1 1 100%;
+  }
+
+  .toolbar .spacer {
+    display: none;
+  }
+
+  /* Статус точки — отдельной строкой во всю ширину под выбором точки. */
+  .toolbarStatus {
+    flex: 1 1 100%;
+  }
+
+  .toolbarStatus > * {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Действия — ровной сеткой 2×2 вместо рваного переноса кнопок разной ширины. */
+  .toolbarActions {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .toolbarActions > button {
+    width: 100%;
+    min-width: 0;
+    min-height: var(--touch-target-min);
+    padding-inline: var(--space-2);
+    white-space: normal;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .toolbarActionSales {
+    order: 0;
+  }
+
+  /* Кнопки окон (блокировка, импорт, продажи) — на всю ширину, поровну. */
+  .modalActions > button {
+    flex: 1 1 0;
+    min-height: var(--touch-target-min);
+  }
+
+  .panelActions,
+  .search {
+    width: 100%;
+  }
+
+  .segmented {
+    flex: 1 1 100%;
+  }
+
+  .segmented button {
+    flex: 1;
+    padding: 0 var(--space-2);
+  }
+
+  .customPeriod,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

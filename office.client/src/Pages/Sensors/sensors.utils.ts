@@ -6,8 +6,35 @@ import type {
   RuleSettingsFormState,
   SensorChatFormState,
   SensorHistoryPoint,
+  SensorRow,
   SensorRuleSettings,
+  SensorStatus,
 } from "./sensors.types";
+
+export const sensorStatusOrder: Record<SensorStatus, number> = {
+  violation: 0,
+  pending: 1,
+  ok: 2,
+  inactive: 3,
+};
+
+export function getSensorStatus(sensor: Pick<SensorRow, "actual" | "state">): SensorStatus {
+  if (sensor.actual === 0) {
+    return "inactive";
+  }
+
+  const state = sensor.state?.trim().toLowerCase();
+
+  if (!state || state === "ok") {
+    return "ok";
+  }
+
+  if (state === "pending") {
+    return "pending";
+  }
+
+  return "violation";
+}
 
 export const periodOptions = [
   { hours: 24, label: "24ч" },
@@ -63,6 +90,21 @@ export const defaultMaintenanceWindowFormState: MaintenanceWindowFormState = {
   endDate: "",
   isEnabled: true,
 };
+
+export function oneTimeStartsAt(window: { startDate: string; startTime: string }) {
+  if (!window.startDate) {
+    return null;
+  }
+
+  return new Date(`${window.startDate}T${(window.startTime || "00:00").slice(0, 5)}`);
+}
+
+export function todayIso() {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${now.getFullYear()}-${month}-${day}`;
+}
 
 export function toApiTimeValue(value: string) {
   const trimmed = value.trim();

@@ -82,10 +82,22 @@ describe("HamburgerMenuDesktop", () => {
     expect(items[1]).toHaveAttribute("title", menuParts[1].name);
   });
 
-  it("shows the Menu section for MenuAuditor", () => {
+  it("shows only Cash for MenuAuditor", () => {
     renderMenu(["MenuAuditor"]);
 
-    expect(screen.getByText("Меню")).toBeInTheDocument();
+    expect(screen.getByText("Касса")).toBeInTheDocument();
+    expect(screen.queryByText("Доставка")).not.toBeInTheDocument();
+  });
+
+  it("shows Cash for the update-only role", () => {
+    renderMenu(["CashUpdate"]);
+    expect(screen.getByText("Касса")).toBeInTheDocument();
+  });
+
+  it("shows only Delivery for delivery administrators", () => {
+    renderMenu(["MenuAdmin"]);
+    expect(screen.getByText("Доставка")).toBeInTheDocument();
+    expect(screen.queryByText("Касса")).not.toBeInTheDocument();
   });
 
   it("renders sections as links so a middle click can open them in a new tab", () => {

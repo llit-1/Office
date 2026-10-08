@@ -8,6 +8,11 @@ export interface SensorRow {
   hasAlertSettings: boolean;
 }
 
+/** ok — нарушения нет; pending — нарушение есть, но первое уведомление ещё не отправлено; violation — идёт нарушение; inactive — датчик выключен. */
+export type SensorStatus = "ok" | "pending" | "violation" | "inactive";
+
+export type SensorStatusFilter = "all" | SensorStatus;
+
 export interface SensorHistoryPoint {
   id: number;
   roomId: number;
@@ -81,6 +86,8 @@ export interface MaintenanceWindowItem {
   startDate: string | null;
   endDate: string | null;
   isEnabled: boolean;
+  createdAt: string;
+  deletedAt: string | null;
 }
 
 export interface MaintenanceWindowFormState {

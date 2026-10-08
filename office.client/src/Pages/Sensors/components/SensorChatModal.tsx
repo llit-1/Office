@@ -80,10 +80,10 @@ export default function SensorChatModal({
             <section className={styles.rulesSectionCard}>
               <div className={styles.chatSelectHeader}>
                 <h3>Датчики</h3>
-                <span>{form.roomIds.length} выбрано</span>
               </div>
               <div className={styles.chatSelectPanel}>
                 <MultiplySelect
+                  label="Поиск датчика"
                   items={sortedSensors}
                   getKey={(sensor) => sensor.id}
                   getLabel={(sensor) => `${sensor.name} [${sensor.ip}]`}
@@ -102,10 +102,10 @@ export default function SensorChatModal({
             <section className={styles.rulesSectionCard}>
               <div className={styles.chatSelectHeader}>
                 <h3>Участники</h3>
-                <span>{form.userLogins.length} выбрано</span>
               </div>
               <div className={styles.chatSelectPanel}>
                 <MultiplySelect
+                  label="Поиск участника"
                   items={sortedUsers}
                   getKey={(user) => user.login}
                   getLabel={getAdUserLabel}

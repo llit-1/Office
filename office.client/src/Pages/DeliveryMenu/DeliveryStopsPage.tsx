@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddRoundedIcon from "@mui/icons-material/AddRounded";
 import BlockRoundedIcon from "@mui/icons-material/BlockRounded";
 import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
@@ -7,7 +7,7 @@ import EventRoundedIcon from "@mui/icons-material/EventRounded";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import { useNotifications } from "@toolpad/core";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import Button from "../../Components/Button/Button";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
@@ -15,7 +15,6 @@ import useLoadingPresence from "../../Components/LoadingSpinner/useLoadingPresen
 import { getFriendlyErrorMessage } from "../../Services/api";
 import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
-import type { RootState } from "../../Store";
 import StopPackModal from "./components/StopPackModal";
 import {
   createStopPack,
@@ -27,6 +26,8 @@ import {
 } from "./deliveryMenu.api";
 import type { DeliveryItem, StopLocation, StopPack, StopPackPayload } from "./deliveryMenu.types";
 import styles from "./DeliveryStops.module.css";
+import useStopRefresh from "./useStopRefresh";
+import { stopTime } from "./stopStatus";
 
 type PackStatus = "active" | "scheduled";
 
@@ -34,8 +35,8 @@ function parseMoscow(value: string) {
   return new Date(/[zZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}+03:00`);
 }
 
-function getStatus(pack: StopPack): PackStatus {
-  return parseMoscow(pack.begin).getTime() > Date.now() ? "scheduled" : "active";
+function getStatus(pack: StopPack, now: number): PackStatus {
+  return stopTime(pack.begin) > now ? "scheduled" : "active";
 }
 
 function formatDate(value: string) {
@@ -51,7 +52,6 @@ function formatDate(value: string) {
 
 export default function DeliveryStopsPage() {
   const dispatch = useDispatch();
-  const roles = useSelector((state: RootState) => state.userData.roles);
   const notifications = useNotifications();
   const [packs, setPacks] = useState<StopPack[]>([]);
   const [locations, setLocations] = useState<StopLocation[]>([]);
@@ -65,15 +65,18 @@ export default function DeliveryStopsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StopPack | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [refreshError, setRefreshError] = useState("");
+  const refreshId = useRef(0);
   const loadingPresence = useLoadingPresence(loading);
 
   useEffect(() => {
     dispatch(visibleSet({ visible: true }));
-    dispatch(pathSet({ path: roles.includes("MenuAdmin") ? "/DeliveryMenu" : "/Main" }));
+    dispatch(pathSet({ path: "/Cash" }));
     dispatch(titleSet({ title: "Стоп-листы" }));
-  }, [dispatch, roles]);
+  }, [dispatch]);
 
   const load = useCallback(async () => {
+    ++refreshId.current;
     setLoading(true);
     setError(null);
     try {
@@ -87,6 +90,7 @@ export default function DeliveryStopsPage() {
       setPacks(loadedPacks);
       setLocations(loadedLocations);
       setItems(uniqueItems);
+      setRefreshError("");
     } catch (loadError) {
       setError(getFriendlyErrorMessage(loadError, "Не удалось загрузить стоп-листы."));
     } finally {
@@ -95,25 +99,44 @@ export default function DeliveryStopsPage() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  const refresh = useCallback(async () => {
+    const id = ++refreshId.current;
+    try {
+      const [updatedPacks, updatedLocations] = await Promise.all([getStopPacks(), getStopLocations()]);
+      if (id !== refreshId.current) return;
+      setPacks(updatedPacks);
+      setLocations(updatedLocations);
+      setRefreshError("");
+    } catch (reason) {
+      if (id === refreshId.current) setRefreshError(getFriendlyErrorMessage(reason, "Не удалось обновить стопы. Показаны последние полученные данные."));
+    }
+  }, []);
+  const now = useStopRefresh(!loading && !error && !saving && !deleting, refresh);
+  // Стопы уровня 2 ставят сотрудники из меню быстрых стопов — в стоп-листах аудитора их не показываем.
+  const currentPacks = useMemo(
+    () => packs.filter((pack) => pack.permissionLevel !== 2 && stopTime(pack.end) > now),
+    [packs, now],
+  );
 
   const filteredPacks = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("ru-RU");
-    return packs
-      .filter((pack) => statusFilter === "all" || getStatus(pack) === statusFilter)
+    return currentPacks
+      .filter((pack) => statusFilter === "all" || getStatus(pack, now) === statusFilter)
       .filter((pack) => !query || `${pack.itemName ?? ""} ${pack.locationName ?? ""} ${pack.stops.map((stop) => locations.find((location) => location.guid === stop.locationGUID)?.name ?? "").join(" ")}`
         .toLocaleLowerCase("ru-RU").includes(query))
       .sort((left, right) => parseMoscow(left.begin).getTime() - parseMoscow(right.begin).getTime());
-  }, [locations, packs, search, statusFilter]);
+  }, [locations, currentPacks, search, statusFilter, now]);
 
   const stats = useMemo(() => ({
-    active: packs.filter((pack) => getStatus(pack) === "active").length,
-    scheduled: packs.filter((pack) => getStatus(pack) === "scheduled").length,
-  }), [packs]);
+    active: currentPacks.filter((pack) => getStatus(pack, now) === "active").length,
+    scheduled: currentPacks.filter((pack) => getStatus(pack, now) === "scheduled").length,
+  }), [currentPacks, now]);
 
   const openCreate = () => { setEditingPack(null); setEditorOpen(true); };
   const openEdit = (pack: StopPack) => { setEditingPack(pack); setEditorOpen(true); };
 
   const save = async (payload: StopPackPayload) => {
+    ++refreshId.current;
     setSaving(true);
     try {
       if (editingPack) await updateStopPack(editingPack.id, payload);
@@ -130,6 +153,7 @@ export default function DeliveryStopsPage() {
 
   const remove = async () => {
     if (!deleteTarget) return;
+    ++refreshId.current;
     setDeleting(true);
     try {
       await deleteStopPack(deleteTarget.id);
@@ -148,23 +172,24 @@ export default function DeliveryStopsPage() {
 
   return (
     <main className={styles.page}>
+      {refreshError && <p role="alert">{refreshError}</p>}
       <section className={styles.toolbar}>
         <label className={styles.searchField}><SearchRoundedIcon /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по позиции или торговой точке" /></label>
         <Button variant="primary" leadingIcon={<AddRoundedIcon />} onClick={openCreate}>Создать стоп</Button>
       </section>
 
       <section className={styles.statsBar} aria-label="Фильтры по стопам">
-        <button type="button" className={statusFilter === "all" ? styles.statActive : ""} onClick={() => setStatusFilter("all")}><span>Все</span><strong>{packs.length}</strong></button>
+        <button type="button" className={statusFilter === "all" ? styles.statActive : ""} onClick={() => setStatusFilter("all")}><span>Все</span><strong>{currentPacks.length}</strong></button>
         <button type="button" className={statusFilter === "active" ? styles.statActive : ""} onClick={() => setStatusFilter("active")}><span>Действуют</span><strong>{stats.active}</strong></button>
         <button type="button" className={statusFilter === "scheduled" ? styles.statActive : ""} onClick={() => setStatusFilter("scheduled")}><span>Запланированы</span><strong>{stats.scheduled}</strong></button>
       </section>
 
       {filteredPacks.length === 0 ? (
-        <section className={styles.emptyState}><BlockRoundedIcon /><h2>{packs.length ? "Ничего не найдено" : "Стоп-лист пока пуст"}</h2><p>{packs.length ? "Измените поиск или сбросьте фильтр." : "Создайте первую блокировку для позиции или торговой точки."}</p>{!packs.length && <Button variant="primary" leadingIcon={<AddRoundedIcon />} onClick={openCreate}>Создать стоп</Button>}</section>
+        <section className={styles.emptyState}><BlockRoundedIcon /><h2>{currentPacks.length ? "Ничего не найдено" : "Стоп-лист пока пуст"}</h2><p>{currentPacks.length ? "Измените поиск или сбросьте фильтр." : "Создайте первую блокировку для позиции или торговой точки."}</p>{!currentPacks.length && <Button variant="primary" leadingIcon={<AddRoundedIcon />} onClick={openCreate}>Создать стоп</Button>}</section>
       ) : (
         <section className={styles.packGrid}>
           {filteredPacks.map((pack) => {
-            const status = getStatus(pack);
+            const status = getStatus(pack, now);
             const itemBased = pack.itemId !== null;
             return (
               <article key={pack.id} className={styles.packCard}>
