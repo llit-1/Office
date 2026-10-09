@@ -41,6 +41,7 @@ builder.Services.AddSingleton<Office.Server.Reports.ReportFileTickets>();
 builder.Services.AddSingleton<Office.Server.Locations.EntityFolderService>();
 builder.Services.AddScoped<Office.Server.Reports.FranchiseeReportBuilder>();
 builder.Services.AddScoped<Office.Server.Reports.ReportsInitializer>();
+builder.Services.AddScoped<Office.Server.Services.GlobalService>();
 builder.Services.AddDbContext<Office.Server.DbContexts.RK7.Rk7Context>(options =>
     options.UseSqlServer(Office.Server.Reports.ReportConnections.Rk7(builder.Configuration)));
 builder.Services.AddDbContext<Office.Server.DbContexts.Reports1C.Reports1CContext>(options =>

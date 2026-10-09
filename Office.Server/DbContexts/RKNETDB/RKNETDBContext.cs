@@ -173,6 +173,65 @@ namespace Office.Server.DbContexts.RKNETDB
                 .HasForeignKey(x => x.SectionId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // ===== OfficeOrder* =====
+            // В БД внешние ключи заказов без каскада (ON DELETE NO ACTION).
+            modelBuilder.Entity<OfficeOrderLocationRule>()
+                .HasKey(x => new { x.LocationGuid, x.RuleId });
+            modelBuilder.Entity<OfficeOrderLocationRule>()
+                .HasOne(x => x.Location)
+                .WithMany()
+                .HasForeignKey(x => x.LocationGuid)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeOrderLocationRule>()
+                .HasOne(x => x.Rule)
+                .WithMany(x => x.LocationRules)
+                .HasForeignKey(x => x.RuleId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<OfficeOrderItem>()
+                .HasOne(x => x.Group)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.GroupId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeOrderItem>()
+                .HasOne(x => x.Rule)
+                .WithMany(x => x.Items)
+                .HasForeignKey(x => x.RuleId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            modelBuilder.Entity<OfficeOrder>()
+                .HasOne(x => x.Location)
+                .WithMany()
+                .HasForeignKey(x => x.LocationGuid)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeOrder>()
+                .HasOne(x => x.OfficeUser)
+                .WithMany()
+                .HasForeignKey(x => x.OfficeUserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // ===== OfficeOrder ↔ OfficeOrderItem =====
+            modelBuilder.Entity<OfficeOrder>()
+                .HasMany(o => o.Items)
+                .WithMany()
+                .UsingEntity<Dictionary<string, object>>(
+                    "OfficeOrderLines",
+                    j => j
+                        .HasOne<OfficeOrderItem>()
+                        .WithMany()
+                        .HasForeignKey("Item")
+                        .HasPrincipalKey(i => i.Id),
+                    j => j
+                        .HasOne<OfficeOrder>()
+                        .WithMany()
+                        .HasForeignKey("Order")
+                        .HasPrincipalKey(o => o.Id),
+                    j =>
+                    {
+                        j.ToTable("OfficeOrderLines");
+                        j.HasKey("Order", "Item");
+                    });
+
             base.OnModelCreating(modelBuilder);
         }
         public DbSet<DbContexts.RKNETDB.Models.OfficeUser> OfficeUser { get; set; }//пользователь
@@ -230,5 +289,10 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<SaleObjectAgregator> SaleObjectsAgregators { get; set; } // позиции заказов агрегаторов
         public DbSet<CurrencyType> CurrencyTypes { get; set; } // типы валют R-Keeper
         public DbSet<LastUser> LastUsers { get; set; } // последний пользователь отчёта «Выручка»
+        public DbSet<OfficeOrder> OfficeOrders { get; set; } // заказы ТТ
+        public DbSet<OfficeOrderItem> OfficeOrderItems { get; set; } // номенклатура заказов
+        public DbSet<OfficeOrderGroup> OfficeOrderGroups { get; set; } // группы номенклатуры
+        public DbSet<OfficeOrderRule> OfficeOrderRules { get; set; } // правила приёма и отгрузки
+        public DbSet<OfficeOrderLocationRule> OfficeOrderLocationRules { get; set; } // сдвиг отгрузки по локациям
     }
 }
