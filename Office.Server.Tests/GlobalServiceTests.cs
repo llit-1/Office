@@ -52,6 +52,38 @@ public class GlobalServiceTests
     }
 
     [Fact]
+    public void GetNextCronOccurrences_ReturnsOccurrencesStartingFromGivenMoment()
+    {
+        var occurrences = GlobalService.GetNextCronOccurrences("0 12 * * *", new DateTime(2026, 10, 12, 12, 0, 0), 3);
+
+        Assert.Equal(
+            [new DateTime(2026, 10, 12, 12, 0, 0), new DateTime(2026, 10, 13, 12, 0, 0), new DateTime(2026, 10, 14, 12, 0, 0)],
+            occurrences);
+    }
+
+    [Theory]
+    [InlineData("0 0 16-22 * 1", "2026-10-19")] // понедельник, выпавший на 16–22 число
+    [InlineData("0 0 L * *", "2026-10-31")] // последний день месяца
+    [InlineData("0 0 * * 1", "2026-10-05")]
+    public void GetNextCronOccurrences_UnderstandsRuleSchedules(string cron, string expected)
+    {
+        var occurrences = GlobalService.GetNextCronOccurrences(cron, new DateTime(2026, 10, 1, 8, 0, 0), 1);
+
+        Assert.Equal([DateTime.Parse(expected)], occurrences);
+    }
+
+    [Theory]
+    [InlineData("0 12 * * *", "2026-10-11T12:00:00")] // строго раньше: срабатывание в сам момент не считается
+    [InlineData("0 0 1 * *", "2026-10-01T00:00:00")]
+    [InlineData("0 0 29 2 *", "2024-02-29T00:00:00")]
+    public void GetPreviousCronOccurrence_ReturnsLastOccurrenceBeforeGivenMoment(string cron, string expected)
+    {
+        var previous = GlobalService.GetPreviousCronOccurrence(cron, new DateTime(2026, 10, 12, 12, 0, 0));
+
+        Assert.Equal(DateTime.Parse(expected), previous);
+    }
+
+    [Fact]
     public async Task GetUserLocationsAsync_ReturnsEmptyListForUnknownUser()
     {
         using var db = CreateDb();

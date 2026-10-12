@@ -95,8 +95,6 @@ public class OfficeOrder
     [Column(TypeName = "datetime")]
     public DateTime CreationDateTime { get; set; }
 
-    public DateOnly ShipmentDate { get; set; }
-
     [Column("Location")]
     public Guid LocationGuid { get; set; }
 
@@ -106,8 +104,15 @@ public class OfficeOrder
     [Column("Rule")]
     public int RuleId { get; set; }
 
-    public Location Location { get; set; } = null!;
-    public OfficeUser OfficeUser { get; set; } = null!;
-    public OfficeOrderRule Rule { get; set; } = null!;
+    // Заказ приходит в теле запроса как есть: навигации из JSON не читаются и не проверяются.
+    [JsonIgnore]
+    public Location? Location { get; set; }
+
+    [JsonIgnore]
+    public OfficeUser? OfficeUser { get; set; }
+
+    [JsonIgnore]
+    public OfficeOrderRule? Rule { get; set; }
+
     public ICollection<OfficeOrderItem> Items { get; set; } = new List<OfficeOrderItem>();
 }

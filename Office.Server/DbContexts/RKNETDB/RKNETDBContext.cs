@@ -209,6 +209,11 @@ namespace Office.Server.DbContexts.RKNETDB
                 .WithMany()
                 .HasForeignKey(x => x.OfficeUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+            // На одно закрытие по правилу у локации один заказ.
+            modelBuilder.Entity<OfficeOrder>()
+                .HasIndex(x => new { x.RuleId, x.LocationGuid, x.CreationDateTime })
+                .IsUnique()
+                .HasDatabaseName("UX_OfficeOrder_Rule_Location_CreationDateTime");
             modelBuilder.Entity<OfficeOrder>()
                 .HasOne(x => x.Rule)
                 .WithMany()
