@@ -15,6 +15,7 @@ namespace Office.Server.Controllers;
 public class OrderController : ControllerBase
 {
     private const string AdminRole = "OrdersTTAdmin";
+    private const int PreviousOrdersPerLocation = 10;
 
     private readonly RKNETDBContext _context;
     private readonly GlobalService _globalService;
@@ -124,8 +125,7 @@ public class OrderController : ControllerBase
     public async Task<ActionResult<LocationRulesDto>> GetRules()
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
-            return Unauthorized();
-
+        return Unauthorized();
         var locations = await _globalService.GetUserLocationsAsync(userId);
         var rules = await _context.OfficeOrderRules.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
         return Ok(new LocationRulesDto
@@ -133,6 +133,75 @@ public class OrderController : ControllerBase
             Locations = locations,
             Rules = rules
         });
+    }
+
+    // GET: api/Order/rules/{ruleId}/orders?locationGuid=...
+    [HttpGet("rules/{ruleId:int}/orders")]
+    public async Task<ActionResult<List<OrdersDTO>>> GetOrders(int ruleId, [FromQuery] Guid? locationGuid = null)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized();
+
+        var locations = await _globalService.GetUserLocationsAsync(userId);
+        if (locationGuid is Guid guid)
+        {
+            locations = locations.Where(x => x.Guid == guid).ToList();
+            if (locations.Count == 0)
+                return Forbid();
+        }
+
+        var locationGuids = locations.Select(x => x.Guid).ToList();
+        var now = DateTime.Now;
+
+        // CreationDateTime — момент, когда заказ закрывается для правок и уходит на сборку.
+        // Берём все ещё открытые заказы и по PreviousOrdersPerLocation последних закрытых на каждую локацию.
+        var previousIds = _context.Locations
+            .Where(location => locationGuids.Contains(location.Guid))
+            .SelectMany(location => _context.OfficeOrders
+                .Where(x => x.LocationGuid == location.Guid && x.RuleId == ruleId && x.CreationDateTime < now)
+                .OrderByDescending(x => x.CreationDateTime)
+                .Take(PreviousOrdersPerLocation)
+                .Select(x => x.Id));
+
+        var orders = await _context.OfficeOrders.AsNoTracking()
+            .Include(x => x.Items)
+            .Where(x => x.RuleId == ruleId
+                && locationGuids.Contains(x.LocationGuid)
+                && (x.CreationDateTime >= now || previousIds.Contains(x.Id)))
+            .OrderByDescending(x => x.CreationDateTime)
+            .ToListAsync();
+
+        // локации без заказов в ответ не попадают
+        var ordersByLocation = orders.ToLookup(x => x.LocationGuid);
+        return Ok(locations
+            .Where(location => ordersByLocation.Contains(location.Guid))
+            .Select(location => new OrdersDTO
+            {
+                Location = location.Name,
+                LocationGUID = location.Guid,
+                OfficeOrders = ordersByLocation[location.Guid].ToList()
+            })
+            .ToList());
+    }
+
+    // GET: api/Order/orders/{id}/items
+    [HttpGet("orders/{id:int}/items")]
+    public async Task<ActionResult<List<OfficeOrderItem>>> GetOrderItems(int id)
+    {
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            return Unauthorized();
+
+        var order = await _context.OfficeOrders.AsNoTracking()
+            .Include(x => x.Items)
+            .FirstOrDefaultAsync(x => x.Id == id);
+        if (order == null)
+            return NotFound(new { message = "Заказ не найден." });
+
+        var locations = await _globalService.GetUserLocationsAsync(userId);
+        if (!locations.Any(x => x.Guid == order.LocationGuid))
+            return Forbid();
+
+        return Ok(order.Items.OrderBy(x => x.Name).ToList());
     }
 
     private async Task<ActionResult?> ValidateItemAsync(OfficeOrderItem item)
@@ -149,4 +218,10 @@ public class OrderController : ControllerBase
 
         return null;
     }
+}
+public class OrdersDTO
+{
+    public string Location { get; set; } = "";
+    public Guid LocationGUID { get; set; }
+    public List<OfficeOrder>? OfficeOrders { get; set; }
 }

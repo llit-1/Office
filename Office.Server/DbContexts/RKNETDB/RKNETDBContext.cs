@@ -209,6 +209,11 @@ namespace Office.Server.DbContexts.RKNETDB
                 .WithMany()
                 .HasForeignKey(x => x.OfficeUserId)
                 .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeOrder>()
+                .HasOne(x => x.Rule)
+                .WithMany()
+                .HasForeignKey(x => x.RuleId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             // ===== OfficeOrder ↔ OfficeOrderItem =====
             modelBuilder.Entity<OfficeOrder>()

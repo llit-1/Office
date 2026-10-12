@@ -103,7 +103,11 @@ public class OfficeOrder
     [Column("User")]
     public int OfficeUserId { get; set; }
 
+    [Column("Rule")]
+    public int RuleId { get; set; }
+
     public Location Location { get; set; } = null!;
     public OfficeUser OfficeUser { get; set; } = null!;
+    public OfficeOrderRule Rule { get; set; } = null!;
     public ICollection<OfficeOrderItem> Items { get; set; } = new List<OfficeOrderItem>();
 }

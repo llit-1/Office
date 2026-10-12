@@ -115,6 +115,135 @@ public class OrderControllerTests
         Assert.IsType<UnauthorizedResult>(result.Result);
     }
 
+    private sealed record OrdersSeed(Guid Own, Guid Empty, Guid Foreign);
+
+    /// <summary>
+    /// У пользователя 5 две точки: «Тореза 9» с заказами и «Столичная 1» без них; «Невский 87» — чужая.
+    /// Id заказов «Тореза 9» по правилу RuleId: 1–12 закрытые (1 — самый старый), 13–14 открытые.
+    /// </summary>
+    private static OrdersSeed SeedOrders(RKNETDBContext db)
+    {
+        var seed = new OrdersSeed(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var own = new Location { Guid = seed.Own, Name = "Тореза 9", Actual = 1 };
+        var empty = new Location { Guid = seed.Empty, Name = "Столичная 1", Actual = 1 };
+        var user = new OfficeUser("shop", "Анна") { Id = 5, Actual = 1 };
+        user.Locations.Add(own);
+        user.Locations.Add(empty);
+        db.Locations.Add(new Location { Guid = seed.Foreign, Name = "Невский 87", Actual = 1 });
+        db.OfficeUser.Add(user);
+
+        var now = DateTime.Now;
+        OfficeOrder Order(int id, Guid location, int rule, DateTime closeAt) => new()
+        {
+            Id = id,
+            LocationGuid = location,
+            RuleId = rule,
+            OfficeUserId = 5,
+            CreationDateTime = closeAt,
+            ShipmentDate = DateOnly.FromDateTime(closeAt.AddDays(1)),
+        };
+
+        for (var id = 1; id <= 12; id++)
+            db.OfficeOrders.Add(Order(id, seed.Own, RuleId, now.AddDays(id - 13)));
+        var open = Order(13, seed.Own, RuleId, now.AddDays(1));
+        open.Items.Add(db.OfficeOrderItems.Single(x => x.Id == 1));
+        db.OfficeOrders.AddRange(
+            open,
+            Order(14, seed.Own, RuleId, now.AddDays(2)),
+            Order(15, seed.Own, OtherRuleId, now.AddDays(1)),
+            Order(16, seed.Foreign, RuleId, now.AddDays(1)));
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+        return seed;
+    }
+
+    [Fact]
+    public async Task GetOrders_ReturnsOpenOrdersAndTenPreviousForEachUserLocation()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId);
+
+        var dtos = Assert.IsType<List<OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        // «Столичная 1» без заказов в ответ не попадает
+        var dto = Assert.Single(dtos);
+        Assert.Equal(seed.Own, dto.LocationGUID);
+        Assert.Equal("Тореза 9", dto.Location);
+        // открытые 14 и 13, затем десять последних закрытых: 12…3
+        Assert.Equal(Enumerable.Range(3, 12).Reverse(), dto.OfficeOrders!.Select(x => x.Id));
+        Assert.Equal(["Батон"], dto.OfficeOrders!.Single(x => x.Id == 13).Items.Select(x => x.Name));
+    }
+
+    [Fact]
+    public async Task GetOrders_ReturnsEmptyArrayWhenNoLocationHasOrders()
+    {
+        using var db = CreateDb();
+        SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrders(ruleId: 99);
+
+        Assert.Empty(Assert.IsType<List<OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value));
+    }
+
+    [Fact]
+    public async Task GetOrderItems_ReturnsItemsOfOrder()
+    {
+        using var db = CreateDb();
+        SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrderItems(13);
+
+        var items = Assert.IsType<List<OfficeOrderItem>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(["Батон"], items.Select(x => x.Name));
+    }
+
+    [Fact]
+    public async Task GetOrderItems_ReturnsNotFoundForUnknownOrder()
+    {
+        using var db = CreateDb();
+        SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrderItems(99);
+
+        Assert.IsType<NotFoundObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetOrderItems_ForbidsOrderOfAnotherUsersLocation()
+    {
+        using var db = CreateDb();
+        SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrderItems(16);
+
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task GetOrders_ReturnsOnlyRequestedLocation()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId, seed.Own);
+
+        var dtos = Assert.IsType<List<OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal([seed.Own], dtos.Select(x => x.LocationGUID));
+        Assert.Equal(12, dtos[0].OfficeOrders!.Count);
+    }
+
+    [Fact]
+    public async Task GetOrders_ForbidsLocationOfAnotherUser()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId, seed.Foreign);
+
+        Assert.IsType<ForbidResult>(result.Result);
+    }
+
     [Fact]
     public async Task CreateItem_SavesItem()
     {
