@@ -49,7 +49,6 @@ export default function OrderDetailsModal({ order, rule, permissions, now, onClo
         <dl className={styles.meta}>
           <div><dt>Тип заказа</dt><dd>{rule.name}</dd></div>
           <div><dt>Торговая точка</dt><dd>{order.storeName}</dd></div>
-          <div><dt>Дата формирования</dt><dd>{formatMoment(order.creationDateTime)}</dd></div>
           <div>
             <dt>Доставка</dt>
             <dd>{delivery ? <>{delivery.date}{delivery.relative ? <span className={shared.muted}> · {delivery.relative}</span> : null}</> : "—"}</dd>
@@ -65,7 +64,7 @@ export default function OrderDetailsModal({ order, rule, permissions, now, onClo
         ) : (
           <p className={`${shared.notice} ${shared.noticeWarning}`}>
             <LockOutlinedIcon />
-            <span>Заказ сформирован {formatMoment(closeAt)} и больше не меняется.</span>
+            <span>Время на изменение заказа вышло — он передан в работу.</span>
           </p>
         )}
 

@@ -34,7 +34,7 @@ const lastCall = () => server.calls[server.calls.length - 1];
 describe("вход в раздел", () => {
   it("получает типы заказов и торговые точки пользователя одним запросом", async () => {
     expect(await getOrdersBootstrap()).toEqual({
-      rules: [{ id: DAILY, name: "Регулярный (Завтра)" }, { id: WEEKLY, name: "Еженедельный" }],
+      rules: [{ id: DAILY, name: "Регулярный (Завтра)", hasItems: true }, { id: WEEKLY, name: "Еженедельный", hasItems: true }],
       stores: [
         { guid: STORE_A, name: "Парашютная 63" },
         { guid: STORE_B, name: "Невский 87" },
@@ -42,6 +42,15 @@ describe("вход в раздел", () => {
       ],
     });
     expect(server.calls).toEqual([{ method: "GET", url: "/Order/rules", params: undefined }]);
+  });
+
+  it("тип без доступных пользователю позиций помечается пустым", async () => {
+    server.items.find((item) => item.ruleId === WEEKLY)!.avaliableForNative = 0;
+    server.setRole("Order_woman");
+    expect((await getOrdersBootstrap()).rules.map((rule) => [rule.id, rule.hasItems])).toEqual([[DAILY, true], [WEEKLY, false]]);
+    // старый сервер без списка доступных правил — показываем все типы
+    api.server = { ...server, get: async () => ({ locations: [], rules: [{ id: 1, name: "Тип" }] }) } as unknown as FakeServer;
+    expect((await getOrdersBootstrap()).rules).toEqual([{ id: 1, name: "Тип", hasItems: true }]);
   });
 });
 
@@ -91,17 +100,31 @@ describe("редактор заказа", () => {
   it("без даты сервер отдаёт ближайшую: даты на выбор, доставку и каталог точки", async () => {
     const contents = await getOrderContents(DAILY, STORE_A);
     expect(lastCall()).toMatchObject({ url: `/Order/rules/${DAILY}/locations/${STORE_A}/contents`, params: undefined });
-    // одна уже прошедшая дата и двадцать будущих
-    expect(contents.creationDateTimes).toHaveLength(21);
-    expect(contents.creationDateTimes.slice(0, 3)).toEqual(["2026-10-08T12:00:00", "2026-10-09T12:00:00", "2026-10-10T12:00:00"]);
+    // одна уже прошедшая дата и семь будущих — каждая со своей доставкой
+    expect(contents.dates).toHaveLength(8);
+    expect(contents.dates.slice(0, 3)).toEqual([
+      { creationDateTime: "2026-10-08T12:00:00", shipmentDateTime: "2026-10-09T00:00:00" },
+      { creationDateTime: "2026-10-09T12:00:00", shipmentDateTime: "2026-10-10T00:00:00" },
+      { creationDateTime: "2026-10-10T12:00:00", shipmentDateTime: "2026-10-11T00:00:00" },
+    ]);
     expect(contents.creationDateTime).toBe("2026-10-09T12:00:00");
     expect(contents.shipmentDateTime).toBe("2026-10-10T00:00:00");
     expect(contents.lines).toEqual([]);
     // выключенных позиций в каталоге для заказа нет
     expect(contents.groups.map((group) => [group.name, group.items.map((item) => item.name)])).toEqual([
       ["Заморозка", ["Багет зерновой", "Булочка заварная"]],
-      ["Напитки", ["Морс клюквенный"]],
+      ["Напитки", ["Морс клюквенный", "Сок яблочный"]],
     ]);
+    // доставку, которую сервер посчитать не смог (DateTime.MinValue), в выбор не пускаем
+    api.server = { ...server, get: async () => ({
+      dateTimeMatches: [{ orderCreationDateTime: ["2026-10-09T12:00:00", "2026-10-10T12:00:00"], orderShipmentDateTime: ["0001-01-01T00:00:00", "2026-10-11T00:00:00"] }],
+      itemGroups: [], orderCreationDateTime: "2026-10-10T12:00:00", orderShipmentDateTime: "2026-10-11T00:00:00", orderItems: [],
+    }) } as unknown as FakeServer;
+    expect((await getOrderContents(DAILY, STORE_A)).dates).toEqual([{ creationDateTime: "2026-10-10T12:00:00", shipmentDateTime: "2026-10-11T00:00:00" }]);
+    api.server = server;
+    // роли «Собственное управление» сервер отдаёт только её позиции
+    server.setRole("Order_woman");
+    expect((await getOrderContents(DAILY, STORE_A)).groups.flatMap((group) => group.items.map((item) => item.name))).not.toContain("Сок яблочный");
   });
 
   it("для выбранной даты возвращает её доставку и уже оформленный заказ", async () => {
@@ -143,16 +166,16 @@ describe("настройки: каталог", () => {
     expect(lastCall().url).toBe(`/Order/rules/${DAILY}/items`);
     expect(catalog.map((group) => group.name)).toEqual(["Заморозка", "Напитки"]);
     expect(catalog[0].items.find((item) => item.name === "Круассан")).toEqual({
-      id: 3, ruleId: DAILY, groupId: 1, rkcode: 102, name: "Круассан", step: 1, forOwn: true, forPartner: false, isActive: false,
+      id: 3, ruleId: DAILY, groupId: 1, rkcode: 102, name: "Круассан", step: 1, forOwn: true, isActive: false,
     });
   });
 
   it("новая позиция создаётся, существующая сохраняется целиком", async () => {
-    const created = await saveItem({ id: 0, ruleId: DAILY, groupId: 2, rkcode: 201, name: "Сок", step: 6, forOwn: true, forPartner: false, isActive: true });
+    const created = await saveItem({ id: 0, ruleId: DAILY, groupId: 2, rkcode: 201, name: "Сок", step: 6, forOwn: true, isActive: true });
     expect(lastCall()).toMatchObject({
       method: "POST",
       url: "/Order/items",
-      body: { rkcode: 201, name: "Сок", step: 6, groupId: 2, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 0, actual: 1 },
+      body: { rkcode: 201, name: "Сок", step: 6, groupId: 2, ruleId: DAILY, avaliableForNative: 1, actual: 1 },
     });
     expect(created.id).toBeGreaterThan(0);
 

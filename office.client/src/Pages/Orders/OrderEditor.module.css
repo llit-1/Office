@@ -61,6 +61,13 @@
   background: var(--color-surface-elevated);
 }
 
+.sectionActions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
 .sectionTitle {
   min-width: 0;
   margin: 0;
@@ -161,16 +168,11 @@
   margin-top: var(--space-4);
 }
 
-/* ТТ, дата и доставка — рядом, пока всем хватает места на подпись; в узком заказе встают друг под другом */
+/* ТТ и дата доставки — друг под другом во всю ширину: в дате бывает ещё и номер заказа */
 .fields {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-5) var(--space-4);
-}
-
-/* доставка — справочная строка на всю ширину под ТТ и датой */
-.fieldWide {
-  grid-column: 1 / -1;
 }
 
 .hint {

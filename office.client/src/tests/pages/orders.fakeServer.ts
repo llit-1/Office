@@ -18,7 +18,6 @@ export interface FakeItem {
   groupId: number;
   ruleId: number;
   avaliableForNative: number;
-  avaliableForFranchise: number;
   actual: number;
 }
 
@@ -67,16 +66,20 @@ export function createFakeServer(now: () => number) {
   ];
   const groups = [{ id: 1, name: "Заморозка" }, { id: 2, name: "Напитки" }, { id: 3, name: "Упаковка" }];
   const items: FakeItem[] = [
-    { id: 1, rkcode: 100, name: "Багет зерновой", step: 6, groupId: 1, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 1, actual: 1 },
-    { id: 2, rkcode: 101, name: "Булочка заварная", step: 12, groupId: 1, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 1, actual: 1 },
-    { id: 3, rkcode: 102, name: "Круассан", step: 1, groupId: 1, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 0, actual: 0 },
-    { id: 4, rkcode: 200, name: "Морс клюквенный", step: 10, groupId: 2, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 1, actual: 1 },
-    { id: 5, rkcode: 300, name: "Коробка для торта", step: 50, groupId: 3, ruleId: WEEKLY, avaliableForNative: 1, avaliableForFranchise: 1, actual: 1 },
+    { id: 1, rkcode: 100, name: "Багет зерновой", step: 6, groupId: 1, ruleId: DAILY, avaliableForNative: 1, actual: 1 },
+    { id: 2, rkcode: 101, name: "Булочка заварная", step: 12, groupId: 1, ruleId: DAILY, avaliableForNative: 1, actual: 1 },
+    { id: 3, rkcode: 102, name: "Круассан", step: 1, groupId: 1, ruleId: DAILY, avaliableForNative: 1, actual: 0 },
+    { id: 4, rkcode: 200, name: "Морс клюквенный", step: 10, groupId: 2, ruleId: DAILY, avaliableForNative: 1, actual: 1 },
+    // доступен только ролям со всеми позициями
+    { id: 6, rkcode: 202, name: "Сок яблочный", step: 6, groupId: 2, ruleId: DAILY, avaliableForNative: 0, actual: 1 },
+    { id: 5, rkcode: 300, name: "Коробка для торта", step: 50, groupId: 3, ruleId: WEEKLY, avaliableForNative: 1, actual: 1 },
   ];
   const orders: FakeOrder[] = [];
   const calls: FakeCall[] = [];
   let nextOrderId = 500;
   let nextItemId = 50;
+  /** Роль пользователя: «Order_woman» видит только позиции с avaliableForNative = 1, администратор меняет и сформированные заказы. */
+  let role = "Order_man";
   const currentUser = { id: 5, name: "Тест Тестов" };
 
   /** Срабатывания расписания правила: count штук начиная с момента from включительно. */
@@ -118,7 +121,10 @@ export function createFakeServer(now: () => number) {
     let match: RegExpExecArray | null;
 
     if (method === "GET" && url === "/Order/rules") {
-      return { locations: locations.map((location) => ({ ...location, actual: 1 })), rules: rules.map((rule) => ({ id: rule.id, name: rule.name, interval: "", shipmentInterval: "", items: [], locationRules: [] })) };
+      const usable = items.filter((item) => item.actual === 1 && (role !== "Order_woman" || item.avaliableForNative === 1));
+      return {
+        availableRuleIds: rules.filter((rule) => usable.some((item) => item.ruleId === rule.id)).map((rule) => rule.id),
+        locations: locations.map((location) => ({ ...location, actual: 1 })), rules: rules.map((rule) => ({ id: rule.id, name: rule.name, interval: "", shipmentInterval: "", items: [], locationRules: [] })) };
     }
 
     if (method === "GET" && (match = /^\/Order\/rules\/(\d+)\/orders$/.exec(url))) {
@@ -158,13 +164,15 @@ export function createFakeServer(now: () => number) {
       const rule = ruleOf(Number(match[1]));
       const guid = match[2];
       requireLocation(guid);
-      const upcoming = occurrences(rule, now(), 20);
+      const upcoming = occurrences(rule, now(), 7);
       const requested = params?.creationDateTime as string | undefined;
       const creation = requested ? fromServer(requested) : upcoming[0];
       const order = orders.find((candidate) => candidate.ruleId === rule.id && candidate.locationGuid === guid && fromServer(candidate.creationDateTime) === creation);
+      const dates = [previous(rule, now()), ...upcoming];
       return {
-        orderCreationDateTimes: [previous(rule, now()), ...upcoming].map(toServer),
-        itemGroups: groupsOf(items.filter((item) => item.ruleId === rule.id && item.actual === 1)),
+        // как в OrderController: один элемент с параллельными списками дат формирования и доставки
+        dateTimeMatches: [{ orderCreationDateTime: dates.map(toServer), orderShipmentDateTime: dates.map((moment) => shipmentOf(rule, moment)) }],
+        itemGroups: groupsOf(items.filter((item) => item.ruleId === rule.id && item.actual === 1 && (role !== "Order_woman" || item.avaliableForNative === 1))),
         orderCreationDateTime: toServer(creation),
         orderShipmentDateTime: shipmentOf(rule, creation),
         orderItems: order ? orderItems(order) : [],
@@ -176,7 +184,7 @@ export function createFakeServer(now: () => number) {
       requireLocation(draft.locationGuid);
       ruleOf(draft.ruleId);
       const creation = fromServer(draft.creationDateTime);
-      if (creation < now()) fail(409, "Приём изменений по этому заказу уже закрыт.");
+      if (creation <= now() && role !== "OrdersTTAdmin") fail(409, "Приём изменений по этому заказу уже закрыт.");
       let order = orders.find((candidate) => candidate.ruleId === draft.ruleId && candidate.locationGuid === draft.locationGuid && fromServer(candidate.creationDateTime) === creation);
       if (!order) {
         order = { id: nextOrderId++, ruleId: draft.ruleId, locationGuid: draft.locationGuid, creationDateTime: toServer(creation), officeUserId: currentUser.id, userName: currentUser.name, lines: [] };
@@ -226,6 +234,7 @@ export function createFakeServer(now: () => number) {
     occurrences: (ruleId: number, count: number) => occurrences(ruleOf(ruleId), now(), count).map(toServer),
     previous: (ruleId: number) => toServer(previous(ruleOf(ruleId), now())),
     shipment: (ruleId: number, creationDateTime: string) => shipmentOf(ruleOf(ruleId), fromServer(creationDateTime)),
+    setRole(next: string) { role = next; },
     setLocations(guids: string[]) { locations = locations.filter((location) => guids.includes(location.guid)); },
     addOrder(order: Omit<FakeOrder, "id" | "officeUserId" | "userName"> & { userName?: string }) {
       const saved: FakeOrder = { officeUserId: 7, userName: "Анна Морозова", ...order, id: nextOrderId++ };

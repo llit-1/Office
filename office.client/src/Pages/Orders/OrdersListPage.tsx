@@ -15,7 +15,7 @@ import StatePanel from "../../Components/StatePanel/StatePanel";
 import type { RootState } from "../../Store";
 import { setOrdersTypeId } from "../../Store/preferencesSlice";
 import { getOrders } from "./orders.api";
-import { formatDay, formatDelivery, formatMoment, ordersLabel, positionsLabel } from "./orders.format";
+import { formatDay, formatDelivery, ordersLabel, positionsLabel } from "./orders.format";
 import { canEditOrder, editorPath, isOrderOpen, serverMoment } from "./orders.rules";
 import type { Order, OrdersBootstrap, OrdersPermissions, StoreOrders } from "./orders.types";
 import OrderDetailsModal from "./components/OrderDetailsModal";
@@ -46,8 +46,10 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
   // список открывается только по выбранному типу: из адреса или последний выбранный пользователем;
   // единственный тип выбирается сам
   const lastRuleId = useSelector((state: RootState) => state.preferences.ordersTypeId);
+  // типы, в которых пользователю нечего заказать, не показываем
+  const rules = useMemo(() => base.rules.filter((rule) => rule.hasItems), [base.rules]);
   const ruleId = Number(params.get("type")) || lastRuleId || 0;
-  const selectedRule = base.rules.find((rule) => rule.id === ruleId) ?? (base.rules.length === 1 ? base.rules[0] : null);
+  const selectedRule = rules.find((rule) => rule.id === ruleId) ?? (rules.length === 1 ? rules[0] : null);
   const selectedRuleId = selectedRule?.id ?? null;
   useEffect(() => {
     if (selectedRuleId !== null && selectedRuleId !== lastRuleId) dispatch(setOrdersTypeId(selectedRuleId));
@@ -91,7 +93,7 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
     store: group.store,
     orders: group.orders.map((order) => ({
       order,
-      haystack: [order.id, formatDay(order.creationDateTime), order.shipmentDateTime ? formatDay(order.shipmentDateTime) : "", order.userName, ...order.lines.map((line) => line.name)]
+      haystack: [order.id, order.shipmentDateTime ? formatDay(order.shipmentDateTime) : "", order.userName, ...order.lines.map((line) => line.name)]
         .join(" ").toLocaleLowerCase("ru-RU"),
     })),
   })), [groupsData]);
@@ -132,7 +134,7 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
   return (
     <>
       <section className={styles.types} aria-label="Тип заказа">
-        {base.rules.map((rule) => (
+        {rules.map((rule) => (
           <button key={rule.id} type="button" className={styles.typeTab} aria-pressed={selectedRuleId === rule.id} onClick={() => setParam({ type: String(rule.id), order: null })}>
             {rule.name}
           </button>
@@ -145,7 +147,7 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
           <label className={`${shared.searchField} ${styles.search}`}>
             <SearchRoundedIcon aria-hidden="true" />
             <span className={shared.srOnly}>Поиск по заказам</span>
-            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Номер, дата, сотрудник или позиция" />
+            <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Номер, дата доставки, сотрудник или позиция" />
           </label>
           {onlyStore ? null : (
             <Select
@@ -170,8 +172,8 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
 
       {!selectedRule ? (
         <section className={shared.panel}>
-          {base.rules.length === 0 ? (
-            <StatePanel icon={<ReceiptLongOutlinedIcon />} title="Типы заказов не настроены" text="Оформлять пока нечего: обратитесь к администратору раздела." />
+          {rules.length === 0 ? (
+            <StatePanel icon={<ReceiptLongOutlinedIcon />} title="Заказывать пока нечего" text="Для вас нет ни одной позиции ни в одном типе заказа — обратитесь к администратору раздела." />
           ) : (
             <StatePanel icon={<ReceiptLongOutlinedIcon />} title="Выберите тип заказа" text="Список заказов откроется по выбранному типу." />
           )}
@@ -234,10 +236,6 @@ export default function OrdersListPage({ base, permissions }: { base: OrdersBoot
                     <article key={order.id} className={styles.row} data-highlight={highlight === order.id || undefined} onClick={open}>
                       <div className={styles.cellMain}>
                         <button type="button" className={styles.number} onClick={(event) => { event.stopPropagation(); open(); }}>№ {order.id}</button>
-                      </div>
-                      <div className={styles.cellCreation}>
-                        <span>{formatMoment(order.creationDateTime)}</span>
-                        <span className={styles.sub}>формирование</span>
                       </div>
                       <div className={styles.cellDelivery}>
                         <span>{delivery ? delivery.date : "—"}</span>

@@ -59,7 +59,7 @@ export const menuParts: MenuPart[] = [
     Icon: AddShoppingCartOutlinedIcon,
     path: "/Orders",
     img: "/img/shopping-basket.svg",
-    requiredRole: ["OrdersTT", "OrdersTTAdmin"],
+    requiredRole: ["OrdersTTAdmin", "Order_man", "Order_woman"],
   },
   {
     name: "Сотрудники завода",

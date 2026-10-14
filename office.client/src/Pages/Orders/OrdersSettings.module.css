@@ -167,7 +167,7 @@
 }
 
 .table {
-  --columns: 28px minmax(0, 1fr) 80px 60px 60px 52px 36px;
+  --columns: 28px minmax(0, 1fr) 80px 60px 52px 36px;
   display: flex;
   flex-direction: column;
 }
@@ -260,8 +260,7 @@
     grid-template-areas:
       "check name edit"
       ". step toggle"
-      ". own own"
-      ". partner partner";
+      ". own own";
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3);
   }
@@ -272,7 +271,6 @@
   .tableRow > .colToggle { grid-area: toggle; }
   .tableRow > .colStep { grid-area: step; }
   .tableRow > .colOwn { grid-area: own; justify-content: flex-start; }
-  .tableRow > .colPartner { grid-area: partner; justify-content: flex-start; }
 
   .tableRow > .colNumber {
     color: var(--color-text-muted);

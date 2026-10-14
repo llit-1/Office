@@ -8,6 +8,7 @@ import DeleteOutlineRoundedIcon from "@mui/icons-material/DeleteOutlineRounded";
 import ErrorOutlineRoundedIcon from "@mui/icons-material/ErrorOutlineRounded";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import PlaylistAddRoundedIcon from "@mui/icons-material/PlaylistAddRounded";
+import PlaylistRemoveRoundedIcon from "@mui/icons-material/PlaylistRemoveRounded";
 import SearchOffRoundedIcon from "@mui/icons-material/SearchOffRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import ShoppingBasketOutlinedIcon from "@mui/icons-material/ShoppingBasketOutlined";
@@ -21,7 +22,7 @@ import StatePanel from "../../Components/StatePanel/StatePanel";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { getOrderContents, getOrders, getOrdersErrorMessage, saveOrder } from "./orders.api";
 import { formatDelivery, formatMoment, formatQuantity, positionsLabel } from "./orders.format";
-import { normalizeQuantity, quantityBounds, serverMoment, type QuantityBounds } from "./orders.rules";
+import { normalizeQuantity, quantityBounds, serverDay, serverMoment, type QuantityBounds } from "./orders.rules";
 import type { CatalogItem, Order, OrderContents, OrderLine, OrderRule, OrdersBootstrap, OrdersPermissions, ServerDateTime } from "./orders.types";
 import QuantityStepper from "./components/QuantityStepper";
 import { useMediaQuery, useNow } from "./useOrdersBase";
@@ -51,7 +52,7 @@ export default function OrderEditorPage({ base, permissions, ruleId }: EditorPro
     );
   }
 
-  return <EditorForm base={base} rule={rule} />;
+  return <EditorForm base={base} permissions={permissions} rule={rule} />;
 }
 
 /* ===== Строка каталога ===== */
@@ -103,7 +104,7 @@ type Quantities = Map<number, number>;
 const toQuantities = (lines: OrderLine[]): Quantities =>
   new Map(lines.map((line) => [line.itemId, line.quantity ?? quantityBounds(line).min]));
 
-function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) {
+function EditorForm({ base, permissions, rule }: { base: OrdersBootstrap; permissions: OrdersPermissions; rule: OrderRule }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const notifications = useNotifications();
@@ -198,7 +199,8 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
       const next: View = { storeGuid: nextStore, contents: nextContents, orders };
       const available = new Map(nextContents.groups.flatMap((group) => group.items).map((item) => [item.id, item]));
 
-      if (first && serverMoment(nextContents.creationDateTime) <= Date.now()) setLockedOnOpen(true);
+      // сформированный заказ меняет только администратор
+      if (first && serverMoment(nextContents.creationDateTime) <= Date.now() && !permissions.canEditClosed) setLockedOnOpen(true);
 
       if (nextContents.lines.length > 0) {
         // на этой дате уже есть заказ: работаем с ним, но набранное без спроса не бросаем
@@ -207,7 +209,7 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
           return;
         }
         openExisting(next);
-        if (!first) notifications.show("На эту дату уже есть заказ — открыли его", { severity: "info", autoHideDuration: 4000 });
+        if (!first) notifications.show("На эту доставку уже есть заказ — открыли его", { severity: "info", autoHideDuration: 4000 });
         return;
       }
 
@@ -269,23 +271,44 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
   /** Заказ, уже оформленный на выбранную дату. */
   const existing = contents && contents.lines.length > 0 ? takenByMoment.get(selectedMoment) ?? null : null;
   const isExisting = Boolean(contents && contents.lines.length > 0);
-  /** Дата формирования наступила, пока форма была открыта: сохранить такой заказ уже нельзя. */
+  /** Дата формирования наступила, пока форма была открыта: сохранить заказ может только администратор. */
   const closed = Boolean(contents) && selectedMoment <= now.getTime();
+  const locked = closed && !permissions.canEditClosed;
 
+  // пользователь выбирает дату доставки, дата формирования подставляется по ней
   const dateOptions = useMemo(() => {
     if (!contents) return [];
-    // прошедшие даты не предлагаем: заказ на них уже не оформить и не изменить
-    const upcoming = contents.creationDateTimes.filter((date) => serverMoment(date) > now.getTime());
-    const dates = upcoming.some((date) => serverMoment(date) === selectedMoment) ? upcoming : [contents.creationDateTime, ...upcoming];
+    const isOpen = (date: ServerDateTime) => serverMoment(date) > now.getTime();
+    // прошедшие даты формирования видит только администратор — и тот, кто открыл именно такую
+    const visible = contents.dates.filter((date) => isOpen(date.creationDateTime)
+      || permissions.canEditClosed || serverMoment(date.creationDateTime) === selectedMoment);
+    // на один день доставки может прийтись несколько дат формирования: берём выбранную,
+    // затем ту, на которую уже есть заказ, иначе самую позднюю — у неё больше времени на правки
+    const byDay = new Map<string, (typeof visible)[number]>();
+    const rank = (date: (typeof visible)[number]) =>
+      serverMoment(date.creationDateTime) === selectedMoment ? 2 : takenByMoment.has(serverMoment(date.creationDateTime)) ? 1 : 0;
+    for (const date of visible) {
+      const day = serverDay(date.shipmentDateTime);
+      const current = byDay.get(day);
+      if (!current || rank(date) > rank(current) || (rank(date) === rank(current) && date.creationDateTime > current.creationDateTime)) byDay.set(day, date);
+    }
+    const dates = [...byDay.values()].sort((left, right) => left.shipmentDateTime.localeCompare(right.shipmentDateTime));
+    const nearest = dates.find((date) => isOpen(date.creationDateTime));
     return dates.map((date) => {
-      const taken = takenByMoment.get(serverMoment(date));
-      const past = serverMoment(date) <= now.getTime();
+      const taken = takenByMoment.get(serverMoment(date.creationDateTime));
+      const { date: day, relative } = formatDelivery(date.shipmentDateTime, now);
       return {
-        value: date,
-        label: [date === upcoming[0] ? "Ближайшая" : "", formatMoment(date), past ? "приём закрыт" : "", taken ? `заказ № ${taken.id}` : ""].filter(Boolean).join(" · "),
+        value: date.creationDateTime,
+        label: [
+          date === nearest ? "Ближайшая" : "",
+          day,
+          relative,
+          isOpen(date.creationDateTime) ? "" : "приём закрыт",
+          taken ? `заказ № ${taken.id}` : "",
+        ].filter(Boolean).join(" · "),
       };
     });
-  }, [contents, now, selectedMoment, takenByMoment]);
+  }, [contents, now, permissions.canEditClosed, selectedMoment, takenByMoment]);
 
   // тип и номер заказа — в заголовке портала, отдельная шапка страницы не нужна
   const title = existing ? `Заказ № ${existing.id}` : rule.name;
@@ -321,6 +344,14 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
     () => groups.map((group) => ({ group, selected: group.items.filter((item) => quantities.has(item.id)).length })),
     [groups, quantities],
   );
+
+  const removeSection = (items: CatalogItem[]) => {
+    setQuantities((prev) => {
+      const next = new Map(prev);
+      for (const item of items) next.delete(item.id);
+      return next;
+    });
+  };
 
   const addSection = (items: CatalogItem[]) => {
     setQuantities((prev) => {
@@ -405,7 +436,7 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
       <StatePanel
         icon={<LockOutlinedIcon />}
         title={existing ? `Заказ № ${existing.id} уже нельзя изменить` : "На эту дату заказ уже не оформить"}
-        text={`Заказ сформирован ${formatMoment(contents.creationDateTime)} и передан в работу.`}
+        text="Время на изменение вышло — заказ уже передан в работу."
         action={(
           <Button variant="primary" onClick={() => navigate(existing ? `/Orders?type=${rule.id}&store=${existing.storeGuid}&order=${existing.id}&scope=all` : `/Orders?type=${rule.id}`)}>
             {existing ? "Открыть заказ" : "К списку заказов"}
@@ -417,9 +448,9 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
 
   const leave = () => (dirty ? setLeaveOpen(true) : navigate("/Orders"));
   const searching = deferredQuery.trim() !== "";
-  const delivery = contents ? formatDelivery(contents.shipmentDateTime, now) : null;
   const pendingOrder = pending ? pending.next.orders.find((order) => serverMoment(order.creationDateTime) === serverMoment(pending.next.contents.creationDateTime)) : null;
   const pendingStore = pending ? base.stores.find((candidate) => candidate.guid === pending.next.storeGuid)?.name ?? "" : "";
+  const pendingDelivery = pending ? formatDelivery(pending.next.contents.shipmentDateTime, now).date : "";
 
   const catalogPane = (
     <section className={`${shared.panel} ${styles.catalog}`} aria-label="Каталог">
@@ -468,19 +499,34 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
             <div className={styles.catalogScroll}>
               {sections.map(({ group, items }) => {
                 const missing = items.filter((item) => !quantities.has(item.id));
+                const added = items.filter((item) => quantities.has(item.id));
                 return (
                   <section key={group.id} className={styles.section}>
                     <header className={styles.sectionHead}>
                       <h3 className={styles.sectionTitle}>{group.name}</h3>
-                      {compact ? (
-                        <button type="button" className={shared.iconButton} disabled={missing.length === 0} aria-label={`Добавить все позиции группы «${group.name}»`} title="Добавить все" onClick={() => addSection(missing)}>
-                          <PlaylistAddRoundedIcon />
-                        </button>
-                      ) : (
-                        <Button variant="ghost" size="sm" disabled={missing.length === 0} leadingIcon={<PlaylistAddRoundedIcon />} onClick={() => addSection(missing)}>
-                          Добавить все
-                        </Button>
-                      )}
+                      {/* «Убрать все» появляется, только когда из группы что-то уже в заказе */}
+                      <div className={styles.sectionActions}>
+                        {added.length > 0 ? (
+                          compact ? (
+                            <button type="button" className={shared.iconButton} aria-label={`Убрать все позиции группы «${group.name}» из заказа`} title="Убрать все" onClick={() => removeSection(added)}>
+                              <PlaylistRemoveRoundedIcon />
+                            </button>
+                          ) : (
+                            <Button variant="ghost" size="sm" leadingIcon={<PlaylistRemoveRoundedIcon />} aria-label={`Убрать все позиции группы «${group.name}» из заказа`} onClick={() => removeSection(added)}>
+                              Убрать все
+                            </Button>
+                          )
+                        ) : null}
+                        {compact ? (
+                          <button type="button" className={shared.iconButton} disabled={missing.length === 0} aria-label={`Добавить все позиции группы «${group.name}»`} title="Добавить все" onClick={() => addSection(missing)}>
+                            <PlaylistAddRoundedIcon />
+                          </button>
+                        ) : (
+                          <Button variant="ghost" size="sm" disabled={missing.length === 0} leadingIcon={<PlaylistAddRoundedIcon />} aria-label={`Добавить все позиции группы «${group.name}»`} onClick={() => addSection(missing)}>
+                            Добавить все
+                          </Button>
+                        )}
+                      </div>
                     </header>
                     <ul className={styles.items}>
                       {items.map((item) => (
@@ -512,10 +558,11 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
             disabled={loading || saving}
             onChange={(event) => changeStore(event.target.value)}
           />
+          {/* значение — дата формирования, а в списке пользователь видит даты доставки */}
           {contents ? (
             <Select
               key={`date-${selectNonce}`}
-              label="Дата формирования заказа"
+              label="Предполагаемая дата доставки"
               options={dateOptions}
               value={contents.creationDateTime}
               disabled={loading || saving}
@@ -523,26 +570,19 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
             />
           ) : (
             <div className={styles.periodBox}>
-              <span>Дата формирования заказа</span>
+              <span>Предполагаемая дата доставки</span>
               <small>{storeGuid ? "загружаем…" : "после выбора ТТ"}</small>
             </div>
           )}
-          <div className={`${styles.periodBox} ${styles.fieldWide}`}>
-            <span>Предполагаемая доставка</span>
-            {delivery ? (
-              <>
-                <strong>{delivery.date}</strong>
-                {delivery.relative ? <small>{delivery.relative}</small> : null}
-              </>
-            ) : <small>{storeGuid ? "загружаем…" : "после выбора ТТ"}</small>}
-          </div>
         </div>
 
         {contents ? (
           <p className={styles.hint}>
-            {closed
-              ? `Приём на ${formatMoment(contents.creationDateTime)} закрыт — выберите другую дату.`
-              : `Изменить заказ можно до ${formatMoment(contents.creationDateTime)}.`}
+            {!closed
+              ? `Изменить заказ можно до ${formatMoment(contents.creationDateTime)}.`
+              : locked
+                ? "Приём заказов на эту доставку закрыт — выберите другую дату."
+                : "Время на изменение вышло — вы меняете заказ как администратор."}
           </p>
         ) : null}
       </div>
@@ -599,7 +639,7 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
         </div>
         <div className={styles.submitRow}>
           <Button variant="ghost" size="lg" onClick={leave} disabled={saving}>Отмена</Button>
-          <Button variant="primary" size="lg" className={styles.submit} loading={saving} disabled={loading || closed} onClick={() => void submit()}>
+          <Button variant="primary" size="lg" className={styles.submit} loading={saving} disabled={loading || locked} onClick={() => void submit()}>
             {isExisting ? "Сохранить изменения" : "Оформить заказ"}
           </Button>
         </div>
@@ -634,10 +674,10 @@ function EditorForm({ base, rule }: { base: OrdersBootstrap; rule: OrderRule }) 
 
       <ConfirmModal
         isOpen={pending !== null}
-        title={pending?.kind === "discard" ? "Изменения не сохранены" : "На эту дату уже есть заказ"}
+        title={pending?.kind === "discard" ? "Изменения не сохранены" : "На эту доставку уже есть заказ"}
         message={!pending ? "" : pending.kind === "discard"
-          ? `Изменения в заказе${existing ? ` № ${existing.id}` : ""} не сохранены. Если перейти на ${formatMoment(pending.next.contents.creationDateTime)}, они пропадут.`
-          : `У «${pendingStore}» на ${formatMoment(pending.next.contents.creationDateTime)} уже оформлен заказ${pendingOrder ? ` № ${pendingOrder.id}` : ""}. Если перейти к нему, текущий заказ не будет сохранён.`}
+          ? `Изменения в заказе${existing ? ` № ${existing.id}` : ""} не сохранены. Если перейти на доставку ${pendingDelivery}, они пропадут.`
+          : `У «${pendingStore}» на доставку ${pendingDelivery} уже оформлен заказ${pendingOrder ? ` № ${pendingOrder.id}` : ""}. Если перейти к нему, текущий заказ не будет сохранён.`}
         confirmLabel={pending?.kind === "discard" ? "Перейти" : "Перейти к заказу"}
         cancelLabel="Остаться"
         onCancel={stay}

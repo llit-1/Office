@@ -32,9 +32,9 @@ export function editorPath(ruleId: number, query: { store?: string | null; date?
 /** Заказ открыт, пока не наступила дата формирования; после неё он уходит на сборку. */
 export const isOrderOpen = (order: Pick<Order, "creationDateTime">, now: Date) => now.getTime() < serverMoment(order.creationDateTime);
 
-/** Менять можно только открытый заказ — сформированный не меняет никто. */
+/** Открытый заказ меняет любая роль раздела, сформированный — только администратор. */
 export const canEditOrder = (order: Pick<Order, "creationDateTime">, now: Date, permissions: OrdersPermissions) =>
-  permissions.canEdit && isOrderOpen(order, now);
+  permissions.canEdit && (isOrderOpen(order, now) || permissions.canEditClosed);
 
 /* ===== Количество ===== */
 
@@ -63,7 +63,18 @@ export function normalizeQuantity(value: number, bounds: QuantityBounds): number
   return roundQuantity(Math.min(bounds.max, Math.max(bounds.min, steps * bounds.step)));
 }
 
+/** Роли раздела. Какие позиции видны в заказе, решает сервер: «Собственное управление» — только forOwn. */
+export const ORDER_ROLES = {
+  admin: "OrdersTTAdmin",
+  allItems: "Order_man",
+  ownItems: "Order_woman",
+} as const;
+
 export function getPermissions(roles: string[]): OrdersPermissions {
-  const admin = roles.includes("OrdersTTAdmin");
-  return { canEdit: admin || roles.includes("OrdersTT"), canConfigure: admin };
+  const admin = roles.includes(ORDER_ROLES.admin);
+  return {
+    canEdit: admin || roles.includes(ORDER_ROLES.allItems) || roles.includes(ORDER_ROLES.ownItems),
+    canEditClosed: admin,
+    canConfigure: admin,
+  };
 }

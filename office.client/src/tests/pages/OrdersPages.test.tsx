@@ -33,6 +33,8 @@ const calls = (pattern: RegExp) => server.calls.filter((call) => pattern.test(`$
 let server: FakeServer;
 
 function renderOrders(path: string, roles: string[], lastTypeId: number | null = null) {
+  // сервер решает по роли из токена: какие позиции видны и можно ли менять сформированный заказ
+  server.setRole(roles[0] ?? "");
   const store = configureStore({
     reducer: { auth, userData, pageTitle, backButton, preferences },
     preloadedState: {
@@ -75,7 +77,7 @@ afterAll(() => {
 it("при входе приходят типы и точки; заказы запрашиваются после выбора типа — по всем ТТ", async () => {
   const user = userEvent.setup();
   server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 1, quantity: 6 }] });
-  const store = renderOrders("/Orders", ["OrdersTT"]);
+  const store = renderOrders("/Orders", ["Order_man"]);
 
   const tabs = within(await screen.findByRole("region", { name: "Тип заказа" })).getAllByRole("button");
   expect(tabs.map((tab) => tab.textContent)).toEqual(["Регулярный (Завтра)", "Еженедельный"]);
@@ -103,7 +105,7 @@ it("при входе приходят типы и точки; заказы за
 
 it("при входе открывает тип заказа, выбранный в прошлый раз", async () => {
   const user = userEvent.setup();
-  const store = renderOrders("/Orders", ["OrdersTT"], WEEKLY);
+  const store = renderOrders("/Orders", ["Order_man"], WEEKLY);
 
   expect(await screen.findByRole("button", { name: "Еженедельный" })).toHaveAttribute("aria-pressed", "true");
   expect(await screen.findByRole("heading", { name: "Заказов пока нет" })).toBeInTheDocument();
@@ -114,15 +116,35 @@ it("при входе открывает тип заказа, выбранный
   expect(store.getState().preferences.ordersTypeId).toBe(DAILY);
 });
 
+it("типы, в которых пользователю нечего заказать, в списке не показываются, но остаются в настройках", async () => {
+  // у «Еженедельного» единственная позиция — не для собственного управления
+  server.items.find((item) => item.ruleId === WEEKLY)!.avaliableForNative = 0;
+  renderOrders("/Orders", ["Order_woman"], WEEKLY);
+
+  const tabs = within(await screen.findByRole("region", { name: "Тип заказа" })).getAllByRole("button");
+  expect(tabs.map((tab) => tab.textContent)).toEqual(["Регулярный (Завтра)"]);
+  // запомненный скрытый тип не открывается; оставшийся единственный тип выбирается сам
+  expect(tabs[0]).toHaveAttribute("aria-pressed", "true");
+  await waitFor(() => expect(calls(/orders$/).map((call) => call.url)).toEqual([`/Order/rules/${DAILY}/orders`]));
+  cleanup();
+
+  // администратору видны оба: в настройках пустой тип нужен, чтобы завести в него позиции
+  server.items.find((item) => item.ruleId === WEEKLY)!.actual = 0;
+  renderOrders("/Orders/settings", ["OrdersTTAdmin"]);
+  await screen.findByRole("table", { name: "Позиции" });
+  await userEvent.setup().click(screen.getByRole("button", { name: "Тип заказа" }));
+  expect(within(screen.getByRole("listbox")).getAllByRole("option").map((option) => option.textContent)).toEqual(["Регулярный (Завтра)", "Еженедельный"]);
+});
+
 it("запомненный тип, которого больше нет, не выбирается", async () => {
-  renderOrders("/Orders", ["OrdersTT"], 99);
+  renderOrders("/Orders", ["Order_man"], 99);
   expect(await screen.findByRole("heading", { name: "Выберите тип заказа" })).toBeInTheDocument();
 });
 
 it("единственная торговая точка пользователя выбрана сразу и уходит в запрос", async () => {
   server.setLocations([STORE_A]);
   server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 1, quantity: 6 }] });
-  renderOrders("/Orders", ["OrdersTT"], DAILY);
+  renderOrders("/Orders", ["Order_man"], DAILY);
 
   // фильтра по ТТ нет, заказы точки раскрыты
   expect(await screen.findByRole("button", { name: /Парашютная 63/ })).toHaveAttribute("aria-expanded", "true");
@@ -136,7 +158,7 @@ it("выбор торговой точки перезапрашивает зак
   const open = server.addOrder({ ruleId: DAILY, locationGuid: STORE_B, creationDateTime: NEAREST, lines: [{ id: 1, quantity: 6 }] });
   const closed = server.addOrder({ ruleId: DAILY, locationGuid: STORE_B, creationDateTime: server.previous(DAILY), lines: [{ id: 4, quantity: 10 }] });
   server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 1, quantity: 6 }] });
-  renderOrders(`/Orders?type=${DAILY}`, ["OrdersTT"]);
+  renderOrders(`/Orders?type=${DAILY}`, ["Order_man"]);
 
   await screen.findByRole("button", { name: /Парашютная 63/ });
   await pickOption(user, "Торговая точка", "Невский 87");
@@ -148,7 +170,8 @@ it("выбор торговой точки перезапрашивает зак
   expect(calls(/orders$/).map((call) => call.params)).toEqual([undefined, { locationGuid: STORE_B }]);
 
   const row = screen.getByRole("button", { name: `№ ${open.id}` }).closest("article")!;
-  expect(row).toHaveTextContent("пт, 9 окт 12:00");
+  // дату формирования пользователю не показываем — только доставку
+  expect(row).not.toHaveTextContent("пт, 9 окт 12:00");
   expect(row).toHaveTextContent("сб, 10.10");
   expect(row).toHaveTextContent("Анна Морозова");
   expect(within(row).getByRole("button", { name: `Изменить заказ № ${open.id}` })).toBeInTheDocument();
@@ -166,7 +189,7 @@ it("выбор торговой точки перезапрашивает зак
 it("карточка заказа запрашивает состав и показывает что и сколько", async () => {
   const user = userEvent.setup();
   const order = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 2, quantity: 36 }, { id: 4, quantity: 10 }] });
-  renderOrders(`/Orders?type=${DAILY}&store=${STORE_A}`, ["OrdersTT"]);
+  renderOrders(`/Orders?type=${DAILY}&store=${STORE_A}`, ["Order_man"]);
 
   await user.click(await screen.findByRole("button", { name: `№ ${order.id}` }));
 
@@ -178,7 +201,7 @@ it("карточка заказа запрашивает состав и пок�
     "ПозицияКол-во", "Булочка заварная10136", "Морс клюквенный20010", "2 позиции",
   ]);
   expect(within(dialog).getByText("Оформил").nextSibling).toHaveTextContent("Анна Морозова");
-  expect(within(dialog).getByText("Дата формирования").nextSibling).toHaveTextContent("пт, 9 окт 12:00");
+  expect(within(dialog).queryByText("Дата формирования")).not.toBeInTheDocument();
   expect(within(dialog).getByText("Доставка").nextSibling).toHaveTextContent("сб, 10.10");
   // ни отмены, ни повтора заказа в разделе нет
   expect(within(dialog).queryByRole("button", { name: /Отменить|Повторить/ })).not.toBeInTheDocument();
@@ -189,7 +212,7 @@ it("карточка заказа запрашивает состав и пок�
 
 it("новый заказ: после выбора ТТ приходят каталог и даты, по умолчанию — ближайшая, доставка показана", async () => {
   const user = userEvent.setup();
-  const store = renderOrders(`/Orders/order/${DAILY}`, ["OrdersTT"]);
+  const store = renderOrders(`/Orders/order/${DAILY}`, ["Order_man"]);
 
   // без торговой точки нет ни каталога, ни дат — и запросов тоже
   expect(await screen.findByRole("heading", { name: "Выберите торговую точку" })).toBeInTheDocument();
@@ -199,14 +222,17 @@ it("новый заказ: после выбора ТТ приходят кат�
   expect(screen.getByRole("alert")).toHaveTextContent("Выберите торговую точку.");
 
   await pickOption(user, "Торговая точка", "Парашютная 63");
-  const date = await screen.findByRole("button", { name: "Дата формирования заказа" });
+  const date = await screen.findByRole("button", { name: "Предполагаемая дата доставки" });
   expect(calls(/contents$/)).toEqual([{ method: "GET", url: `/Order/rules/${DAILY}/locations/${STORE_A}/contents`, params: undefined }]);
-  expect(date).toHaveTextContent("Ближайшая · пт, 9 окт 12:00");
-  expect(screen.getByText("Предполагаемая доставка").parentElement).toHaveTextContent("сб, 10.10");
+  // выбирается дата доставки, дата формирования — только в подсказке о сроке правок
+  expect(date).toHaveTextContent("Ближайшая · сб, 10.10 · послезавтра");
+  expect(screen.queryByText("Дата формирования заказа")).not.toBeInTheDocument();
   expect(screen.getByText("Изменить заказ можно до пт, 9 окт 12:00.")).toBeInTheDocument();
   // прошедшую дату пользователю не предлагаем
   await user.click(date);
-  expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(20);
+  expect(within(screen.getByRole("listbox")).getAllByRole("option").map((option) => option.textContent)).toEqual([
+    "Ближайшая · сб, 10.10 · послезавтра", "вс, 11.10", "пн, 12.10", "вт, 13.10", "ср, 14.10", "чт, 15.10", "пт, 16.10",
+  ]);
   await user.keyboard("{Escape}");
 
   // выключенных позиций в каталоге нет; кратность подписана
@@ -230,23 +256,23 @@ it("новый заказ: после выбора ТТ приходят кат�
 
 it("единственная торговая точка в редакторе подставляется сразу", async () => {
   server.setLocations([STORE_B]);
-  renderOrders(`/Orders/order/${DAILY}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}`, ["Order_man"]);
 
-  expect(await screen.findByRole("button", { name: "Дата формирования заказа" })).toHaveTextContent("Ближайшая");
+  expect(await screen.findByRole("button", { name: "Предполагаемая дата доставки" })).toHaveTextContent("Ближайшая");
   expect(screen.getByRole("button", { name: "Торговая точка" })).toHaveTextContent("Невский 87");
   expect(calls(/contents$/)[0].url).toBe(`/Order/rules/${DAILY}/locations/${STORE_B}/contents`);
 });
 
 it("другая дата: запрашивается с сервера вместе со своей доставкой, набранное остаётся", async () => {
   const user = userEvent.setup();
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
 
   await user.click(await screen.findByRole("button", { name: "Добавить «Багет зерновой» в заказ" }));
-  await pickOption(user, "Дата формирования заказа", "пн, 12 окт 12:00");
+  await pickOption(user, "Предполагаемая дата доставки", "вт, 13.10");
 
-  await waitFor(() => expect(screen.getByRole("button", { name: "Дата формирования заказа" })).toHaveTextContent("пн, 12 окт 12:00"));
+  // по дате доставки подставилась её дата формирования
+  await waitFor(() => expect(screen.getByRole("button", { name: "Предполагаемая дата доставки" })).toHaveTextContent("вт, 13.10"));
   expect(calls(/contents$/).map((call) => call.params)).toEqual([undefined, { creationDateTime: LATER }]);
-  expect(screen.getByText("Предполагаемая доставка").parentElement).toHaveTextContent("вт, 13.10");
   expect(screen.getByText("Изменить заказ можно до пн, 12 окт 12:00.")).toBeInTheDocument();
   expect(screen.getByText("1 позиция")).toBeInTheDocument();
 
@@ -258,24 +284,24 @@ it("другая дата: запрашивается с сервера вмес
 it("дата, на которую уже есть заказ: предупреждает, что текущий не сохранится", async () => {
   const user = userEvent.setup();
   const taken = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: LATER, lines: [{ id: 4, quantity: 30 }] });
-  const store = renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["OrdersTT"]);
+  const store = renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
 
   await user.click(await screen.findByRole("button", { name: "Добавить «Багет зерновой» в заказ" }));
   // занятая дата помечена номером заказа
-  await pickOption(user, "Дата формирования заказа", `пн, 12 окт 12:00 · заказ № ${taken.id}`);
+  await pickOption(user, "Предполагаемая дата доставки", `вт, 13.10 · заказ № ${taken.id}`);
 
   const warning = await screen.findByRole("dialog");
-  expect(within(warning).getByRole("heading", { name: "На эту дату уже есть заказ" })).toBeInTheDocument();
-  expect(warning).toHaveTextContent(`У «Парашютная 63» на пн, 12 окт 12:00 уже оформлен заказ № ${taken.id}. Если перейти к нему, текущий заказ не будет сохранён.`);
+  expect(within(warning).getByRole("heading", { name: "На эту доставку уже есть заказ" })).toBeInTheDocument();
+  expect(warning).toHaveTextContent(`У «Парашютная 63» на доставку вт, 13.10 уже оформлен заказ № ${taken.id}. Если перейти к нему, текущий заказ не будет сохранён.`);
 
   // «Остаться» — дата и набранное на месте
   await user.click(within(warning).getByRole("button", { name: "Остаться" }));
-  expect(screen.getByRole("button", { name: "Дата формирования заказа" })).toHaveTextContent("Ближайшая · пт, 9 окт 12:00");
+  expect(screen.getByRole("button", { name: "Предполагаемая дата доставки" })).toHaveTextContent("Ближайшая · сб, 10.10 · послезавтра");
   expect(screen.getByText("1 позиция")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Оформить заказ" })).toBeInTheDocument();
 
   // «Перейти к заказу» — открывается существующий, набранное не сохраняется
-  await pickOption(user, "Дата формирования заказа", `пн, 12 окт 12:00 · заказ № ${taken.id}`);
+  await pickOption(user, "Предполагаемая дата доставки", `вт, 13.10 · заказ № ${taken.id}`);
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Перейти к заказу" }));
   expect(await screen.findByRole("button", { name: "Сохранить изменения" })).toBeInTheDocument();
   expect(store.getState().pageTitle.title).toBe(`Заказ № ${taken.id}`);
@@ -288,20 +314,20 @@ it("дата, на которую уже есть заказ: предупреж
 it("с пустой корзиной заказ занятой даты открывается сразу", async () => {
   const user = userEvent.setup();
   const taken = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: LATER, lines: [{ id: 4, quantity: 30 }] });
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
 
   await screen.findByRole("button", { name: "Оформить заказ" });
-  await pickOption(user, "Дата формирования заказа", `пн, 12 окт 12:00 · заказ № ${taken.id}`);
+  await pickOption(user, "Предполагаемая дата доставки", `вт, 13.10 · заказ № ${taken.id}`);
 
   expect(await screen.findByRole("button", { name: "Сохранить изменения" })).toBeInTheDocument();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(show).toHaveBeenCalledWith("На эту дату уже есть заказ — открыли его", expect.objectContaining({ severity: "info" }));
+  expect(show).toHaveBeenCalledWith("На эту доставку уже есть заказ — открыли его", expect.objectContaining({ severity: "info" }));
 });
 
 it("изменение заказа: открывается по точке и дате, сохраняется на ту же дату", async () => {
   const user = userEvent.setup();
   const order = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 2, quantity: 24 }] });
-  const store = renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["OrdersTT"]);
+  const store = renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["Order_man"]);
 
   const submit = await screen.findByRole("button", { name: "Сохранить изменения" });
   expect(store.getState().pageTitle.title).toBe(`Заказ № ${order.id}`);
@@ -332,34 +358,45 @@ it("изменение заказа: открывается по точке и �
 it("сформированный заказ пользователю на изменение не открывается", async () => {
   const closedAt = server.previous(DAILY);
   const order = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: closedAt, lines: [{ id: 1, quantity: 6 }] });
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${closedAt}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${closedAt}`, ["Order_man"]);
 
   expect(await screen.findByRole("heading", { name: `Заказ № ${order.id} уже нельзя изменить` })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Сохранить изменения" })).not.toBeInTheDocument();
 });
 
-it("сформированный заказ не открывается на изменение и администратору; прошедших дат в списке нет", async () => {
+it("администратор меняет и сформированный заказ; прошедшая дата видна только ему", async () => {
   const user = userEvent.setup();
   const closedAt = server.previous(DAILY);
   const order = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: closedAt, lines: [{ id: 1, quantity: 6 }] });
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${closedAt}`, ["OrdersTTAdmin"]);
-  expect(await screen.findByRole("heading", { name: `Заказ № ${order.id} уже нельзя изменить` })).toBeInTheDocument();
+  const store = renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${closedAt}`, ["OrdersTTAdmin"]);
+
+  const submit = await screen.findByRole("button", { name: "Сохранить изменения" });
+  expect(store.getState().pageTitle.title).toBe(`Заказ № ${order.id}`);
+  expect(screen.getByRole("button", { name: "Предполагаемая дата доставки" })).toHaveTextContent(`пт, 09.10 · завтра · приём закрыт · заказ № ${order.id}`);
+  expect(screen.getByText("Время на изменение вышло — вы меняете заказ как администратор.")).toBeInTheDocument();
+
+  const [plus] = screen.getAllByRole("button", { name: "Увеличить количество «Багет зерновой»" });
+  await user.click(plus);
+  await user.click(submit);
+  await screen.findByRole("button", { name: "Новый заказ" });
+  expect(server.orders).toEqual([expect.objectContaining({ id: order.id, lines: [{ id: 1, quantity: 12 }] })]);
   cleanup();
 
+  // администратору в списке дат видна и прошедшая, остальным — нет
   renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["OrdersTTAdmin"]);
-  await user.click(await screen.findByRole("button", { name: "Дата формирования заказа" }));
+  await user.click(await screen.findByRole("button", { name: "Предполагаемая дата доставки" }));
   const options = within(screen.getByRole("listbox")).getAllByRole("option");
-  expect(options).toHaveLength(20);
-  expect(options[0]).toHaveTextContent("Ближайшая · пт, 9 окт 12:00");
+  expect(options).toHaveLength(8);
+  expect(options[0]).toHaveTextContent("пт, 09.10 · завтра · приём закрыт");
+  expect(options[1]).toHaveTextContent("Ближайшая · сб, 10.10 · послезавтра");
 });
-
 it("из открытого заказа на свободную дату его позиции не переносятся", async () => {
   const user = userEvent.setup();
   server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 4, quantity: 30 }] });
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["Order_man"]);
 
   await screen.findByRole("button", { name: "Сохранить изменения" });
-  await pickOption(user, "Дата формирования заказа", "пн, 12 окт 12:00");
+  await pickOption(user, "Предполагаемая дата доставки", "вт, 13.10");
 
   // правок не было — переходим сразу, корзина новой даты пустая
   expect(await screen.findByRole("button", { name: "Оформить заказ" })).toBeInTheDocument();
@@ -371,15 +408,15 @@ it("из открытого заказа на свободную дату его
 it("несохранённые правки открытого заказа при смене даты не теряются без спроса", async () => {
   const user = userEvent.setup();
   const order = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: NEAREST, lines: [{ id: 4, quantity: 30 }] });
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}&date=${NEAREST}`, ["Order_man"]);
 
   await screen.findByRole("button", { name: "Сохранить изменения" });
   await user.click(screen.getByRole("button", { name: "Добавить «Багет зерновой» в заказ" }));
-  await pickOption(user, "Дата формирования заказа", "пн, 12 окт 12:00");
+  await pickOption(user, "Предполагаемая дата доставки", "вт, 13.10");
 
   const warning = await screen.findByRole("dialog");
   expect(within(warning).getByRole("heading", { name: "Изменения не сохранены" })).toBeInTheDocument();
-  expect(warning).toHaveTextContent(`Изменения в заказе № ${order.id} не сохранены. Если перейти на пн, 12 окт 12:00, они пропадут.`);
+  expect(warning).toHaveTextContent(`Изменения в заказе № ${order.id} не сохранены. Если перейти на доставку вт, 13.10, они пропадут.`);
 
   // «Остаться» — тот же заказ с правками
   await user.click(within(warning).getByRole("button", { name: "Остаться" }));
@@ -387,16 +424,52 @@ it("несохранённые правки открытого заказа пр
   expect(screen.getByText("2 позиции")).toBeInTheDocument();
 
   // «Перейти» — новая дата с пустой корзиной
-  await pickOption(user, "Дата формирования заказа", "пн, 12 окт 12:00");
+  await pickOption(user, "Предполагаемая дата доставки", "вт, 13.10");
   await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Перейти" }));
   expect(await screen.findByRole("button", { name: "Оформить заказ" })).toBeInTheDocument();
   expect(screen.getByText("В заказе пока пусто")).toBeInTheDocument();
   expect(calls(/^POST/)).toHaveLength(0);
 });
 
+it("«Убрать все» убирает из заказа позиции группы и появляется, только когда есть что убирать", async () => {
+  const user = userEvent.setup();
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
+
+  const addAll = await screen.findByRole("button", { name: "Добавить все позиции группы «Заморозка»" });
+  expect(screen.queryByRole("button", { name: "Убрать все позиции группы «Заморозка» из заказа" })).not.toBeInTheDocument();
+  await user.click(addAll);
+  await user.click(screen.getByRole("button", { name: "Добавить «Морс клюквенный» в заказ" }));
+  expect(screen.getByText("3 позиции")).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "Убрать все позиции группы «Заморозка» из заказа" }));
+  // из другой группы позиция осталась
+  expect(screen.getByText("1 позиция")).toBeInTheDocument();
+  expect(screen.queryByRole("textbox", { name: "Количество «Багет зерновой»" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("textbox", { name: "Количество «Морс клюквенный»" })[0]).toHaveValue("10");
+  expect(screen.queryByRole("button", { name: "Убрать все позиции группы «Заморозка» из заказа" })).not.toBeInTheDocument();
+});
+
+it("роли: «Собственное управление» видит только свои позиции, без настроек; «Все позиции» — все", async () => {
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_woman"]);
+  await screen.findByRole("button", { name: "Добавить «Морс клюквенный» в заказ" });
+  expect(screen.queryByText("Сок яблочный")).not.toBeInTheDocument();
+  cleanup();
+
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
+  expect(await screen.findByText("Сок яблочный")).toBeInTheDocument();
+  cleanup();
+
+  for (const role of ["Order_woman", "Order_man"]) {
+    renderOrders("/Orders", [role], DAILY);
+    expect(await screen.findByRole("button", { name: "Новый заказ" })).toBeInTheDocument();
+    expect(screen.queryByText("Настройки")).not.toBeInTheDocument();
+    cleanup();
+  }
+});
+
 it("отказ сервера при сохранении показывается и не теряет набранное", async () => {
   const user = userEvent.setup();
-  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["OrdersTT"]);
+  renderOrders(`/Orders/order/${DAILY}?store=${STORE_A}`, ["Order_man"]);
 
   await user.click(await screen.findByRole("button", { name: "Добавить «Багет зерновой» в заказ" }));
   // пока форма была открыта, приём на эту дату закрылся
@@ -411,7 +484,7 @@ it("отказ сервера при сохранении показываетс
 /* ===== Настройки ===== */
 
 it("настройки доступны только администратору раздела", async () => {
-  renderOrders("/Orders/settings", ["OrdersTT"]);
+  renderOrders("/Orders/settings", ["Order_man"]);
   expect(await screen.findByRole("heading", { name: "Выберите тип заказа" })).toBeInTheDocument();
   expect(screen.queryByRole("table", { name: "Позиции" })).not.toBeInTheDocument();
 });
@@ -426,11 +499,11 @@ it("настройки администратора — каталог: пози
   // в каталоге настроек видны и выключенные позиции
   expect(within(table).getByText("Круассан")).toBeInTheDocument();
   expect(within(table).getAllByRole("columnheader").map((cell) => cell.textContent).filter(Boolean)).toEqual([
-    "Выбрать все позиции в списке", "Позиция", "Кратность", "Собств.", "Партн.", "Вкл.",
+    "Выбрать все позиции в списке", "Позиция", "Кратность", "Собств.", "Вкл.",
   ]);
   // группы — только фильтр
   expect(within(screen.getByRole("group", { name: "Группы каталога" })).getAllByRole("button").map((chip) => chip.textContent)).toEqual([
-    "Все группы4", "Заморозка3", "Напитки1",
+    "Все группы5", "Заморозка3", "Напитки2",
   ]);
   expect(screen.queryByRole("button", { name: /Удалить|Переименовать|Добавить группу/ })).not.toBeInTheDocument();
 
@@ -450,10 +523,12 @@ it("настройки администратора — каталог: пози
   await user.clear(step);
   await user.type(step, "12,5");
   const access = within(dialog).getByRole("group", { name: "Доступность" });
-  await user.click(within(access).getByRole("checkbox", { name: "Партнёрские ТТ" }));
+  expect(within(access).queryByRole("checkbox", { name: "Партнёрские ТТ" })).not.toBeInTheDocument();
+  await user.click(within(access).getByRole("checkbox", { name: "Собственные ТТ" }));
   await user.click(within(dialog).getByRole("button", { name: "Сохранить" }));
 
   await waitFor(() => expect(calls(/^PUT/)).toHaveLength(2));
-  expect(calls(/^PUT/)[1]).toMatchObject({ url: "/Order/items/1", body: { rkcode: 100, step: 12.5, avaliableForNative: 1, avaliableForFranchise: 0, actual: 1 } });
+  expect(calls(/^PUT/)[1]).toMatchObject({ url: "/Order/items/1", body: { rkcode: 100, step: 12.5, avaliableForNative: 0, actual: 1 } });
+  expect(calls(/^PUT/)[1].body).not.toHaveProperty("avaliableForFranchise");
   expect(show).toHaveBeenCalledWith("«Багет зерновой» сохранена", expect.objectContaining({ severity: "success" }));
 });

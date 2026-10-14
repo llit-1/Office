@@ -23,7 +23,6 @@ interface ItemDto {
   groupId: number;
   ruleId: number;
   avaliableForNative: number;
-  avaliableForFranchise: number;
   actual: number;
   /** Количество в заказе; у позиции каталога его нет. */
   quantity?: number | null;
@@ -38,6 +37,8 @@ interface ItemGroupDto {
 interface LocationRulesDto {
   locations: { guid: string; name: string }[];
   rules: { id: number; name: string }[];
+  /** Нет у сервера, который ещё не умеет считать доступные правила, — тогда показываем все. */
+  availableRuleIds?: number[] | null;
 }
 
 interface OrderDto {
@@ -57,7 +58,8 @@ interface OrdersDto {
 }
 
 interface OrderContentsDto {
-  orderCreationDateTimes: ServerDateTime[];
+  /** Даты формирования и доставки — параллельными списками: i-я доставка относится к i-й дате формирования. */
+  dateTimeMatches: { orderCreationDateTime: ServerDateTime[]; orderShipmentDateTime: ServerDateTime[] }[] | null;
   itemGroups: ItemGroupDto[];
   orderCreationDateTime: ServerDateTime;
   orderShipmentDateTime: ServerDateTime;
@@ -72,7 +74,6 @@ const toItem = (dto: ItemDto): CatalogItem => ({
   name: dto.name ?? "",
   step: dto.step,
   forOwn: dto.avaliableForNative === 1,
-  forPartner: dto.avaliableForFranchise === 1,
   isActive: dto.actual !== 0,
 });
 
@@ -84,7 +85,6 @@ const toItemDto = (item: CatalogItem): ItemDto => ({
   groupId: item.groupId,
   ruleId: item.ruleId,
   avaliableForNative: item.forOwn ? 1 : 0,
-  avaliableForFranchise: item.forPartner ? 1 : 0,
   actual: item.isActive ? 1 : 0,
 });
 
@@ -97,6 +97,14 @@ const toLine = (dto: ItemDto): OrderLine => ({
   step: dto.step,
   quantity: typeof dto.quantity === "number" ? dto.quantity : null,
 });
+
+// дату, для которой сервер не смог посчитать доставку, он отдаёт как DateTime.MinValue — такие пропускаем
+const NO_DATE = "0001-01-01";
+const toDates = (matches: OrderContentsDto["dateTimeMatches"]) => (matches ?? []).flatMap((match) =>
+  match.orderCreationDateTime.flatMap((creationDateTime, index) => {
+    const shipmentDateTime = match.orderShipmentDateTime[index];
+    return shipmentDateTime && !shipmentDateTime.startsWith(NO_DATE) ? [{ creationDateTime, shipmentDateTime }] : [];
+  }));
 
 const toLines = (items: ItemDto[] | null) => (items ?? []).map(toLine).sort((left, right) => left.name.localeCompare(right.name, "ru"));
 
@@ -116,7 +124,7 @@ export function getOrdersErrorMessage(error: unknown, fallback: string) {
 export async function getOrdersBootstrap(): Promise<OrdersBootstrap> {
   const dto = await get<LocationRulesDto>("/Order/rules");
   return {
-    rules: dto.rules.map((rule) => ({ id: rule.id, name: rule.name })),
+    rules: dto.rules.map((rule) => ({ id: rule.id, name: rule.name, hasItems: dto.availableRuleIds ? dto.availableRuleIds.includes(rule.id) : true })),
     stores: dto.locations.map((location) => ({ guid: location.guid, name: location.name })),
   };
 }
@@ -150,7 +158,7 @@ export async function getOrderContents(ruleId: number, storeGuid: string, creati
     params: creationDateTime ? { creationDateTime } : undefined,
   });
   return {
-    creationDateTimes: dto.orderCreationDateTimes,
+    dates: toDates(dto.dateTimeMatches),
     creationDateTime: dto.orderCreationDateTime,
     shipmentDateTime: dto.orderShipmentDateTime,
     groups: dto.itemGroups.map(toGroup),

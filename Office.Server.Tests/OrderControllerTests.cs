@@ -18,7 +18,7 @@ public class OrderControllerTests
     private const int PackGroupId = 2;
     private const string AdminRole = "OrdersTTAdmin";
     private const string AllItemsRole = "Order_man";
-    private const string NativeItemsRole = "Order_women";
+    private const string NativeItemsRole = "Order_woman";
 
     private static RKNETDBContext CreateDb()
     {
@@ -122,6 +122,40 @@ public class OrderControllerTests
         // по Id, а не по названию
         Assert.Equal([RuleId, OtherRuleId], dto.Rules.Select(x => x.Id));
         Assert.Equal(["Регулярный", "Еженедельный"], dto.Rules.Select(x => x.Name));
+    }
+
+    [Theory]
+    // у «Еженедельного» единственная позиция «Коробка» не для собственного управления
+    [InlineData(AdminRole, new[] { RuleId, OtherRuleId })]
+    [InlineData(AllItemsRole, new[] { RuleId, OtherRuleId })]
+    [InlineData(NativeItemsRole, new[] { RuleId })]
+    public async Task GetRules_ReturnsRulesWithItemsAvailableToRole(string role, int[] expected)
+    {
+        using var db = CreateDb();
+        db.OfficeUser.Add(new OfficeUser("shop", "Анна") { Id = 5, Actual = 1 });
+        db.OfficeOrderItems.Single(x => x.Id == 1).AvaliableForNative = 1;
+        db.SaveChanges();
+
+        var result = await CreateController(db, userId: 5, role: role).GetRules();
+
+        var dto = Assert.IsType<OrderController.LocationRulesDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        // правила приходят все, а доступные с позициями — отдельным списком
+        Assert.Equal([RuleId, OtherRuleId], dto.Rules.Select(x => x.Id));
+        Assert.Equal(expected, dto.AvailableRuleIds);
+    }
+
+    [Fact]
+    public async Task GetRules_LeavesOutRuleWhoseItemsAreAllDeleted()
+    {
+        using var db = CreateDb();
+        db.OfficeUser.Add(new OfficeUser("shop", "Анна") { Id = 5, Actual = 1 });
+        db.OfficeOrderItems.Single(x => x.Id == 4).Actual = 0;
+        db.SaveChanges();
+
+        var result = await CreateController(db, userId: 5, role: AdminRole).GetRules();
+
+        var dto = Assert.IsType<OrderController.LocationRulesDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal([RuleId], dto.AvailableRuleIds);
     }
 
     [Fact]
@@ -345,16 +379,21 @@ public class OrderControllerTests
         var result = await CreateController(db, userId: 5).GetOrderContents(RuleId, seed.Own);
 
         var dto = Assert.IsType<OrderController.OrderContentsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        // одна дата до текущего момента и двадцать после, по возрастанию, каждый день в 12:00
-        Assert.Equal(21, dto.OrderCreationDateTimes.Count);
-        Assert.Equal(dto.OrderCreationDateTimes.OrderBy(x => x), dto.OrderCreationDateTimes);
-        Assert.All(dto.OrderCreationDateTimes, x => Assert.Equal(TimeSpan.FromHours(12), x.TimeOfDay));
-        Assert.True(dto.OrderCreationDateTimes[0] < before);
-        Assert.True(dto.OrderCreationDateTimes[1] >= before);
-        Assert.Equal(dto.OrderCreationDateTimes[1], dto.OrderCreationDateTime);
+        // одна дата до текущего момента и семь после, по возрастанию, каждый день в 12:00
+        var match = Assert.Single(dto.DateTimeMatches);
+        var creations = match.OrderCreationDateTime;
+        Assert.Equal(8, creations.Count);
+        Assert.Equal(creations.OrderBy(x => x), creations);
+        Assert.All(creations, x => Assert.Equal(TimeSpan.FromHours(12), x.TimeOfDay));
+        Assert.True(creations[0] < before);
+        Assert.True(creations[1] >= before);
+        Assert.Equal(creations[1], dto.OrderCreationDateTime);
         // отгрузка: следующая полночь после закрытия заказа плюс сдвиг локации в два дня
         Assert.Equal(dto.OrderCreationDateTime.Date.AddDays(3), dto.OrderShipmentDateTime);
         Assert.Empty(dto.OrderItems);
+        // к каждой дате формирования — её доставка: следующая полночь плюс два дня локации
+        Assert.Equal(creations.Select(x => x.Date.AddDays(3)), match.OrderShipmentDateTime);
+        Assert.Equal(dto.OrderShipmentDateTime, match.OrderShipmentDateTime[1]);
         // «Багет» удалён (Actual = 0), «Коробка» — другого правила
         Assert.Equal(["Пакет", "Батон"], dto.ItemGroups.SelectMany(x => x.Items).Select(x => x.Name));
     }

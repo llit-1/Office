@@ -13,7 +13,8 @@ import {
 
 // четверг, 8 октября 2026, по Москве
 const at = (time: string, day = "2026-10-08") => new Date(`${day}T${time}:00+03:00`);
-const user = getPermissions(["OrdersTT"]);
+const user = getPermissions(["Order_man"]);
+const ownOnly = getPermissions(["Order_woman"]);
 const admin = getPermissions(["OrdersTTAdmin"]);
 
 const order = { creationDateTime: "2026-10-09T12:00:00" };
@@ -41,15 +42,24 @@ describe("доступные действия", () => {
     expect(isOrderOpen(order, at("12:00", "2026-10-09"))).toBe(false);
   });
 
-  it("после даты формирования заказ не меняет никто, даже администратор", () => {
+  it("после даты формирования заказ меняет только администратор", () => {
     expect(canEditOrder(order, at("14:00"), user)).toBe(true);
-    expect(canEditOrder(order, at("14:00"), admin)).toBe(true);
+    expect(canEditOrder(order, at("14:00"), ownOnly)).toBe(true);
     expect(canEditOrder(order, at("13:00", "2026-10-09"), user)).toBe(false);
-    expect(canEditOrder(order, at("13:00", "2026-10-09"), admin)).toBe(false);
+    expect(canEditOrder(order, at("13:00", "2026-10-09"), ownOnly)).toBe(false);
+    expect(canEditOrder(order, at("13:00", "2026-10-09"), admin)).toBe(true);
+  });
+
+  it("три роли раздела: настройки и правка после формирования — только у администратора", () => {
+    expect(admin).toEqual({ canEdit: true, canEditClosed: true, canConfigure: true });
+    expect(user).toEqual({ canEdit: true, canEditClosed: false, canConfigure: false });
+    expect(ownOnly).toEqual({ canEdit: true, canEditClosed: false, canConfigure: false });
+    // старой роли больше нет
+    expect(getPermissions(["OrdersTT"]).canEdit).toBe(false);
   });
 
   it("без роли раздела ничего менять нельзя", () => {
-    expect(getPermissions([])).toEqual({ canEdit: false, canConfigure: false });
+    expect(getPermissions([])).toEqual({ canEdit: false, canEditClosed: false, canConfigure: false });
     expect(canEditOrder(order, at("14:00"), getPermissions([]))).toBe(false);
   });
 });

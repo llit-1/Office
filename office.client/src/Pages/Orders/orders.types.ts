@@ -5,6 +5,8 @@ export type ServerDateTime = string;
 export interface OrderRule {
   id: number;
   name: string;
+  /** Есть хотя бы одна позиция, доступная пользователю: без них тип в списке заказов не показывается. */
+  hasItems: boolean;
 }
 
 /** Торговая точка, привязанная к пользователю (Locations). */
@@ -29,8 +31,8 @@ export interface CatalogItem {
   name: string;
   /** Кратность, может быть дробной (12,5 кг): количество меняется этим шагом; он же наименьшее количество в заказе. */
   step: number;
+  /** Доступна роли «Заказы - Собственное управление»; остальным ролям раздела доступны все позиции. */
   forOwn: boolean;
-  forPartner: boolean;
   /** false — позиция выключена и в заказ не попадает. */
   isActive: boolean;
 }
@@ -75,13 +77,15 @@ export interface StoreOrders {
 export interface OrdersPermissions {
   /** Оформление и изменение заказов, у которых ещё не наступила дата формирования. */
   canEdit: boolean;
+  /** Изменение заказов и после даты формирования — только администратор раздела. */
+  canEditClosed: boolean;
   canConfigure: boolean;
 }
 
 /** Всё, что нужно редактору заказа для выбранных типа, торговой точки и даты формирования. */
 export interface OrderContents {
-  /** Даты формирования на выбор: последняя прошедшая и ближайшие будущие, по возрастанию. */
-  creationDateTimes: ServerDateTime[];
+  /** Даты на выбор — последняя прошедшая и ближайшие будущие, по возрастанию: формирование и доставка по нему. */
+  dates: { creationDateTime: ServerDateTime; shipmentDateTime: ServerDateTime }[];
   /** Дата, для которой пришёл ответ; без запроса конкретной даты — ближайшая. */
   creationDateTime: ServerDateTime;
   /** Предполагаемая доставка для этой даты и торговой точки. */

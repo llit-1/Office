@@ -21,7 +21,7 @@ public class OrderController : ControllerBase
     // AllItemsRole заказывает любые позиции, NativeItemsRole — только с AvaliableForNative = 1.
     private const string AdminRole = "OrdersTTAdmin";
     private const string AllItemsRole = "Order_man";
-    private const string NativeItemsRole = "Order_women";
+    private const string NativeItemsRole = "Order_woman";
     private const string SectionRoles = AdminRole + "," + AllItemsRole + "," + NativeItemsRole;
 
     private const int PreviousOrdersPerLocation = 10;
@@ -48,6 +48,9 @@ public class OrderController : ControllerBase
     {
         public List<Location> Locations { get; set; } = [];
         public List<OfficeOrderRule> Rules { get; set; } = [];
+
+        /// <summary>Правила, в которых пользователю доступна хотя бы одна действующая позиция: по остальным заказывать нечего.</summary>
+        public List<int> AvailableRuleIds { get; set; } = [];
     }
 
     public class OrdersDTO
@@ -198,10 +201,16 @@ public class OrderController : ControllerBase
         var locations = await _globalService.GetUserLocationsAsync(userId);
         // типы заказов — в порядке заведения (по Id): «завтра», «послезавтра», «за 3 дня», дальше остальные
         var rules = await _context.OfficeOrderRules.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
+        // с учётом роли: «Собственное управление» видит только позиции с AvaliableForNative = 1
+        var availableRuleIds = await UsableItems(_context.OfficeOrderItems.AsNoTracking().Where(x => x.Actual == 1))
+            .Select(x => x.RuleId)
+            .Distinct()
+            .ToListAsync();
         return Ok(new LocationRulesDto
         {
             Locations = locations,
-            Rules = rules
+            Rules = rules,
+            AvailableRuleIds = availableRuleIds.Order().ToList()
         });
     }
 

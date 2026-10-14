@@ -39,7 +39,6 @@ export function ItemModal({ item, groups, onClose, onSaved }: ItemModalProps) {
     if (!groups.some((group) => group.id === draft.groupId)) return setError("Выберите группу.");
     if (rkcodeValue !== null && !(rkcodeValue > 0)) return setError("Код R-Keeper — целое число больше нуля или пусто.");
     if (!(stepValue > 0)) return setError("Кратность — число больше нуля, например 6 или 12,5: столько позиция заказывается за раз.");
-    if (!draft.forOwn && !draft.forPartner && draft.isActive) return setError("Отметьте, каким торговым точкам доступна позиция, или выключите её.");
     setSaving(true);
     try {
       onSaved(await saveItem({ ...draft, name: draft.name.trim(), rkcode: rkcodeValue, step: stepValue }));
@@ -78,7 +77,6 @@ export function ItemModal({ item, groups, onClose, onSaved }: ItemModalProps) {
             </div>
             <div className={styles.accessStores}>
               <Checkbox label="Собственные ТТ" checked={draft.forOwn} onChange={(event) => set({ forOwn: event.target.checked })} />
-              <Checkbox label="Партнёрские ТТ" checked={draft.forPartner} onChange={(event) => set({ forPartner: event.target.checked })} />
             </div>
           </fieldset>
         </div>

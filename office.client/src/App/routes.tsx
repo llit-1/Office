@@ -8,7 +8,8 @@ import Main from "../Pages/Main/Main";
 
 type RequiredRole = ComponentProps<typeof RequireRole>["requiredRole"];
 
-const ordersRoles = ["OrdersTT", "OrdersTTAdmin"];
+// «Заказы ТТ»: администратор, «Заказы - Все позиции» и «Заказы - Собственное управление»
+const ordersRoles = ["OrdersTTAdmin", "Order_man", "Order_woman"];
 
 export interface AppRouteConfig {
   path: string;

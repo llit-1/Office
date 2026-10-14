@@ -117,12 +117,12 @@ function CatalogEditor({ rule, ruleSwitch }: { rule: OrderRule; ruleSwitch: Reac
   });
 
   // сервер сохраняет позицию целиком, поэтому меняем поле и отправляем её всю
-  const patch = (targets: CatalogItem[], change: Partial<Pick<CatalogItem, "isActive" | "forOwn" | "forPartner">>, success?: string) =>
+  const patch = (targets: CatalogItem[], change: Partial<Pick<CatalogItem, "isActive" | "forOwn">>, success?: string) =>
     void run(() => Promise.all(targets.map((item) => saveItem({ ...item, ...change }))), success);
 
   const newItem = (): CatalogItem => ({
     id: 0, ruleId: rule.id, groupId: groupId || groups[0]?.id || 0, rkcode: null, name: "", step: 1,
-    isActive: true, forOwn: true, forPartner: true,
+    isActive: true, forOwn: true,
   });
 
   return (
@@ -187,8 +187,7 @@ function CatalogEditor({ rule, ruleSwitch }: { rule: OrderRule; ruleSwitch: Reac
               </span>
               <span role="columnheader">Позиция</span>
               <span role="columnheader" className={styles.colNumber}>Кратность</span>
-              <span role="columnheader" className={styles.colCenter} title="Доступна собственным торговым точкам">Собств.</span>
-              <span role="columnheader" className={styles.colCenter} title="Доступна партнёрским торговым точкам">Партн.</span>
+              <span role="columnheader" className={styles.colCenter} title="Доступна роли «Заказы - Собственное управление»">Собств.</span>
               <span role="columnheader" className={styles.colCenter}>Вкл.</span>
               <span role="columnheader" />
             </div>
@@ -205,10 +204,6 @@ function CatalogEditor({ rule, ruleSwitch }: { rule: OrderRule; ruleSwitch: Reac
                 <span role="cell" className={`${styles.colCenter} ${styles.colOwn}`}>
                   <Checkbox size="sm" label={<span className={styles.cellLabel}>Собственные ТТ</span>} checked={item.forOwn}
                     onChange={(event) => patch([item], { forOwn: event.target.checked })} />
-                </span>
-                <span role="cell" className={`${styles.colCenter} ${styles.colPartner}`}>
-                  <Checkbox size="sm" label={<span className={styles.cellLabel}>Партнёрские ТТ</span>} checked={item.forPartner}
-                    onChange={(event) => patch([item], { forPartner: event.target.checked })} />
                 </span>
                 <span role="cell" className={`${styles.colCenter} ${styles.colToggle}`}>
                   <Toggle small ariaLabel={`«${item.name}»: доступна для заказа`} checked={item.isActive}
