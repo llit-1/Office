@@ -16,6 +16,9 @@ public class OrderControllerTests
     private const int OtherRuleId = 2;
     private const int BreadGroupId = 1;
     private const int PackGroupId = 2;
+    private const string AdminRole = "OrdersTTAdmin";
+    private const string AllItemsRole = "Order_man";
+    private const string NativeItemsRole = "Order_women";
 
     private static RKNETDBContext CreateDb()
     {
@@ -37,7 +40,7 @@ public class OrderControllerTests
         return db;
     }
 
-    private static OrderController CreateController(RKNETDBContext db, int? userId = null, string? role = null)
+    private static OrderController CreateController(RKNETDBContext db, int? userId = null, string? role = AllItemsRole)
     {
         var identity = new ClaimsIdentity(
             userId is int id ? [new Claim(ClaimTypes.NameIdentifier, id.ToString())] : [], "Test");
@@ -86,6 +89,19 @@ public class OrderControllerTests
 
         var groups = Assert.IsType<List<OrderController.OrderItemGroupDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(expectedItems, groups.SelectMany(x => x.Items).Select(x => x.Name));
+    }
+
+    [Fact]
+    public async Task GetItems_ReturnsOnlyNativeItemsForNativeItemsRole()
+    {
+        using var db = CreateDb();
+        db.OfficeOrderItems.Single(x => x.Id == 3).AvaliableForNative = 1;
+        db.SaveChanges();
+
+        var result = await CreateController(db, role: NativeItemsRole).GetItems(RuleId);
+
+        var groups = Assert.IsType<List<OrderController.OrderItemGroupDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(["Пакет"], groups.SelectMany(x => x.Items).Select(x => x.Name));
     }
 
     [Fact]
@@ -308,19 +324,11 @@ public class OrderControllerTests
         Assert.IsType<ForbidResult>(result.Result);
     }
 
-    /// <summary>«Тореза 9» — точка франчайзи: ей доступен только «Батон»; «Пакет» — только своим точкам.</summary>
+    /// <summary>У «Тореза 9» сдвиг отгрузки в два дня; «Пакет» доступен и NativeItemsRole, «Батон» — нет.</summary>
     private static OrdersSeed SeedContents(RKNETDBContext db)
     {
         var seed = SeedOrders(db);
-        var entity = new Entity { Guid = Guid.NewGuid(), Name = "ИП Иванов", Owner = 0 };
-        db.Entity.Add(entity);
-        db.LocationVersions.Add(new LocationVersion
-        {
-            Guid = Guid.NewGuid(), Name = "Тореза 9", LocationGuid = seed.Own, EntityGuid = entity.Guid, Actual = 1,
-        });
         db.OfficeOrderLocationRules.Add(new OfficeOrderLocationRule { LocationGuid = seed.Own, RuleId = RuleId, ShipmentDayOffset = 2 });
-        db.OfficeOrderItems.Single(x => x.Id == 1).AvaliableForFranchise = 1;
-        db.OfficeOrderItems.Single(x => x.Id == 2).AvaliableForFranchise = 1; // Actual = 0
         db.OfficeOrderItems.Single(x => x.Id == 3).AvaliableForNative = 1;
         db.SaveChanges();
         db.ChangeTracker.Clear();
@@ -328,7 +336,7 @@ public class OrderControllerTests
     }
 
     [Fact]
-    public async Task GetOrderContents_ReturnsScheduleAndItemsAvailableToLocation()
+    public async Task GetOrderContents_ReturnsScheduleAndAllActualItemsOfRule()
     {
         using var db = CreateDb();
         var seed = SeedContents(db);
@@ -347,7 +355,23 @@ public class OrderControllerTests
         // отгрузка: следующая полночь после закрытия заказа плюс сдвиг локации в два дня
         Assert.Equal(dto.OrderCreationDateTime.Date.AddDays(3), dto.OrderShipmentDateTime);
         Assert.Empty(dto.OrderItems);
-        Assert.Equal(["Батон"], dto.ItemGroups.SelectMany(x => x.Items).Select(x => x.Name));
+        // «Багет» удалён (Actual = 0), «Коробка» — другого правила
+        Assert.Equal(["Пакет", "Батон"], dto.ItemGroups.SelectMany(x => x.Items).Select(x => x.Name));
+    }
+
+    [Theory]
+    [InlineData(AdminRole, new[] { "Пакет", "Батон" })]
+    [InlineData(AllItemsRole, new[] { "Пакет", "Батон" })]
+    [InlineData(NativeItemsRole, new[] { "Пакет" })]
+    public async Task GetOrderContents_ReturnsItemsAvailableToRole(string role, string[] expectedItems)
+    {
+        using var db = CreateDb();
+        var seed = SeedContents(db);
+
+        var result = await CreateController(db, userId: 5, role: role).GetOrderContents(RuleId, seed.Own);
+
+        var dto = Assert.IsType<OrderController.OrderContentsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(expectedItems, dto.ItemGroups.SelectMany(x => x.Items).Select(x => x.Name));
     }
 
     [Fact]
@@ -631,17 +655,44 @@ public class OrderControllerTests
     }
 
     [Fact]
-    public async Task SaveOrder_RejectsClosedOrderEvenForAdmin()
+    public async Task SaveOrder_LetsAdminSaveClosedOrder()
     {
         using var db = CreateDb();
         var seed = SeedOrders(db);
+        var closeAt = new DateTime(2020, 1, 10, 12, 0, 0);
+
+        var result = await CreateController(db, userId: 5, role: AdminRole).SaveOrder(OrderBody(seed.Own, closeAt, 1));
+
+        var created = Assert.IsType<OrderController.OrderDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(closeAt, created.CreationDateTime);
+    }
+
+    [Fact]
+    public async Task SaveOrder_ForbidsNativeItemsRoleToOrderItemThatIsNotNative()
+    {
+        using var db = CreateDb();
+        var seed = SeedContents(db);
         var ordersBefore = await db.OfficeOrders.CountAsync();
 
-        var result = await CreateController(db, userId: 5, role: "OrdersTTAdmin")
-            .SaveOrder(OrderBody(seed.Own, new DateTime(2020, 1, 10, 12, 0, 0), 1));
+        // «Пакет» доступен, «Батон» — нет
+        var result = await CreateController(db, userId: 5, role: NativeItemsRole)
+            .SaveOrder(OrderBody(seed.Own, new DateTime(2030, 1, 10, 12, 0, 0), 3, 1));
 
-        Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(result.Result).StatusCode);
         Assert.Equal(ordersBefore, await db.OfficeOrders.CountAsync());
+    }
+
+    [Fact]
+    public async Task SaveOrder_LetsNativeItemsRoleOrderNativeItems()
+    {
+        using var db = CreateDb();
+        var seed = SeedContents(db);
+
+        var result = await CreateController(db, userId: 5, role: NativeItemsRole)
+            .SaveOrder(OrderBody(seed.Own, new DateTime(2030, 1, 10, 12, 0, 0), 3));
+
+        var created = Assert.IsType<OrderController.OrderDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal([(3, 50d)], await SavedLinesAsync(db, created.Id));
     }
 
     [Fact]

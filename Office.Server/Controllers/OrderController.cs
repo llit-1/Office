@@ -14,10 +14,16 @@ namespace Office.Server.Controllers;
 /// <summary>Раздел «Заказы»: номенклатура, доступная торговым точкам для заказа.</summary>
 [Route("api/[controller]")]
 [ApiController]
-[Authorize(Roles = "OrdersTT,OrdersTTAdmin")]
+[Authorize(Roles = SectionRoles)]
 public class OrderController : ControllerBase
 {
+    // Роли раздела. Администратор может всё, включая правку заказа после закрытия приёма.
+    // AllItemsRole заказывает любые позиции, NativeItemsRole — только с AvaliableForNative = 1.
     private const string AdminRole = "OrdersTTAdmin";
+    private const string AllItemsRole = "Order_man";
+    private const string NativeItemsRole = "Order_women";
+    private const string SectionRoles = AdminRole + "," + AllItemsRole + "," + NativeItemsRole;
+
     private const int PreviousOrdersPerLocation = 10;
     private const int UpcomingCreationDateTimes = 20;
     private const double QuantityTolerance = 1e-6;
@@ -81,7 +87,6 @@ public class OrderController : ControllerBase
         public int GroupId { get; set; }
         public int RuleId { get; set; }
         public int AvaliableForNative { get; set; }
-        public int AvaliableForFranchise { get; set; }
         public int Actual { get; set; }
 
         public double Quantity { get; set; }
@@ -117,7 +122,7 @@ public class OrderController : ControllerBase
     [HttpGet("rules/{ruleId:int}/items")]
     public async Task<ActionResult<List<OrderItemGroupDto>>> GetItems(int ruleId, [FromQuery] int? actual = null)
     {
-        var query = _context.OfficeOrderItems.AsNoTracking().Where(x => x.RuleId == ruleId);
+        var query = UsableItems(_context.OfficeOrderItems.AsNoTracking().Where(x => x.RuleId == ruleId));
         if (actual is int actualValue)
             query = query.Where(x => x.Actual == actualValue);
 
@@ -320,19 +325,8 @@ public class OrderController : ControllerBase
                 && x.LocationGuid == locationGuid
                 && x.CreationDateTime == orderCreationDateTime);
 
-        // Entity.Owner: 1 — своя организация, 0 — франчайзи.
-        var owner = await _context.LocationVersions.AsNoTracking()
-            .Where(x => x.LocationGuid == locationGuid && x.Actual == 1 && x.VersionEndDate == null && x.Entity != null)
-            .Select(x => (int?)x.Entity!.Owner)
-            .FirstOrDefaultAsync();
-
-        var items = _context.OfficeOrderItems.AsNoTracking().Where(x => x.RuleId == ruleId && x.Actual == 1);
-        items = owner switch
-        {
-            1 => items.Where(x => x.AvaliableForNative == 1),
-            0 => items.Where(x => x.AvaliableForFranchise == 1),
-            _ => items.Where(x => x.AvaliableForNative == 1 || x.AvaliableForFranchise == 1)
-        };
+        // набор позиций зависит от роли пользователя, а не от точки
+        var items = UsableItems(_context.OfficeOrderItems.AsNoTracking().Where(x => x.RuleId == ruleId && x.Actual == 1));
 
         return Ok(new OrderContentsDto
         {
@@ -371,8 +365,8 @@ public class OrderController : ControllerBase
             return Conflict(new { message = "Расписание правила задано с ошибкой." });
         }
 
-        // После CreationDateTime заказ уходит на сборку: менять его не может никто, включая администратора.
-        if (creationDateTime <= DateTime.Now)
+        // После CreationDateTime заказ уходит на сборку: менять его может только администратор.
+        if (creationDateTime <= DateTime.Now && !User.IsInRole(AdminRole))
             return Conflict(new { message = "Приём изменений по этому заказу уже закрыт." });
 
         // из позиций в теле запроса берём только Id и количество: сами позиции читаем из базы
@@ -383,6 +377,9 @@ public class OrderController : ControllerBase
         var items = await _context.OfficeOrderItems.AsNoTracking().Where(x => itemIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id);
         if (items.Count != itemIds.Count)
             return BadRequest(new { message = "В заказе есть позиции, которых нет в справочнике." });
+
+        if (!CanUseAllItems && items.Values.FirstOrDefault(x => x.AvaliableForNative != 1) is OfficeOrderItem unavailable)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = $"Позиция «{unavailable.Name}» недоступна для заказа с вашей ролью." });
 
         // количество кратно шагу позиции; наименьшее — сам шаг. Шаг бывает дробным (12,5),
         // поэтому кратность проверяется с допуском на погрешность чисел с плавающей точкой.
@@ -509,7 +506,6 @@ public class OrderController : ControllerBase
             GroupId = line.Item.GroupId,
             RuleId = line.Item.RuleId,
             AvaliableForNative = line.Item.AvaliableForNative,
-            AvaliableForFranchise = line.Item.AvaliableForFranchise,
             Actual = line.Item.Actual,
             Quantity = line.Quantity
         })
@@ -531,6 +527,12 @@ public class OrderController : ControllerBase
             .Select(x => x!.Trim()));
         return string.IsNullOrWhiteSpace(fullName) ? login : fullName;
     }
+
+    private bool CanUseAllItems => User.IsInRole(AdminRole) || User.IsInRole(AllItemsRole);
+
+    /// <summary>Позиции, которые пользователь может видеть и заказывать: NativeItemsRole — только с AvaliableForNative = 1.</summary>
+    private IQueryable<OfficeOrderItem> UsableItems(IQueryable<OfficeOrderItem> items) =>
+        CanUseAllItems ? items : items.Where(x => x.AvaliableForNative == 1);
 
     // Даты заказов — местное время сервера без смещения, как они лежат в БД.
     private static DateTime ToServerLocalTime(DateTime value) =>

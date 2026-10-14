@@ -76,7 +76,6 @@ public class OfficeOrderItem
     public int RuleId { get; set; }
 
     public int AvaliableForNative { get; set; }
-    public int AvaliableForFranchise { get; set; }
 
     /// <summary>0 — позиция удалена.</summary>
     public int Actual { get; set; } = 1;
