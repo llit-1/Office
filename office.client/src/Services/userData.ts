@@ -29,10 +29,9 @@ export function normalizeUserData(data: UserDataApiResponse): UserDataResponse {
   };
 }
 
-export async function getUserData(userId: number): Promise<UserDataResponse> {
-  const data = await get<UserDataApiResponse>("/DataUpdate/getdata", {
-    params: { userId },
-  });
+/** Уведомления и роли текущего пользователя: кто он, сервер определяет по токену. */
+export async function getUserData(): Promise<UserDataResponse> {
+  const data = await get<UserDataApiResponse>("/DataUpdate/getdata");
 
   return normalizeUserData(data);
 }

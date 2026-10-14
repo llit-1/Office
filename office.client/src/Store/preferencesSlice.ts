@@ -4,12 +4,15 @@ interface PreferencesState {
   notificationSoundEnabled: boolean;
   sensorChartExpanded: boolean;
   sensorChartLineWidth: number;
+  /** Тип заказа, выбранный последним в разделе «Заказы ТТ». */
+  ordersTypeId: number | null;
 }
 
 const initialState: PreferencesState = {
   notificationSoundEnabled: true,
   sensorChartExpanded: false,
   sensorChartLineWidth: 2,
+  ordersTypeId: null,
 };
 
 const preferencesSlice = createSlice({
@@ -25,9 +28,12 @@ const preferencesSlice = createSlice({
     setSensorChartLineWidth(state, action: PayloadAction<number>) {
       state.sensorChartLineWidth = Math.max(1, Math.min(3, action.payload));
     },
+    setOrdersTypeId(state, action: PayloadAction<number | null>) {
+      state.ordersTypeId = action.payload;
+    },
   },
 });
 
-export const { setNotificationSoundEnabled, setSensorChartExpanded, setSensorChartLineWidth } = preferencesSlice.actions;
+export const { setNotificationSoundEnabled, setSensorChartExpanded, setSensorChartLineWidth, setOrdersTypeId } = preferencesSlice.actions;
 
 export default preferencesSlice.reducer;

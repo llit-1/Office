@@ -20,11 +20,14 @@ public class OfficeOrderRule
     [MaxLength(20)]
     public string ShipmentInterval { get; set; } = string.Empty;
 
+    /// <summary>Сдвиг дня отгрузки по правилу для всех локаций; сдвиг локации прибавляется к нему.</summary>
+    public int DefaultShipmentDayOffset { get; set; }
+
     public ICollection<OfficeOrderItem> Items { get; set; } = new List<OfficeOrderItem>();
     public ICollection<OfficeOrderLocationRule> LocationRules { get; set; } = new List<OfficeOrderLocationRule>();
 }
 
-/// <summary>Сдвиг дня отгрузки по правилу для конкретной локации.</summary>
+/// <summary>Сдвиг дня отгрузки по правилу для конкретной локации — сверх сдвига правила.</summary>
 [Table("OfficeOrderLocationRule")]
 public class OfficeOrderLocationRule
 {
@@ -63,8 +66,8 @@ public class OfficeOrderItem
     [MaxLength(200)]
     public string? Name { get; set; }
 
-    public int MinValue { get; set; }
-    public int Step { get; set; }
+    /// <summary>Кратность, может быть дробной (12,5 кг); она же наименьшее количество в заказе.</summary>
+    public double Step { get; set; }
 
     [Column("Group")]
     public int GroupId { get; set; }
@@ -114,5 +117,24 @@ public class OfficeOrder
     [JsonIgnore]
     public OfficeOrderRule? Rule { get; set; }
 
-    public ICollection<OfficeOrderItem> Items { get; set; } = new List<OfficeOrderItem>();
+    public ICollection<OfficeOrderLine> Lines { get; set; } = new List<OfficeOrderLine>();
+}
+
+/// <summary>Строка заказа: позиция каталога и сколько её заказано.</summary>
+[Table("OfficeOrderLines")]
+public class OfficeOrderLine
+{
+    [Column("Order")]
+    public int OrderId { get; set; }
+
+    [Column("Item")]
+    public int ItemId { get; set; }
+
+    /// <summary>Количество; кратно шагу позиции, поэтому тоже может быть дробным.</summary>
+    public double Quantity { get; set; }
+
+    [JsonIgnore]
+    public OfficeOrder? Order { get; set; }
+
+    public OfficeOrderItem? Item { get; set; }
 }

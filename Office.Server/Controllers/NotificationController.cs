@@ -20,11 +20,12 @@ namespace Office.Server.Controllers
         }
 
         [HttpGet("getactivenotifications")]
-        public async Task<ActionResult> GetActiveNotifications(int userId)
+        public async Task<ActionResult> GetActiveNotifications()
         {
-            if (!CanAccessUser(userId))
+            // Пользователь определяется только по токену: id из запроса не принимается.
+            if (GetCurrentUserId() is not int userId)
             {
-                return Forbid();
+                return Unauthorized();
             }
 
             List<NotificationDto> officeNotifications = await _rKNETDBContext.OfficeNotifications
@@ -50,11 +51,11 @@ namespace Office.Server.Controllers
         }
 
         [HttpGet("getinactivenotifications")]
-        public async Task<ActionResult> GetInactiveNotifications(int userId)
+        public async Task<ActionResult> GetInactiveNotifications()
         {
-            if (!CanAccessUser(userId))
+            if (GetCurrentUserId() is not int userId)
             {
-                return Forbid();
+                return Unauthorized();
             }
 
             List<NotificationDto> officeNotifications = await _rKNETDBContext.OfficeNotifications

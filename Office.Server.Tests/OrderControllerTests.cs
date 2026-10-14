@@ -28,10 +28,10 @@ public class OrderControllerTests
             new OfficeOrderGroup { Id = BreadGroupId, Name = "Хлеб" },
             new OfficeOrderGroup { Id = PackGroupId, Name = "Упаковка" });
         db.OfficeOrderItems.AddRange(
-            new OfficeOrderItem { Id = 1, Rkcode = 100, Name = "Батон", MinValue = 2, Step = 2, GroupId = BreadGroupId, RuleId = RuleId },
-            new OfficeOrderItem { Id = 2, Rkcode = 101, Name = "Багет", MinValue = 1, Step = 1, GroupId = BreadGroupId, RuleId = RuleId, Actual = 0 },
-            new OfficeOrderItem { Id = 3, Rkcode = 200, Name = "Пакет", MinValue = 50, Step = 50, GroupId = PackGroupId, RuleId = RuleId },
-            new OfficeOrderItem { Id = 4, Rkcode = 300, Name = "Коробка", MinValue = 10, Step = 10, GroupId = PackGroupId, RuleId = OtherRuleId });
+            new OfficeOrderItem { Id = 1, Rkcode = 100, Name = "Батон", Step = 2, GroupId = BreadGroupId, RuleId = RuleId },
+            new OfficeOrderItem { Id = 2, Rkcode = 101, Name = "Багет", Step = 1, GroupId = BreadGroupId, RuleId = RuleId, Actual = 0 },
+            new OfficeOrderItem { Id = 3, Rkcode = 200, Name = "Пакет", Step = 50, GroupId = PackGroupId, RuleId = RuleId },
+            new OfficeOrderItem { Id = 4, Rkcode = 300, Name = "Коробка", Step = 10, GroupId = PackGroupId, RuleId = OtherRuleId });
         db.SaveChanges();
         db.ChangeTracker.Clear();
         return db;
@@ -56,7 +56,6 @@ public class OrderControllerTests
     {
         Rkcode = rkcode,
         Name = "Круассан",
-        MinValue = 6,
         Step = 6,
         GroupId = BreadGroupId,
         RuleId = RuleId,
@@ -104,7 +103,9 @@ public class OrderControllerTests
 
         var dto = Assert.IsType<OrderController.LocationRulesDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal([own.Guid], dto.Locations.Select(x => x.Guid));
-        Assert.Equal(["Еженедельный", "Регулярный"], dto.Rules.Select(x => x.Name));
+        // по Id, а не по названию
+        Assert.Equal([RuleId, OtherRuleId], dto.Rules.Select(x => x.Id));
+        Assert.Equal(["Регулярный", "Еженедельный"], dto.Rules.Select(x => x.Name));
     }
 
     [Fact]
@@ -147,7 +148,7 @@ public class OrderControllerTests
         for (var id = 1; id <= 12; id++)
             db.OfficeOrders.Add(Order(id, seed.Own, RuleId, now.AddDays(id - 13)));
         var open = Order(13, seed.Own, RuleId, now.AddDays(1));
-        open.Items.Add(db.OfficeOrderItems.Single(x => x.Id == 1));
+        open.Lines.Add(new OfficeOrderLine { ItemId = 1, Quantity = 6 });
         db.OfficeOrders.AddRange(
             open,
             Order(14, seed.Own, RuleId, now.AddDays(2)),
@@ -173,7 +174,67 @@ public class OrderControllerTests
         Assert.Equal("Тореза 9", dto.Location);
         // открытые 14 и 13, затем десять последних закрытых: 12…3
         Assert.Equal(Enumerable.Range(3, 12).Reverse(), dto.OfficeOrders!.Select(x => x.Id));
-        Assert.Equal(["Батон"], dto.OfficeOrders!.Single(x => x.Id == 13).Items.Select(x => x.Name));
+        var line = Assert.Single(dto.OfficeOrders!.Single(x => x.Id == 13).Items);
+        Assert.Equal(("Батон", 6d), (line.Name!, line.Quantity));
+    }
+
+    [Fact]
+    public async Task GetOrders_ReturnsWhoPlacedOrderAndWhenItShips()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        db.OfficeOrderLocationRules.Add(new OfficeOrderLocationRule { LocationGuid = seed.Own, RuleId = RuleId, ShipmentDayOffset = 2 });
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId);
+
+        var dtos = Assert.IsType<List<OrderController.OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var order = Assert.Single(dtos).OfficeOrders!.Single(x => x.Id == 13);
+        // у пользователя заполнено только имя
+        Assert.Equal("Анна", order.UserName);
+        Assert.Equal(5, order.OfficeUserId);
+        // отгрузка: первая полночь не раньше закрытия заказа плюс сдвиг локации в два дня
+        var midnight = order.CreationDateTime.TimeOfDay == TimeSpan.Zero
+            ? order.CreationDateTime
+            : order.CreationDateTime.Date.AddDays(1);
+        Assert.Equal(midnight.AddDays(2), order.ShipmentDateTime);
+    }
+
+    [Fact]
+    public async Task GetOrders_AddsRuleShipmentOffsetToLocationOffset()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        db.OfficeOrderRules.Single(x => x.Id == RuleId).DefaultShipmentDayOffset = 1;
+        db.OfficeOrderLocationRules.Add(new OfficeOrderLocationRule { LocationGuid = seed.Own, RuleId = RuleId, ShipmentDayOffset = 2 });
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId);
+
+        var dtos = Assert.IsType<List<OrderController.OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var order = Assert.Single(dtos).OfficeOrders!.Single(x => x.Id == 13);
+        var midnight = order.CreationDateTime.TimeOfDay == TimeSpan.Zero
+            ? order.CreationDateTime
+            : order.CreationDateTime.Date.AddDays(1);
+        // полночь по крону + день правила + два дня локации
+        Assert.Equal(midnight.AddDays(3), order.ShipmentDateTime);
+    }
+
+    [Fact]
+    public async Task GetOrders_LeavesShipmentEmptyWhenShipmentScheduleIsBroken()
+    {
+        using var db = CreateDb();
+        SeedOrders(db);
+        db.OfficeOrderRules.Single(x => x.Id == RuleId).ShipmentInterval = "нет";
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).GetOrders(RuleId);
+
+        var dtos = Assert.IsType<List<OrderController.OrdersDTO>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.All(Assert.Single(dtos).OfficeOrders!, order => Assert.Null(order.ShipmentDateTime));
     }
 
     [Fact]
@@ -195,8 +256,10 @@ public class OrderControllerTests
 
         var result = await CreateController(db, userId: 5).GetOrderItems(13);
 
-        var items = Assert.IsType<List<OfficeOrderItem>>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        Assert.Equal(["Батон"], items.Select(x => x.Name));
+        var items = Assert.IsType<List<OrderController.OrderLineDto>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var item = Assert.Single(items);
+        // позиция каталога и сколько её заказано
+        Assert.Equal((1, "Батон", 100, 2d, 6d), (item.Id, item.Name!, item.Rkcode!.Value, item.Step, item.Quantity));
     }
 
     [Fact]
@@ -299,7 +362,42 @@ public class OrderControllerTests
         var dto = Assert.IsType<OrderController.OrderContentsDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(order.CreationDateTime, dto.OrderCreationDateTime);
         Assert.Equal(order.CreationDateTime.Date.AddDays(3), dto.OrderShipmentDateTime);
-        Assert.Equal(["Батон"], dto.OrderItems.Select(x => x.Name));
+        var line = Assert.Single(dto.OrderItems);
+        Assert.Equal(("Батон", 6d), (line.Name!, line.Quantity));
+    }
+
+    [Fact]
+    public async Task GetOrderContents_AddsRuleShipmentOffsetForEveryLocation()
+    {
+        using var db = CreateDb();
+        var seed = SeedContents(db);
+        db.OfficeOrderRules.Single(x => x.Id == RuleId).DefaultShipmentDayOffset = 1;
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+        var controller = CreateController(db, userId: 5);
+
+        var own = Assert.IsType<OrderController.OrderContentsDto>(Assert.IsType<OkObjectResult>((await controller.GetOrderContents(RuleId, seed.Own)).Result).Value);
+        var empty = Assert.IsType<OrderController.OrderContentsDto>(Assert.IsType<OkObjectResult>((await controller.GetOrderContents(RuleId, seed.Empty)).Result).Value);
+
+        // следующая полночь + день правила + два дня локации
+        Assert.Equal(own.OrderCreationDateTime.Date.AddDays(4), own.OrderShipmentDateTime);
+        // у локации без своего сдвига — только день правила
+        Assert.Equal(empty.OrderCreationDateTime.Date.AddDays(2), empty.OrderShipmentDateTime);
+    }
+
+    [Fact]
+    public async Task GetOrderContents_AcceptsScheduleWithTrailingSpace()
+    {
+        using var db = CreateDb();
+        var seed = SeedContents(db);
+        // так расписание записано у правила «Ежедневный заказ(завтра)» в рабочей базе
+        db.OfficeOrderRules.Single(x => x.Id == RuleId).Interval = "0 12 * * * ";
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).GetOrderContents(RuleId, seed.Own);
+
+        Assert.IsType<OkObjectResult>(result.Result);
     }
 
     [Fact]
@@ -350,14 +448,22 @@ public class OrderControllerTests
         Assert.IsType<NotFoundObjectResult>(result.Result);
     }
 
-    private static OfficeOrder OrderBody(Guid location, DateTime creationDateTime, params int[] itemIds) => new()
+    /// <summary>Заказ с наименьшим допустимым количеством каждой позиции: «Батон» — 2, «Пакет» — 50.</summary>
+    private static OrderController.SaveOrderRequest OrderBody(Guid location, DateTime creationDateTime, params int[] itemIds) =>
+        OrderBody(location, creationDateTime, itemIds.Select(id => (id, id == 1 ? 2d : id == 3 ? 50d : 1d)).ToArray());
+
+    private static OrderController.SaveOrderRequest OrderBody(Guid location, DateTime creationDateTime, params (int Id, double Quantity)[] lines) => new()
     {
         LocationGuid = location,
         RuleId = RuleId,
         CreationDateTime = creationDateTime,
-        OfficeUserId = 777, // игнорируется: пользователь берётся из токена
-        Items = itemIds.Select(id => new OfficeOrderItem { Id = id }).ToList(),
+        Items = lines.Select(line => new OrderController.SaveOrderLine { Id = line.Id, Quantity = line.Quantity }).ToList(),
     };
+
+    private static async Task<List<(int ItemId, double Quantity)>> SavedLinesAsync(RKNETDBContext db, int orderId) =>
+        (await db.OfficeOrderLines.AsNoTracking().Where(x => x.OrderId == orderId).OrderBy(x => x.ItemId).ToListAsync())
+            .Select(x => (x.ItemId, x.Quantity))
+            .ToList();
 
     [Fact]
     public async Task SaveOrder_CreatesOrderWithItemsWhenThereIsNoneForDateLocationAndRule()
@@ -368,11 +474,92 @@ public class OrderControllerTests
 
         var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, closeAt, 1, 3));
 
-        var created = Assert.IsType<OfficeOrder>(Assert.IsType<OkObjectResult>(result.Result).Value);
-        var saved = await db.OfficeOrders.AsNoTracking().Include(x => x.Items).SingleAsync(x => x.Id == created.Id);
+        var created = Assert.IsType<OrderController.OrderDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var saved = await db.OfficeOrders.AsNoTracking().SingleAsync(x => x.Id == created.Id);
         Assert.Equal((seed.Empty, RuleId, closeAt, 5), (saved.LocationGuid, saved.RuleId, saved.CreationDateTime, saved.OfficeUserId));
-        Assert.Equal([1, 3], saved.Items.Select(x => x.Id).Order());
+        Assert.Equal([(1, 2d), (3, 50d)], await SavedLinesAsync(db, created.Id));
         Assert.Equal(4, await db.OfficeOrderItems.CountAsync());
+        // в ответе — тот же заказ, каким он придёт в списке: кто оформил, отгрузка, позиции с количеством
+        Assert.Equal("Анна", created.UserName);
+        Assert.Equal(closeAt.Date.AddDays(1), created.ShipmentDateTime);
+        Assert.Equal([("Батон", 2d), ("Пакет", 50d)], created.Items.Select(x => (x.Name!, x.Quantity)));
+    }
+
+    [Fact]
+    public async Task SaveOrder_SavesQuantityOfEachItem()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        var closeAt = new DateTime(2030, 1, 10, 12, 0, 0);
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, closeAt, (1, 14d), (3, 150d)));
+
+        var created = Assert.IsType<OrderController.OrderDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal([(1, 14d), (3, 150d)], await SavedLinesAsync(db, created.Id));
+    }
+
+    [Theory]
+    [InlineData(12.5)]
+    [InlineData(37.5)]
+    [InlineData(100)]
+    public async Task SaveOrder_AcceptsMultiplesOfFractionalStep(double quantity)
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        db.OfficeOrderItems.Single(x => x.Id == 1).Step = 12.5;
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, new DateTime(2030, 1, 10, 12, 0, 0), (1, quantity)));
+
+        var created = Assert.IsType<OrderController.OrderDto>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal([(1, quantity)], await SavedLinesAsync(db, created.Id));
+    }
+
+    [Theory]
+    [InlineData(10)]   // меньше шага 12,5
+    [InlineData(30)]   // не кратно 12,5
+    [InlineData(12.4)]
+    public async Task SaveOrder_RejectsQuantityThatIsNotMultipleOfFractionalStep(double quantity)
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        db.OfficeOrderItems.Single(x => x.Id == 1).Step = 12.5;
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, new DateTime(2030, 1, 10, 12, 0, 0), (1, quantity)));
+
+        var message = Assert.IsType<BadRequestObjectResult>(result.Result).Value!.GetType().GetProperty("message")!.GetValue(Assert.IsType<BadRequestObjectResult>(result.Result).Value);
+        Assert.Equal("Количество позиции «Батон» должно быть кратно 12,5.", message);
+    }
+
+    [Theory]
+    [InlineData(0)]   // пусто
+    [InlineData(-2)]
+    [InlineData(1)]   // меньше шага «Батона» — 2
+    [InlineData(5)]   // не кратно шагу 2
+    public async Task SaveOrder_RejectsQuantityThatIsNotMultipleOfStep(int quantity)
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        var ordersBefore = await db.OfficeOrders.CountAsync();
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, new DateTime(2030, 1, 10, 12, 0, 0), (1, quantity)));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(ordersBefore, await db.OfficeOrders.CountAsync());
+    }
+
+    [Fact]
+    public async Task SaveOrder_RejectsItemListedTwice()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Empty, new DateTime(2030, 1, 10, 12, 0, 0), (1, 2d), (1, 4d)));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
     [Fact]
@@ -385,7 +572,7 @@ public class OrderControllerTests
         colleague.Locations.Add(db.Locations.Single(x => x.Guid == seed.Own));
         db.OfficeUser.Add(colleague);
         var existing = new OfficeOrder { Id = 50, LocationGuid = seed.Own, RuleId = RuleId, OfficeUserId = 5, CreationDateTime = closeAt };
-        existing.Items.Add(db.OfficeOrderItems.Single(x => x.Id == 1));
+        existing.Lines.Add(new OfficeOrderLine { ItemId = 1, Quantity = 2 });
         db.OfficeOrders.Add(existing);
         db.SaveChanges();
         db.ChangeTracker.Clear();
@@ -395,9 +582,27 @@ public class OrderControllerTests
 
         Assert.IsType<OkObjectResult>(result.Result);
         Assert.Equal(ordersBefore, await db.OfficeOrders.CountAsync());
-        var saved = await db.OfficeOrders.AsNoTracking().Include(x => x.Items).SingleAsync(x => x.Id == 50);
+        var saved = await db.OfficeOrders.AsNoTracking().SingleAsync(x => x.Id == 50);
         Assert.Equal(6, saved.OfficeUserId);
-        Assert.Equal([3], saved.Items.Select(x => x.Id));
+        Assert.Equal([(3, 50d)], await SavedLinesAsync(db, 50));
+    }
+
+    [Fact]
+    public async Task SaveOrder_ChangesQuantityOfKeptItemAndAddsNewOnes()
+    {
+        using var db = CreateDb();
+        var seed = SeedOrders(db);
+        var closeAt = new DateTime(2030, 1, 10, 12, 0, 0);
+        var existing = new OfficeOrder { Id = 50, LocationGuid = seed.Own, RuleId = RuleId, OfficeUserId = 5, CreationDateTime = closeAt };
+        existing.Lines.Add(new OfficeOrderLine { ItemId = 1, Quantity = 2 });
+        db.OfficeOrders.Add(existing);
+        db.SaveChanges();
+        db.ChangeTracker.Clear();
+
+        var result = await CreateController(db, userId: 5).SaveOrder(OrderBody(seed.Own, closeAt, (1, 8d), (3, 100d)));
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.Equal([(1, 8d), (3, 100d)], await SavedLinesAsync(db, 50));
     }
 
     [Fact]
@@ -426,15 +631,17 @@ public class OrderControllerTests
     }
 
     [Fact]
-    public async Task SaveOrder_LetsAdminSaveClosedOrder()
+    public async Task SaveOrder_RejectsClosedOrderEvenForAdmin()
     {
         using var db = CreateDb();
         var seed = SeedOrders(db);
+        var ordersBefore = await db.OfficeOrders.CountAsync();
 
         var result = await CreateController(db, userId: 5, role: "OrdersTTAdmin")
             .SaveOrder(OrderBody(seed.Own, new DateTime(2020, 1, 10, 12, 0, 0), 1));
 
-        Assert.IsType<OkObjectResult>(result.Result);
+        Assert.IsType<ConflictObjectResult>(result.Result);
+        Assert.Equal(ordersBefore, await db.OfficeOrders.CountAsync());
     }
 
     [Fact]

@@ -1,18 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../Store";
-import type { Actor } from "./orders.api";
 import { getPermissions } from "./orders.rules";
+import type { OrdersPermissions } from "./orders.types";
 
-/** Текущий пользователь и его права в разделе. */
-export function useActor(): Actor {
+/** Права текущего пользователя в разделе. Это подсказка интерфейсу: проверяет их сервер. */
+export function usePermissions(): OrdersPermissions {
   const roles = useSelector((state: RootState) => state.userData.roles);
-  const id = useSelector((state: RootState) => state.auth.id);
-  const fullName = useSelector((state: RootState) => state.auth.fullName);
-  return useMemo(
-    () => ({ user: { id: id ?? 0, name: fullName?.trim() || "Пользователь" }, permissions: getPermissions(roles) }),
-    [fullName, id, roles],
-  );
+  return useMemo(() => getPermissions(roles), [roles]);
 }
 
 /** Текущее время с редким обновлением: статусы и обратный отсчёт меняются без перезагрузки. */

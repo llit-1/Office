@@ -202,7 +202,7 @@ function App() {
 
     const loadUserData = async () => {
       try {
-        const normalizedData = await getUserData(effectiveUserId);
+        const normalizedData = await getUserData();
 
         if (!accessTokenRolesMatch(getAccessToken(), normalizedData.roles)) {
           const refreshedSession = await refreshSession();

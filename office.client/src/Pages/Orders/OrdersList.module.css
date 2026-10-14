@@ -1,70 +1,37 @@
-/* ===== Тип заказа ===== */
+/* ===== Типы заказов: ряд плашек, название всегда в одну строку ===== */
 
 .types {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
-.typeCard {
-  min-width: 0;
-  min-height: 72px;
-  display: flex;
+.typeTab {
+  min-height: var(--control-height-md);
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-control);
   background: var(--color-surface);
-  color: var(--color-text);
-  text-align: left;
-  cursor: pointer;
-  transition: border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard);
-}
-
-.typeCard:hover {
-  border-color: var(--color-border-strong);
-}
-
-.typeCard[aria-pressed="true"] {
-  border-color: var(--color-primary);
-  box-shadow: inset 0 0 0 1px var(--color-primary);
-}
-
-.typeText {
-  min-width: 0;
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-/* длинные названия вроде «Регулярный (Послезавтра)» переносятся, а не обрезаются */
-.typeText strong {
-  font-family: var(--font-heading);
-  font-size: var(--font-size-title-sm);
-  font-weight: var(--font-weight-heading);
-  line-height: var(--line-height-compact);
-}
-
-.typeText small {
-  overflow: hidden;
   color: var(--color-text-muted);
-  font-size: var(--font-size-compact);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-body-emphasis);
   line-height: var(--line-height-compact);
-  text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard), border-color var(--duration-fast) var(--easing-standard), color var(--duration-fast) var(--easing-standard);
 }
 
-.typeCount {
-  flex: none;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-title-sm);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.typeTab:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
 
-.typeCard[aria-pressed="true"] .typeCount {
+.typeTab[aria-pressed="true"] {
+  border-color: var(--color-primary);
+  background: var(--color-primary-surface);
   color: var(--color-text);
 }
 
@@ -149,25 +116,14 @@
 
 .groupMeta {
   flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
   color: var(--color-text-muted);
   font-size: var(--font-size-compact);
-}
-
-.groupSum {
-  min-width: 96px;
-  color: var(--color-text);
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-body-emphasis);
-  text-align: right;
 }
 
 .row {
   min-height: 64px;
   display: grid;
-  grid-template-columns: minmax(150px, 1.2fr) minmax(110px, 1fr) minmax(96px, 0.8fr) 112px minmax(160px, 1.3fr) 104px 72px;
+  grid-template-columns: minmax(96px, 0.7fr) minmax(150px, 1.2fr) minmax(120px, 1fr) minmax(96px, 0.8fr) minmax(140px, 1.3fr) 36px;
   align-items: center;
   gap: var(--space-5);
   padding: var(--space-3) var(--space-5) var(--space-3) var(--space-12);
@@ -178,12 +134,6 @@
 
 .row:hover {
   background: var(--color-hover);
-}
-
-.row[data-status="cancelled"] .number,
-.row[data-status="cancelled"] .cellSum {
-  color: var(--color-text-muted);
-  text-decoration: line-through;
 }
 
 .row[data-highlight] {
@@ -238,16 +188,7 @@
   color: var(--color-text-muted);
 }
 
-.row > .cellSum {
-  align-items: flex-end;
-  font-weight: var(--font-weight-body-emphasis);
-}
-
-.row > .cellStatus {
-  align-items: flex-start;
-}
-
-/* показываются только доступные действия; отмена всегда в крайней правой колонке */
+/* действие показывается, только когда оно доступно */
 .row > .cellActions {
   flex-direction: row;
   justify-content: flex-end;
@@ -262,7 +203,7 @@
 
 @media (max-width: 1280px) {
   .row {
-    grid-template-columns: minmax(140px, 1.2fr) minmax(100px, 1fr) minmax(88px, 0.8fr) 104px 104px 72px;
+    grid-template-columns: minmax(88px, 0.7fr) minmax(140px, 1.2fr) minmax(110px, 1fr) minmax(88px, 0.8fr) 36px;
     gap: var(--space-4);
     padding-left: var(--space-5);
   }
@@ -273,10 +214,10 @@
 }
 
 @media (max-width: 900px) {
+  /* на телефоне вкладки — одна прокручиваемая строка */
   .types {
-    display: flex;
+    flex-wrap: nowrap;
     overflow-x: auto;
-    scroll-snap-type: x proximity;
     scrollbar-width: none;
   }
 
@@ -284,9 +225,8 @@
     display: none;
   }
 
-  .typeCard {
-    flex: 0 0 204px;
-    scroll-snap-align: start;
+  .typeTab {
+    flex: none;
   }
 
   .storeFilter {
@@ -297,19 +237,20 @@
   .row {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "main status"
-      "delivery sum"
-      "volume actions";
+      "main actions"
+      "creation actions"
+      "delivery actions"
+      "volume author";
     gap: var(--space-2) var(--space-3);
     padding: var(--space-3) var(--space-4);
   }
 
   .row > .cellMain { grid-area: main; }
-  .row > .cellStatus { grid-area: status; align-items: flex-end; }
+  .row > .cellCreation { grid-area: creation; flex-direction: row; align-items: baseline; gap: var(--space-2); }
   .row > .cellDelivery { grid-area: delivery; flex-direction: row; align-items: baseline; gap: var(--space-2); }
-  .row > .cellSum { grid-area: sum; }
-  .row > .cellVolume { grid-area: volume; justify-content: center; }
-  .row > .cellActions { grid-area: actions; justify-content: flex-end; }
+  .row > .cellVolume { grid-area: volume; }
+  .row > .cellAuthor { grid-area: author; display: flex; align-items: flex-end; color: var(--color-text-muted); font-size: var(--font-size-compact); }
+  .row > .cellActions { grid-area: actions; align-items: center; justify-content: flex-end; }
 }
 
 @media (max-width: 640px) {
@@ -330,14 +271,4 @@
     padding-right: var(--space-4);
   }
 
-  .groupMeta {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0;
-  }
-
-  .groupSum {
-    min-width: 0;
-    font-size: var(--font-size-compact);
-  }
 }

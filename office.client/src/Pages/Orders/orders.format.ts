@@ -1,31 +1,28 @@
-import { dayToUtc, diffDays, mskToday } from "./orders.rules";
-import type { DayString, OrderStatus } from "./orders.types";
-import type { StatusTone } from "../../Components/StatusBadge/StatusBadge";
+import { diffDays, mskToday, serverDay, serverMoment } from "./orders.rules";
+import type { ServerDateTime } from "./orders.types";
 
 const MSK = "Europe/Moscow";
 
 const dayFormat = new Intl.DateTimeFormat("ru-RU", { timeZone: "UTC", day: "2-digit", month: "2-digit", year: "numeric" });
 const weekdayFormat = new Intl.DateTimeFormat("ru-RU", { timeZone: "UTC", weekday: "short" });
-const dateTimeFormat = new Intl.DateTimeFormat("ru-RU", { timeZone: MSK, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 const momentFormat = new Intl.DateTimeFormat("ru-RU", { timeZone: MSK, weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-const moneyFormat = new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", maximumFractionDigits: 0 });
-const priceFormat = new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const numberFormat = new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 });
 
-export const formatDay = (day: DayString) => dayFormat.format(dayToUtc(day));
-export const formatWeekday = (day: DayString) => weekdayFormat.format(dayToUtc(day));
-export const formatDateTime = (iso: string | number) => dateTimeFormat.format(new Date(iso)).replace(",", "");
-/** «пт, 9 окт 12:00» */
-export const formatMoment = (moment: string | number) => momentFormat.format(new Date(moment)).replace(/\./g, "").replace(/,(?=\s\d{1,2}:)/, "");
-export const formatMoney = (value: number) => moneyFormat.format(value);
-export const formatPrice = (value: number) => priceFormat.format(value);
+const dayToUtc = (day: string) => Date.parse(`${day}T00:00:00Z`);
+
+/** «13.10.2026» */
+export const formatDay = (value: ServerDateTime) => dayFormat.format(dayToUtc(serverDay(value)));
+/** «вт, 13 окт 12:00» */
+export const formatMoment = (value: ServerDateTime | number) =>
+  momentFormat.format(new Date(typeof value === "number" ? value : serverMoment(value))).replace(/\./g, "").replace(/,(?=\s\d{1,2}:)/, "");
 export const formatQuantity = (value: number) => numberFormat.format(value);
 
-/** «чт, 08.10» и подпись «завтра», если дата рядом. */
-export function formatDelivery(day: DayString, now: Date) {
+/** День без времени: «вт, 13.10» и подпись «завтра», если дата рядом. */
+export function formatDelivery(value: ServerDateTime, now: Date) {
+  const day = serverDay(value);
   const distance = diffDays(day, mskToday(now));
   const relative = distance === 0 ? "сегодня" : distance === 1 ? "завтра" : distance === 2 ? "послезавтра" : distance === -1 ? "вчера" : "";
-  return { date: `${formatWeekday(day)}, ${formatDay(day).slice(0, 5)}`, relative };
+  return { date: `${weekdayFormat.format(dayToUtc(day))}, ${dayFormat.format(dayToUtc(day)).slice(0, 5)}`, relative };
 }
 
 export function plural(count: number, one: string, few: string, many: string) {
@@ -52,27 +49,3 @@ export function formatTimeLeft(until: number, now: Date) {
   if (hours > 0) return `${hours} ч ${minutes % 60} мин`;
   return `${minutes} мин`;
 }
-
-export const statusLabels: Record<OrderStatus, string> = {
-  open: "Принят",
-  locked: "В работе",
-  done: "Доставлен",
-  cancelled: "Отменён",
-};
-
-export const statusTones: Record<OrderStatus, StatusTone> = {
-  open: "success",
-  locked: "info",
-  done: "neutral",
-  cancelled: "danger",
-};
-
-export const statusHints: Record<OrderStatus, string> = {
-  open: "Заказ ещё можно изменить или отменить",
-  locked: "Приём закрыт, заказ передан в работу",
-  done: "Дата доставки прошла",
-  cancelled: "Заказ отменён и не будет доставлен",
-};
-
-/** Понедельник первым: индекс 0 = пн. */
-export const weekdayNames = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];

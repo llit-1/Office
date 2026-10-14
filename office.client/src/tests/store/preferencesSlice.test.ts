@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import preferencesReducer, {
   setNotificationSoundEnabled,
+  setOrdersTypeId,
   setSensorChartExpanded,
   setSensorChartLineWidth,
 } from "../../Store/preferencesSlice";
@@ -31,5 +32,10 @@ describe("preferencesSlice", () => {
 
     const clampedState = preferencesReducer(undefined, setSensorChartLineWidth(99));
     expect(clampedState.sensorChartLineWidth).toBe(3);
+  });
+
+  it("remembers the last selected order type", () => {
+    expect(preferencesReducer(undefined, { type: "unknown" }).ordersTypeId).toBeNull();
+    expect(preferencesReducer(undefined, setOrdersTypeId(4)).ordersTypeId).toBe(4);
   });
 });

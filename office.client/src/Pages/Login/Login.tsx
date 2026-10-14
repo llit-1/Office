@@ -87,7 +87,7 @@ const Login = () => {
         );
 
         try {
-          const userData = await getUserData(authToken.id);
+          const userData = await getUserData();
           dispatch(setUserData(userData));
         } catch (userDataError) {
           console.error("Failed to preload user data after login", userDataError);

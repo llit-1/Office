@@ -220,27 +220,19 @@ namespace Office.Server.DbContexts.RKNETDB
                 .HasForeignKey(x => x.RuleId)
                 .OnDelete(DeleteBehavior.NoAction);
 
-            // ===== OfficeOrder ↔ OfficeOrderItem =====
-            modelBuilder.Entity<OfficeOrder>()
-                .HasMany(o => o.Items)
+            // ===== OfficeOrderLines: позиции заказа с количеством =====
+            modelBuilder.Entity<OfficeOrderLine>()
+                .HasKey(x => new { x.OrderId, x.ItemId });
+            modelBuilder.Entity<OfficeOrderLine>()
+                .HasOne(x => x.Order)
+                .WithMany(x => x.Lines)
+                .HasForeignKey(x => x.OrderId)
+                .OnDelete(DeleteBehavior.NoAction);
+            modelBuilder.Entity<OfficeOrderLine>()
+                .HasOne(x => x.Item)
                 .WithMany()
-                .UsingEntity<Dictionary<string, object>>(
-                    "OfficeOrderLines",
-                    j => j
-                        .HasOne<OfficeOrderItem>()
-                        .WithMany()
-                        .HasForeignKey("Item")
-                        .HasPrincipalKey(i => i.Id),
-                    j => j
-                        .HasOne<OfficeOrder>()
-                        .WithMany()
-                        .HasForeignKey("Order")
-                        .HasPrincipalKey(o => o.Id),
-                    j =>
-                    {
-                        j.ToTable("OfficeOrderLines");
-                        j.HasKey("Order", "Item");
-                    });
+                .HasForeignKey(x => x.ItemId)
+                .OnDelete(DeleteBehavior.NoAction);
 
             base.OnModelCreating(modelBuilder);
         }
@@ -300,6 +292,7 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<CurrencyType> CurrencyTypes { get; set; } // типы валют R-Keeper
         public DbSet<LastUser> LastUsers { get; set; } // последний пользователь отчёта «Выручка»
         public DbSet<OfficeOrder> OfficeOrders { get; set; } // заказы ТТ
+        public DbSet<OfficeOrderLine> OfficeOrderLines { get; set; } // позиции заказов с количеством
         public DbSet<OfficeOrderItem> OfficeOrderItems { get; set; } // номенклатура заказов
         public DbSet<OfficeOrderGroup> OfficeOrderGroups { get; set; } // группы номенклатуры
         public DbSet<OfficeOrderRule> OfficeOrderRules { get; set; } // правила приёма и отгрузки

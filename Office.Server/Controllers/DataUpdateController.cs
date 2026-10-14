@@ -21,19 +21,16 @@ namespace Office.Server.Controllers
 
 
         [HttpGet("getdata")]
-        public async Task<ActionResult> GetData(int userId)
+        public async Task<ActionResult> GetData()
         {
+            // Пользователь определяется только по токену: id из запроса не принимается.
             var currentUserId = GetCurrentUserId();
             if (currentUserId is null)
             {
                 return Unauthorized();
             }
 
-            if (currentUserId.Value != userId && !User.IsInRole("Users"))
-            {
-                return Forbid();
-            }
-
+            var userId = currentUserId.Value;
             Data? data = await _rKNETDBContext.OfficeUser
                 .AsNoTracking()
                 .Where(x => x.Id == userId)

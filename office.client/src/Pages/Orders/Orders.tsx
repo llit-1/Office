@@ -10,23 +10,24 @@ import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import { getOrdersBootstrap } from "./orders.api";
 import OrdersListPage from "./OrdersListPage";
-import { useActor, useLoader } from "./useOrdersBase";
+import { useLoader, usePermissions } from "./useOrdersBase";
 import styles from "./Orders.module.css";
 
 const OrderEditorPage = lazy(() => import("./OrderEditorPage"));
-const OrdersSettingsPage = lazy(() => import("./OrdersSettingsPage"));
+// настройки раздела — это каталог: расписание и дни доставки задаёт бэкенд
+const CatalogSection = lazy(() => import("./components/settings/CatalogSection"));
 
 type View =
   | { kind: "list" | "settings" }
-  | { kind: "editor"; mode: "new" | "edit"; param: string };
+  | { kind: "editor"; ruleId: number };
 
 function resolveView(pathname: string): View | null {
   const [section = "", param = ""] = pathname.replace(/^\/orders\/?/i, "").split("/");
   const key = section.toLowerCase();
   if (!key) return { kind: "list" };
   if (key === "settings") return { kind: key };
-  // new/:id вкладки, edit/:id заказа
-  if ((key === "new" || key === "edit") && Number(param) > 0) return { kind: "editor", mode: key, param };
+  // order/:id типа заказа; торговая точка и дата формирования — в параметрах адреса
+  if (key === "order" && Number(param) > 0) return { kind: "editor", ruleId: Number(param) };
   return null;
 }
 
@@ -39,7 +40,7 @@ export default function Orders() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const actor = useActor();
+  const permissions = usePermissions();
   const base = useLoader(getOrdersBootstrap);
   const view = resolveView(pathname);
   const editing = view?.kind === "editor";
@@ -52,7 +53,7 @@ export default function Orders() {
   }, [dispatch, editing]);
 
   if (!view) return <Navigate to="/Orders" replace />;
-  if (view.kind === "settings" && !actor.permissions.canConfigure) return <Navigate to="/Orders" replace />;
+  if (view.kind === "settings" && !permissions.canConfigure) return <Navigate to="/Orders" replace />;
 
   if (!base.data) {
     return base.error ? (
@@ -73,7 +74,7 @@ export default function Orders() {
   if (view.kind === "editor") {
     return (
       <Suspense fallback={fallback}>
-        <OrderEditorPage key={`${view.mode}:${view.param}`} base={base.data} actor={actor} mode={view.mode} param={view.param} />
+        <OrderEditorPage key={view.ruleId} base={base.data} permissions={permissions} ruleId={view.ruleId} />
       </Suspense>
     );
   }
@@ -81,7 +82,7 @@ export default function Orders() {
   return (
     <div className={styles.page}>
       {/* вкладки нужны только тому, у кого есть вторая — «Настройки» */}
-      {actor.permissions.canConfigure ? (
+      {permissions.canConfigure ? (
         <div className={styles.tabs}>
           <TabNavigation
             items={tabs.map((tab) => tab.label)}
@@ -91,10 +92,10 @@ export default function Orders() {
         </div>
       ) : null}
       {view.kind === "list" ? (
-        <OrdersListPage base={base.data} actor={actor} />
+        <OrdersListPage base={base.data} permissions={permissions} />
       ) : (
         <Suspense fallback={fallback}>
-          <OrdersSettingsPage base={base.data} actor={actor} onBaseChange={base.reload} />
+          <CatalogSection base={base.data} />
         </Suspense>
       )}
     </div>

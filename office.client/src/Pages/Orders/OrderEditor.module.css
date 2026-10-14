@@ -20,71 +20,6 @@
   gap: var(--space-4);
 }
 
-.body[data-wide] {
-  grid-template-columns: 220px minmax(0, 1.15fr) minmax(460px, 1fr);
-}
-
-/* ===== Группы ===== */
-
-.rail {
-  min-height: 0;
-  gap: var(--space-1);
-  padding: var(--space-2);
-  overflow-y: auto;
-}
-
-.railItem {
-  width: 100%;
-  min-height: var(--control-height-md);
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text);
-  text-align: left;
-  cursor: pointer;
-  transition: background-color var(--duration-fast) var(--easing-standard);
-}
-
-.railItem:hover {
-  background: var(--color-hover);
-}
-
-.railItem[aria-current] {
-  background: var(--color-selected);
-  box-shadow: inset 3px 0 0 var(--color-primary);
-  font-weight: var(--font-weight-body-emphasis);
-}
-
-.railName {
-  min-width: 0;
-  line-height: var(--line-height-compact);
-  overflow-wrap: anywhere;
-}
-
-.railCount {
-  flex: none;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-caption);
-  font-variant-numeric: tabular-nums;
-}
-
-.railCount[data-selected] {
-  min-width: 20px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-pill);
-  background: var(--color-primary-solid);
-  color: var(--color-on-primary-solid);
-  font-weight: 600;
-  line-height: 20px;
-  text-align: center;
-}
-
 /* ===== Каталог ===== */
 
 .catalog,
@@ -144,7 +79,7 @@
 .item {
   min-height: 60px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-4);
@@ -173,11 +108,6 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-caption);
-}
-
-.itemPrice {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-compact);
 }
 
 .addButton {
@@ -231,10 +161,16 @@
   margin-top: var(--space-4);
 }
 
+/* ТТ, дата и доставка — рядом, пока всем хватает места на подпись; в узком заказе встают друг под другом */
 .fields {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--space-5) var(--space-4);
+}
+
+/* доставка — справочная строка на всю ширину под ТТ и датой */
+.fieldWide {
+  grid-column: 1 / -1;
 }
 
 .hint {
@@ -326,16 +262,6 @@
   border-bottom: 0;
 }
 
-.line[data-priced] {
-  grid-template-columns: minmax(0, 1fr) minmax(72px, auto) auto auto;
-}
-
-.lineSum {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-compact);
-  text-align: right;
-}
-
 .summary {
   flex: none;
   display: flex;
@@ -352,14 +278,6 @@
   justify-content: space-between;
   gap: var(--space-4);
   color: var(--color-text-muted);
-}
-
-.totals strong {
-  color: var(--color-text);
-  font-family: var(--font-heading);
-  font-size: var(--font-size-title-md);
-  font-weight: var(--font-weight-heading);
-  line-height: var(--line-height-title-md);
 }
 
 .submitRow {
@@ -422,10 +340,6 @@
     gap: var(--space-2);
   }
 
-  .itemPrice {
-    display: none;
-  }
-
   .orderHead {
     padding: var(--space-5) var(--space-3) var(--space-3);
   }
@@ -435,17 +349,15 @@
   }
 
   /* название позиции на всю ширину, количество — строкой ниже */
-  .line,
-  .line[data-priced] {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  .line {
+    grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
-      "text text text"
-      "stepper sum remove";
+      "text text"
+      "stepper remove";
   }
 
   .line > .lineText { grid-area: text; }
-  .line > div:not(.lineText) { grid-area: stepper; }
-  .line > .lineSum { grid-area: sum; }
+  .line > div:not(.lineText) { grid-area: stepper; justify-self: start; }
   .line > button { grid-area: remove; }
 
   .summary {
@@ -499,11 +411,5 @@
   .mobileBarText span {
     color: var(--color-text-muted);
     font-size: var(--font-size-compact);
-  }
-}
-
-@media (max-width: 480px) {
-  .fields {
-    grid-template-columns: 1fr;
   }
 }

@@ -70,9 +70,7 @@ const Notifications = () => {
 
     const loadNotifications = async () => {
       const listResult = await callApi(
-        get<UserDataApiNotification[]>("/Notification/getactivenotifications", {
-          params: { userId },
-        }),
+        get<UserDataApiNotification[]>("/Notification/getactivenotifications"),
         { notifications: pageNotifications },
       );
 
@@ -127,9 +125,7 @@ const Notifications = () => {
       setArchivedLoading(true);
 
       const listResult = await callApi(
-        get<UserDataApiNotification[]>("/Notification/getinactivenotifications", {
-          params: { userId },
-        }),
+        get<UserDataApiNotification[]>("/Notification/getinactivenotifications"),
         { notifications: pageNotifications },
       );
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Cronos;
 using Microsoft.AspNetCore.Authorization;
@@ -19,6 +20,7 @@ public class OrderController : ControllerBase
     private const string AdminRole = "OrdersTTAdmin";
     private const int PreviousOrdersPerLocation = 10;
     private const int UpcomingCreationDateTimes = 20;
+    private const double QuantityTolerance = 1e-6;
 
     private readonly RKNETDBContext _context;
     private readonly GlobalService _globalService;
@@ -46,7 +48,59 @@ public class OrderController : ControllerBase
     {
         public string Location { get; set; } = "";
         public Guid LocationGUID { get; set; }
-        public List<OfficeOrder>? OfficeOrders { get; set; }
+        public List<OrderDto>? OfficeOrders { get; set; }
+    }
+
+    /// <summary>Заказ в списке: поля OfficeOrder плюс то, чего в таблице нет, — кто оформил и когда отгрузка.</summary>
+    public class OrderDto
+    {
+        public int Id { get; set; }
+        public DateTime CreationDateTime { get; set; }
+
+        /// <summary>Предполагаемая отгрузка; null — расписание отгрузки правила задано с ошибкой.</summary>
+        public DateTime? ShipmentDateTime { get; set; }
+
+        public Guid LocationGuid { get; set; }
+        public int RuleId { get; set; }
+        public int OfficeUserId { get; set; }
+
+        /// <summary>Кто оформил: ФИО, а если оно не заполнено — логин.</summary>
+        public string UserName { get; set; } = "";
+
+        public List<OrderLineDto> Items { get; set; } = [];
+    }
+
+    /// <summary>Позиция заказа: поля позиции каталога и сколько её заказано.</summary>
+    public class OrderLineDto
+    {
+        /// <summary>Id позиции каталога.</summary>
+        public int Id { get; set; }
+        public int? Rkcode { get; set; }
+        public string? Name { get; set; }
+        public double Step { get; set; }
+        public int GroupId { get; set; }
+        public int RuleId { get; set; }
+        public int AvaliableForNative { get; set; }
+        public int AvaliableForFranchise { get; set; }
+        public int Actual { get; set; }
+
+        public double Quantity { get; set; }
+    }
+
+    /// <summary>Тело запроса на сохранение заказа. Пользователь берётся из токена.</summary>
+    public class SaveOrderRequest
+    {
+        public DateTime CreationDateTime { get; set; }
+        public Guid LocationGuid { get; set; }
+        public int RuleId { get; set; }
+        public List<SaveOrderLine> Items { get; set; } = [];
+    }
+
+    public class SaveOrderLine
+    {
+        /// <summary>Id позиции каталога.</summary>
+        public int Id { get; set; }
+        public double Quantity { get; set; }
     }
 
     public class OrderContentsDto
@@ -55,7 +109,7 @@ public class OrderController : ControllerBase
         public List<OrderItemGroupDto> ItemGroups { get; set; } = new();
         public DateTime OrderCreationDateTime { get; set; }
         public DateTime OrderShipmentDateTime { get; set; }
-        public List<OfficeOrderItem> OrderItems { get; set; } = new();
+        public List<OrderLineDto> OrderItems { get; set; } = new();
 
     }
 
@@ -131,7 +185,8 @@ public class OrderController : ControllerBase
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
         return Unauthorized();
         var locations = await _globalService.GetUserLocationsAsync(userId);
-        var rules = await _context.OfficeOrderRules.AsNoTracking().OrderBy(x => x.Name).ToListAsync();
+        // типы заказов — в порядке заведения (по Id): «завтра», «послезавтра», «за 3 дня», дальше остальные
+        var rules = await _context.OfficeOrderRules.AsNoTracking().OrderBy(x => x.Id).ToListAsync();
         return Ok(new LocationRulesDto
         {
             Locations = locations,
@@ -168,15 +223,18 @@ public class OrderController : ControllerBase
                 .Select(x => x.Id));
 
         var orders = await _context.OfficeOrders.AsNoTracking()
-            .Include(x => x.Items)
+            .Include(x => x.Lines).ThenInclude(x => x.Item)
             .Where(x => x.RuleId == ruleId
                 && locationGuids.Contains(x.LocationGuid)
                 && (x.CreationDateTime >= now || previousIds.Contains(x.Id)))
             .OrderByDescending(x => x.CreationDateTime)
             .ToListAsync();
 
+        var rule = await _context.OfficeOrderRules.AsNoTracking().FirstOrDefaultAsync(x => x.Id == ruleId);
+        var orderDtos = await ToOrderDtosAsync(rule, orders);
+
         // локации без заказов в ответ не попадают
-        var ordersByLocation = orders.ToLookup(x => x.LocationGuid);
+        var ordersByLocation = orderDtos.ToLookup(x => x.LocationGuid);
         return Ok(locations
             .Where(location => ordersByLocation.Contains(location.Guid))
             .Select(location => new OrdersDTO
@@ -190,13 +248,13 @@ public class OrderController : ControllerBase
 
     // GET: api/Order/orders/{id}/items
     [HttpGet("orders/{id:int}/items")]
-    public async Task<ActionResult<List<OfficeOrderItem>>> GetOrderItems(int id)
+    public async Task<ActionResult<List<OrderLineDto>>> GetOrderItems(int id)
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Unauthorized();
 
         var order = await _context.OfficeOrders.AsNoTracking()
-            .Include(x => x.Items)
+            .Include(x => x.Lines).ThenInclude(x => x.Item)
             .FirstOrDefaultAsync(x => x.Id == id);
         if (order == null)
             return NotFound(new { message = "Заказ не найден." });
@@ -205,7 +263,7 @@ public class OrderController : ControllerBase
         if (!locations.Any(x => x.Guid == order.LocationGuid))
             return Forbid();
 
-        return Ok(order.Items.OrderBy(x => x.Name).ToList());
+        return Ok(ToLineDtos(order.Lines));
     }
 
     // GET: api/Order/rules/{ruleId}/locations/{locationGuid}/contents?creationDateTime=...
@@ -246,13 +304,10 @@ public class OrderController : ControllerBase
             if (GlobalService.GetPreviousCronOccurrence(rule.Interval, now) is DateTime previous)
                 creationDateTimes.Insert(0, previous);
 
-            // Отгрузка в БД не хранится: это первое срабатывание крона отгрузки не раньше закрытия заказа
-            // (совпадение с моментом закрытия считается) плюс сдвиг локации, если он задан.
-            var shipments = GlobalService.GetNextCronOccurrences(rule.ShipmentInterval, orderCreationDateTime, 1);
-            if (shipments.Count == 0)
+            if (GetShipmentDateTime(rule, orderCreationDateTime) is not DateTime shipment)
                 return Conflict(new { message = "По расписанию отгрузки правила нет ни одной даты." });
 
-            orderShipmentDateTime = shipments[0].AddDays(shipmentDayOffset);
+            orderShipmentDateTime = shipment.AddDays(shipmentDayOffset);
         }
         catch (CronFormatException)
         {
@@ -260,7 +315,7 @@ public class OrderController : ControllerBase
         }
 
         var order = await _context.OfficeOrders.AsNoTracking()
-            .Include(x => x.Items)
+            .Include(x => x.Lines).ThenInclude(x => x.Item)
             .FirstOrDefaultAsync(x => x.RuleId == ruleId
                 && x.LocationGuid == locationGuid
                 && x.CreationDateTime == orderCreationDateTime);
@@ -285,14 +340,14 @@ public class OrderController : ControllerBase
             ItemGroups = await BuildItemGroupsAsync(items),
             OrderCreationDateTime = orderCreationDateTime,
             OrderShipmentDateTime = orderShipmentDateTime,
-            OrderItems = order?.Items.OrderBy(x => x.Name).ToList() ?? []
+            OrderItems = order == null ? [] : ToLineDtos(order.Lines)
         });
     }
 
     // POST: api/Order/orders
     // Создаёт заказ или, если заказ с теми же CreationDateTime, Location и Rule уже есть, заменяет его позиции.
     [HttpPost("orders")]
-    public async Task<ActionResult<OfficeOrder>> SaveOrder([FromBody] OfficeOrder order)
+    public async Task<ActionResult<OrderDto>> SaveOrder([FromBody] SaveOrderRequest order)
     {
         if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
             return Unauthorized();
@@ -316,18 +371,35 @@ public class OrderController : ControllerBase
             return Conflict(new { message = "Расписание правила задано с ошибкой." });
         }
 
-        // После CreationDateTime заказ уходит на сборку: менять его может только администратор.
-        if (creationDateTime < DateTime.Now && !User.IsInRole(AdminRole))
+        // После CreationDateTime заказ уходит на сборку: менять его не может никто, включая администратора.
+        if (creationDateTime <= DateTime.Now)
             return Conflict(new { message = "Приём изменений по этому заказу уже закрыт." });
 
-        // из позиций в теле запроса берём только Id: сами позиции читаем из базы
+        // из позиций в теле запроса берём только Id и количество: сами позиции читаем из базы
         var itemIds = order.Items.Select(x => x.Id).Distinct().ToList();
-        var items = await _context.OfficeOrderItems.Where(x => itemIds.Contains(x.Id)).ToListAsync();
+        if (itemIds.Count != order.Items.Count)
+            return BadRequest(new { message = "Позиция указана в заказе больше одного раза." });
+
+        var items = await _context.OfficeOrderItems.AsNoTracking().Where(x => itemIds.Contains(x.Id)).ToDictionaryAsync(x => x.Id);
         if (items.Count != itemIds.Count)
             return BadRequest(new { message = "В заказе есть позиции, которых нет в справочнике." });
 
+        // количество кратно шагу позиции; наименьшее — сам шаг. Шаг бывает дробным (12,5),
+        // поэтому кратность проверяется с допуском на погрешность чисел с плавающей точкой.
+        foreach (var line in order.Items)
+        {
+            var item = items[line.Id];
+            var step = item.Step > 0 ? item.Step : 1;
+            var steps = line.Quantity / step;
+            if (!double.IsFinite(line.Quantity) || steps < 1 - QuantityTolerance || Math.Abs(steps - Math.Round(steps)) > QuantityTolerance)
+                return BadRequest(new
+                {
+                    message = $"Количество позиции «{item.Name}» должно быть кратно {step.ToString(CultureInfo.GetCultureInfo("ru-RU"))}."
+                });
+        }
+
         var existing = await _context.OfficeOrders
-            .Include(x => x.Items)
+            .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.RuleId == order.RuleId
                 && x.LocationGuid == order.LocationGuid
                 && x.CreationDateTime == creationDateTime);
@@ -343,9 +415,19 @@ public class OrderController : ControllerBase
         }
 
         existing.OfficeUserId = userId;
-        existing.Items.Clear();
-        foreach (var item in items)
-            existing.Items.Add(item);
+
+        // строки, которых нет в запросе, удаляем; у оставшихся меняем количество; новые добавляем
+        var quantities = order.Items.ToDictionary(x => x.Id, x => x.Quantity);
+        foreach (var line in existing.Lines.ToList())
+        {
+            if (quantities.Remove(line.ItemId, out var quantity))
+                line.Quantity = quantity;
+            else
+                _context.OfficeOrderLines.Remove(line);
+        }
+
+        foreach (var (itemId, quantity) in quantities)
+            existing.Lines.Add(new OfficeOrderLine { ItemId = itemId, Quantity = quantity });
 
         try
         {
@@ -357,7 +439,97 @@ public class OrderController : ControllerBase
             return Conflict(new { message = "Этот заказ только что сохранён другим запросом. Повторите сохранение." });
         }
 
-        return Ok(existing);
+        var saved = await _context.OfficeOrders.AsNoTracking()
+            .Include(x => x.Lines).ThenInclude(x => x.Item)
+            .FirstAsync(x => x.Id == existing.Id);
+        return Ok((await ToOrderDtosAsync(rule, [saved]))[0]);
+    }
+
+    /// <summary>Заказы с тем, чего нет в таблице: кто оформил и когда отгрузка. Порядок заказов сохраняется.</summary>
+    private async Task<List<OrderDto>> ToOrderDtosAsync(OfficeOrderRule? rule, List<OfficeOrder> orders)
+    {
+        var userIds = orders.Select(x => x.OfficeUserId).Distinct().ToList();
+        var userNames = (await _context.OfficeUser.AsNoTracking()
+                .Where(x => userIds.Contains(x.Id))
+                .Select(x => new { x.Id, x.Surname, x.Name, x.Patronymic, x.Login })
+                .ToListAsync())
+            .ToDictionary(x => x.Id, x => DisplayName(x.Surname, x.Name, x.Patronymic, x.Login));
+
+        var locationGuids = orders.Select(x => x.LocationGuid).Distinct().ToList();
+        var shipmentDayOffsets = rule == null
+            ? []
+            : await _context.OfficeOrderLocationRules.AsNoTracking()
+                .Where(x => x.RuleId == rule.Id && locationGuids.Contains(x.LocationGuid))
+                .ToDictionaryAsync(x => x.LocationGuid, x => x.ShipmentDayOffset);
+
+        // у заказов разных локаций на одно закрытие отгрузка по крону общая, отличается только сдвиг
+        var shipments = new Dictionary<DateTime, DateTime?>();
+        DateTime? ShipmentOf(OfficeOrder order)
+        {
+            if (!shipments.TryGetValue(order.CreationDateTime, out var shipment))
+            {
+                try
+                {
+                    shipment = rule == null ? null : GetShipmentDateTime(rule, order.CreationDateTime);
+                }
+                catch (CronFormatException)
+                {
+                    shipment = null;
+                }
+
+                shipments[order.CreationDateTime] = shipment;
+            }
+
+            return shipment?.AddDays(shipmentDayOffsets.GetValueOrDefault(order.LocationGuid));
+        }
+
+        return orders
+            .Select(order => new OrderDto
+            {
+                Id = order.Id,
+                CreationDateTime = order.CreationDateTime,
+                ShipmentDateTime = ShipmentOf(order),
+                LocationGuid = order.LocationGuid,
+                RuleId = order.RuleId,
+                OfficeUserId = order.OfficeUserId,
+                UserName = userNames.GetValueOrDefault(order.OfficeUserId, ""),
+                Items = ToLineDtos(order.Lines)
+            })
+            .ToList();
+    }
+
+    private static List<OrderLineDto> ToLineDtos(IEnumerable<OfficeOrderLine> lines) => lines
+        .Where(line => line.Item != null)
+        .Select(line => new OrderLineDto
+        {
+            Id = line.Item!.Id,
+            Rkcode = line.Item.Rkcode,
+            Name = line.Item.Name,
+            Step = line.Item.Step,
+            GroupId = line.Item.GroupId,
+            RuleId = line.Item.RuleId,
+            AvaliableForNative = line.Item.AvaliableForNative,
+            AvaliableForFranchise = line.Item.AvaliableForFranchise,
+            Actual = line.Item.Actual,
+            Quantity = line.Quantity
+        })
+        .OrderBy(x => x.Name)
+        .ToList();
+
+    // Отгрузка в БД не хранится: это первое срабатывание крона отгрузки не раньше закрытия заказа
+    // (совпадение с моментом закрытия считается) плюс сдвиг правила DefaultShipmentDayOffset.
+    // Сдвиг локации, если он задан, прибавляет вызывающий код.
+    private static DateTime? GetShipmentDateTime(OfficeOrderRule rule, DateTime creationDateTime) =>
+        GlobalService.GetNextCronOccurrences(rule.ShipmentInterval, creationDateTime, 1) is [var shipment]
+            ? shipment.AddDays(rule.DefaultShipmentDayOffset)
+            : null;
+
+    private static string DisplayName(string? surname, string? name, string? patronymic, string login)
+    {
+        var fullName = string.Join(' ', new[] { surname, name, patronymic }
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x!.Trim()));
+        return string.IsNullOrWhiteSpace(fullName) ? login : fullName;
     }
 
     // Даты заказов — местное время сервера без смещения, как они лежат в БД.

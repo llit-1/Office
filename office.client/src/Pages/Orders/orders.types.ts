@@ -1,122 +1,100 @@
-/** Дата без времени в формате YYYY-MM-DD. Все даты доставки — московские календарные дни. */
-export type DayString = string;
+/** Дата и время в том виде, как их отдаёт сервер: «2026-10-13T12:00:00» — московское время без смещения. */
+export type ServerDateTime = string;
 
-export type ManagementType = "own" | "partner";
-
-/**
- * Вкладка заказов (OfficeOrderTypes). Вся логика дат — в трёх полях:
- * когда закрывается приём, какой день служит якорем доставки и на сколько дней от него сдвигаемся.
- */
-export interface OrderTypeConfig {
+/** Тип заказа (OfficeOrderRules). Расписание приёма и отгрузки ведёт бэкенд. */
+export interface OrderRule {
   id: number;
   name: string;
-  isActive: boolean;
-  /** Крон закрытия приёма: «0 12 * * *» — каждый день в 12:00. Время московское. */
-  closeCron: string;
-  /** Крон дня-якоря: день доставки или понедельник недели доставки. */
-  deliveryCron: string;
-  /** Сдвиг от якоря по умолчанию: 1 / 2 / 3 у регулярных, 0 у остальных. */
-  offsetDays: number;
 }
 
-/** Свой сдвиг от якоря у торговой точки (OfficeOrderDeliveryDays). Для недели 0 = пн … 6 = вс. */
-export interface DeliveryDay {
-  typeId: number;
-  storeId: number;
-  offsetDays: number;
-}
-
-export interface CatalogGroup {
-  id: number;
-  typeId: number;
+/** Торговая точка, привязанная к пользователю (Locations). */
+export interface Store {
+  guid: string;
   name: string;
 }
 
+/** С чего начинается раздел: типы заказов и торговые точки текущего пользователя. */
+export interface OrdersBootstrap {
+  rules: OrderRule[];
+  stores: Store[];
+}
+
+/** Позиция каталога (OfficeOrderItem). */
 export interface CatalogItem {
   id: number;
+  ruleId: number;
   groupId: number;
-  article: string;
+  /** Код R-Keeper; уникален среди всех позиций. */
+  rkcode: number | null;
   name: string;
-  /** Кратность (она же минимальный заказ). */
+  /** Кратность, может быть дробной (12,5 кг): количество меняется этим шагом; он же наименьшее количество в заказе. */
   step: number;
-  /** Максимум на один заказ; null — общий лимит. */
-  maxQuantity: number | null;
-  isActive: boolean;
   forOwn: boolean;
   forPartner: boolean;
-  /** Последняя цена отгрузки из 1С; null — отгрузок за период не было. */
-  price: number | null;
+  /** false — позиция выключена и в заказ не попадает. */
+  isActive: boolean;
 }
 
-export interface Store {
-  id: number;
-  code: number;
-  name: string;
-  management: ManagementType;
-  closed: boolean;
-}
-
-export interface UserRef {
+/** Группа каталога вместе со своими позициями — так каталог приходит с сервера. */
+export interface CatalogGroup {
   id: number;
   name: string;
-}
-
-export interface OrderLine {
-  productId: number;
-  article: string;
-  name: string;
-  groupName: string;
-  quantity: number;
-  step: number;
-  price: number | null;
-}
-
-/** Заказ — заявка ТТ на конкретную доставку вкладки. На одну доставку у ТТ один заказ. */
-export interface Order {
-  id: number;
-  typeId: number;
-  storeId: number;
-  storeName: string;
-  /** Посчитана один раз при создании. */
-  deliveryDate: DayString;
-  /** До этого момента заказ можно менять и отменять. */
-  closeAt: string;
-  lines: OrderLine[];
-  createdAt: string;
-  createdBy: UserRef;
-  cancelledAt: string | null;
-  cancelledBy: UserRef | null;
-}
-
-export type OrderStatus = "open" | "locked" | "done" | "cancelled";
-
-export interface OrdersPermissions {
-  /** Оформление, изменение и отмена открытых заказов. */
-  canEdit: boolean;
-  /** Отмена заказов, которые уже переданы в работу. */
-  canManageLocked: boolean;
-  canConfigure: boolean;
-}
-
-export interface OrdersBootstrap {
-  types: OrderTypeConfig[];
-  stores: Store[];
-  deliveryDays: DeliveryDay[];
-}
-
-export interface Catalog {
-  groups: CatalogGroup[];
   items: CatalogItem[];
 }
 
-export interface OrderDraft {
-  /** Id существующего заказа при изменении. */
-  id: number | null;
-  typeId: number;
-  storeId: number;
+export interface OrderLine {
+  itemId: number;
+  rkcode: number | null;
+  name: string;
+  step: number;
+  /** null — сервер не прислал количество. */
+  quantity: number | null;
+}
+
+/** Заказ — заявка ТТ на одну дату формирования по типу заказа. На дату у ТТ один заказ. */
+export interface Order {
+  id: number;
+  ruleId: number;
+  storeGuid: string;
+  storeName: string;
+  /** Дата формирования: до этого момента заказ можно менять, после он уходит на сборку. */
+  creationDateTime: ServerDateTime;
+  /** Предполагаемая доставка; null — сервер не смог её посчитать. */
+  shipmentDateTime: ServerDateTime | null;
+  /** Кто оформил или последним менял заказ. */
+  userName: string;
   lines: OrderLine[];
 }
 
-export type SaveOrderResult =
-  | { ok: true; order: Order }
-  | { ok: false; message: string };
+/** Заказы одной торговой точки — так список приходит с сервера. */
+export interface StoreOrders {
+  store: Store;
+  orders: Order[];
+}
+
+export interface OrdersPermissions {
+  /** Оформление и изменение заказов, у которых ещё не наступила дата формирования. */
+  canEdit: boolean;
+  canConfigure: boolean;
+}
+
+/** Всё, что нужно редактору заказа для выбранных типа, торговой точки и даты формирования. */
+export interface OrderContents {
+  /** Даты формирования на выбор: последняя прошедшая и ближайшие будущие, по возрастанию. */
+  creationDateTimes: ServerDateTime[];
+  /** Дата, для которой пришёл ответ; без запроса конкретной даты — ближайшая. */
+  creationDateTime: ServerDateTime;
+  /** Предполагаемая доставка для этой даты и торговой точки. */
+  shipmentDateTime: ServerDateTime;
+  /** Каталог: только позиции, доступные этой торговой точке. */
+  groups: CatalogGroup[];
+  /** Позиции уже оформленного на эту дату заказа; пусто — заказа нет. */
+  lines: OrderLine[];
+}
+
+export interface OrderDraft {
+  ruleId: number;
+  storeGuid: string;
+  creationDateTime: ServerDateTime;
+  lines: { itemId: number; quantity: number }[];
+}

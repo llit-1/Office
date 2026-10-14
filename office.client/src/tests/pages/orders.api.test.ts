@@ -1,174 +1,163 @@
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "../../Services/api";
 import {
-  cancelOrder,
-  deleteGroup,
   getCatalog,
+  getOrderContents,
+  getOrderLines,
   getOrders,
   getOrdersBootstrap,
-  patchItems,
+  getOrdersErrorMessage,
+  saveItem,
   saveOrder,
-  saveOrderType,
-  setDeliveryDay,
-  type Actor,
 } from "../../Pages/Orders/orders.api";
-import { resetDb } from "../../Pages/Orders/orders.mock";
-import { findStoreOffset, getPermissions, isItemAvailable, mskMoment, resolveSlot, toOrderLine } from "../../Pages/Orders/orders.rules";
-import type { OrderDraft } from "../../Pages/Orders/orders.types";
+import { createFakeServer, DAILY, STORE_A, STORE_B, WEEKLY, type FakeServer } from "./orders.fakeServer";
+
+const { api } = vi.hoisted(() => ({ api: { server: null as unknown as FakeServer } }));
+vi.mock("../../Services/api", async () => ({
+  ...(await vi.importActual<typeof import("../../Services/api")>("../../Services/api")),
+  get: (url: string, config?: { params?: Record<string, unknown> }) => api.server.get(url, config),
+  post: (url: string, body?: unknown) => api.server.post(url, body),
+  put: (url: string, body?: unknown) => api.server.put(url, body),
+}));
 
 // четверг, 8 октября 2026, 14:00 по Москве
-const NOW = new Date(mskMoment("2026-10-08", "14:00"));
-const user: Actor = { user: { id: 1, name: "Тест Тестов" }, permissions: getPermissions(["OrdersTT"]) };
-const admin: Actor = { user: { id: 2, name: "Админ" }, permissions: getPermissions(["OrdersTTAdmin"]) };
-
-const IN_THREE_DAYS = 3;
-const WEEKLY = 4;
-// у этой ТТ в демо-данных нет регулярных заказов
-const QUIET_STORE = 13;
+const NOW = Date.parse("2026-10-08T14:00:00+03:00");
+let server: FakeServer;
 
 beforeEach(() => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(NOW);
-  resetDb(NOW);
+  server = createFakeServer(() => NOW);
+  api.server = server;
 });
 
-afterAll(() => {
-  vi.useRealTimers();
+const lastCall = () => server.calls[server.calls.length - 1];
+
+describe("вход в раздел", () => {
+  it("получает типы заказов и торговые точки пользователя одним запросом", async () => {
+    expect(await getOrdersBootstrap()).toEqual({
+      rules: [{ id: DAILY, name: "Регулярный (Завтра)" }, { id: WEEKLY, name: "Еженедельный" }],
+      stores: [
+        { guid: STORE_A, name: "Парашютная 63" },
+        { guid: STORE_B, name: "Невский 87" },
+        { guid: expect.any(String), name: "Тореза 9" },
+      ],
+    });
+    expect(server.calls).toEqual([{ method: "GET", url: "/Order/rules", params: undefined }]);
+  });
 });
 
-async function draftFor(typeId: number, storeId: number, count = 2): Promise<OrderDraft> {
-  const base = await getOrdersBootstrap();
-  const store = base.stores.find((candidate) => candidate.id === storeId)!;
-  const catalog = await getCatalog(typeId);
-  const lines = catalog.items
-    .filter((item) => isItemAvailable(item, store))
-    .slice(0, count)
-    .map((item) => toOrderLine(item, catalog.groups.find((group) => group.id === item.groupId), item.step));
-  return { id: null, typeId, storeId, lines };
-}
+describe("список заказов", () => {
+  it("по всем точкам торговая точка не передаётся, по одной — передаётся её guid", async () => {
+    await getOrders(DAILY, null);
+    expect(lastCall()).toMatchObject({ url: `/Order/rules/${DAILY}/orders`, params: undefined });
+    await getOrders(DAILY, STORE_B);
+    expect(lastCall()).toMatchObject({ url: `/Order/rules/${DAILY}/orders`, params: { locationGuid: STORE_B } });
+  });
 
-/** ТТ, у которой на ближайшую доставку вкладки ещё нет заказа. */
-async function freeStore(typeId: number) {
-  const [base, orders] = await Promise.all([getOrdersBootstrap(), getOrders()]);
-  const type = base.types.find((candidate) => candidate.id === typeId)!;
-  return base.stores.find((store) => {
-    const slot = resolveSlot(type, findStoreOffset(base.deliveryDays, typeId, store.id), NOW)!;
-    return !store.closed && !orders.some((order) => order.typeId === typeId && order.storeId === store.id && order.deliveryDate === slot.deliveryDate && !order.cancelledAt);
-  })!;
-}
+  it("заказы приходят по торговым точкам: кто оформил, когда формирование и доставка", async () => {
+    const [nearest] = server.occurrences(DAILY, 1);
+    const saved = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: nearest, lines: [{ id: 2, quantity: 36 }, { id: 1, quantity: 6 }] });
 
-describe("демо-данные", () => {
-  it("шесть вкладок, регулярный ассортимент разнесён по сроку доставки", async () => {
-    const base = await getOrdersBootstrap();
-    expect(base.types.map((type) => type.name)).toEqual([
-      "Регулярный (Завтра)", "Регулярный (Послезавтра)", "Регулярный (Через 3 дня)", "Еженедельный", "Ежемесячный", "Ценники",
+    expect(await getOrders(DAILY, null)).toEqual([{
+      store: { guid: STORE_A, name: "Парашютная 63" },
+      orders: [{
+        id: saved.id,
+        ruleId: DAILY,
+        storeGuid: STORE_A,
+        storeName: "Парашютная 63",
+        creationDateTime: "2026-10-09T12:00:00",
+        shipmentDateTime: "2026-10-10T00:00:00",
+        userName: "Анна Морозова",
+        lines: [
+          { itemId: 1, rkcode: 100, name: "Багет зерновой", step: 6, quantity: 6 },
+          { itemId: 2, rkcode: 101, name: "Булочка заварная", step: 12, quantity: 36 },
+        ],
+      }],
+    }]);
+  });
+
+  it("состав заказа запрашивается отдельно; без количества от сервера оно неизвестно", async () => {
+    const [nearest] = server.occurrences(DAILY, 1);
+    const saved = server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: nearest, lines: [{ id: 4, quantity: 20 }] });
+    expect(await getOrderLines(saved.id)).toEqual([{ itemId: 4, rkcode: 200, name: "Морс клюквенный", step: 10, quantity: 20 }]);
+    expect(lastCall().url).toBe(`/Order/orders/${saved.id}/items`);
+
+    // сервер, который ещё не отдаёт количество
+    api.server = { ...server, get: async () => [{ ...server.items[3] }] } as unknown as FakeServer;
+    expect((await getOrderLines(saved.id))[0].quantity).toBeNull();
+  });
+});
+
+describe("редактор заказа", () => {
+  it("без даты сервер отдаёт ближайшую: даты на выбор, доставку и каталог точки", async () => {
+    const contents = await getOrderContents(DAILY, STORE_A);
+    expect(lastCall()).toMatchObject({ url: `/Order/rules/${DAILY}/locations/${STORE_A}/contents`, params: undefined });
+    // одна уже прошедшая дата и двадцать будущих
+    expect(contents.creationDateTimes).toHaveLength(21);
+    expect(contents.creationDateTimes.slice(0, 3)).toEqual(["2026-10-08T12:00:00", "2026-10-09T12:00:00", "2026-10-10T12:00:00"]);
+    expect(contents.creationDateTime).toBe("2026-10-09T12:00:00");
+    expect(contents.shipmentDateTime).toBe("2026-10-10T00:00:00");
+    expect(contents.lines).toEqual([]);
+    // выключенных позиций в каталоге для заказа нет
+    expect(contents.groups.map((group) => [group.name, group.items.map((item) => item.name)])).toEqual([
+      ["Заморозка", ["Багет зерновой", "Булочка заварная"]],
+      ["Напитки", ["Морс клюквенный"]],
     ]);
-    const groupNames = async (typeId: number) => (await getCatalog(typeId)).groups.map((group) => group.name);
-    expect(await groupNames(1)).toContain("Заморозка");
-    expect(await groupNames(2)).toEqual(expect.arrayContaining(["Кулинария", "Печенье СБ"]));
-    expect(await groupNames(3)).toEqual(["Фреш длительного цикла выпуска", "Хлеба за три дня"]);
   });
 
-  it("на одну доставку у ТТ не больше одного действующего заказа", async () => {
-    const [base, orders] = await Promise.all([getOrdersBootstrap(), getOrders()]);
-    for (const type of base.types) expect(orders.some((order) => order.typeId === type.id)).toBe(true);
-    const keys = orders.filter((order) => !order.cancelledAt).map((order) => `${order.typeId}|${order.storeId}|${order.deliveryDate}`);
-    expect(new Set(keys).size).toBe(keys.length);
+  it("для выбранной даты возвращает её доставку и уже оформленный заказ", async () => {
+    const date = "2026-10-12T12:00:00";
+    server.addOrder({ ruleId: DAILY, locationGuid: STORE_A, creationDateTime: date, lines: [{ id: 1, quantity: 12 }] });
+    const contents = await getOrderContents(DAILY, STORE_A, date);
+    expect(lastCall().params).toEqual({ creationDateTime: date });
+    expect(contents.creationDateTime).toBe(date);
+    expect(contents.shipmentDateTime).toBe("2026-10-13T00:00:00");
+    expect(contents.lines).toEqual([expect.objectContaining({ itemId: 1, quantity: 12 })]);
+  });
+
+  it("сохранение отправляет дату, точку, тип и позиции с количеством — и ничего о пользователе", async () => {
+    const id = await saveOrder({ ruleId: DAILY, storeGuid: STORE_A, creationDateTime: "2026-10-09T12:00:00", lines: [{ itemId: 2, quantity: 24 }, { itemId: 4, quantity: 10 }] });
+    expect(lastCall()).toEqual({
+      method: "POST",
+      url: "/Order/orders",
+      body: { creationDateTime: "2026-10-09T12:00:00", locationGuid: STORE_A, ruleId: DAILY, items: [{ id: 2, quantity: 24 }, { id: 4, quantity: 10 }] },
+    });
+    expect(server.orders).toEqual([expect.objectContaining({ id, userName: "Тест Тестов", lines: [{ id: 2, quantity: 24 }, { id: 4, quantity: 10 }] })]);
+
+    // повторное сохранение на ту же дату меняет тот же заказ
+    expect(await saveOrder({ ruleId: DAILY, storeGuid: STORE_A, creationDateTime: "2026-10-09T12:00:00", lines: [{ itemId: 1, quantity: 6 }] })).toBe(id);
+    expect(server.orders).toHaveLength(1);
+  });
+
+  it("причину отказа объясняет сервер", async () => {
+    const closed = saveOrder({ ruleId: DAILY, storeGuid: STORE_A, creationDateTime: server.previous(DAILY), lines: [{ itemId: 1, quantity: 6 }] });
+    await expect(closed).rejects.toBeInstanceOf(ApiError);
+    expect(getOrdersErrorMessage(await closed.catch((error: unknown) => error), "запасной текст")).toBe("Приём изменений по этому заказу уже закрыт.");
+    expect(getOrdersErrorMessage(new ApiError("Forbidden", 403), "запасной текст")).toBe("Нет доступа к этой торговой точке или действию.");
+    expect(getOrdersErrorMessage(new Error("сеть"), "запасной текст")).toBe("запасной текст");
   });
 });
 
-describe("оформление заказа", () => {
-  it("дату доставки и срок правок считает сервер по расписанию вкладки", async () => {
-    const result = await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user);
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.order).toMatchObject({
-      storeId: QUIET_STORE,
-      deliveryDate: "2026-10-11",
-      closeAt: new Date(mskMoment("2026-10-08", "17:00")).toISOString(),
-      createdBy: user.user,
+describe("настройки: каталог", () => {
+  it("каталог типа приходит по группам вместе с выключенными позициями", async () => {
+    const catalog = await getCatalog(DAILY);
+    expect(lastCall().url).toBe(`/Order/rules/${DAILY}/items`);
+    expect(catalog.map((group) => group.name)).toEqual(["Заморозка", "Напитки"]);
+    expect(catalog[0].items.find((item) => item.name === "Круассан")).toEqual({
+      id: 3, ruleId: DAILY, groupId: 1, rkcode: 102, name: "Круассан", step: 1, forOwn: true, forPartner: false, isActive: false,
     });
   });
 
-  it("второй заказ на ту же доставку не принимает", async () => {
-    const first = await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user);
-    if (!first.ok) throw new Error(first.message);
-    const second = await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user);
-    expect(second).toEqual({ ok: false, message: expect.stringContaining(`уже есть заказ № ${first.order.id}`) });
+  it("новая позиция создаётся, существующая сохраняется целиком", async () => {
+    const created = await saveItem({ id: 0, ruleId: DAILY, groupId: 2, rkcode: 201, name: "Сок", step: 6, forOwn: true, forPartner: false, isActive: true });
+    expect(lastCall()).toMatchObject({
+      method: "POST",
+      url: "/Order/items",
+      body: { rkcode: 201, name: "Сок", step: 6, groupId: 2, ruleId: DAILY, avaliableForNative: 1, avaliableForFranchise: 0, actual: 1 },
+    });
+    expect(created.id).toBeGreaterThan(0);
 
-    // после закрытия приёма новая доставка — новый заказ
-    vi.setSystemTime(new Date(mskMoment("2026-10-08", "17:30")));
-    const next = await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user);
-    expect(next).toMatchObject({ ok: true, order: { deliveryDate: "2026-10-12" } });
-  });
-
-  it("требует торговую точку и хотя бы одну позицию", async () => {
-    const draft = await draftFor(IN_THREE_DAYS, QUIET_STORE);
-    expect(await saveOrder({ ...draft, storeId: 0 }, user)).toMatchObject({ ok: false });
-    expect(await saveOrder({ ...draft, lines: [] }, user)).toMatchObject({ ok: false });
-  });
-
-  it("еженедельному заказу ставит день недели торговой точки", async () => {
-    const base = await getOrdersBootstrap();
-    const store = await freeStore(WEEKLY);
-    const offset = findStoreOffset(base.deliveryDays, WEEKLY, store.id)!;
-    const result = await saveOrder(await draftFor(WEEKLY, store.id), user);
-    // понедельник следующей недели — 12 октября
-    expect(result).toMatchObject({ ok: true, order: { deliveryDate: `2026-10-${12 + offset}` } });
-  });
-});
-
-describe("изменение и отмена", () => {
-  it("состав меняется до закрытия приёма и не меняется после", async () => {
-    const draft = await draftFor(IN_THREE_DAYS, QUIET_STORE, 3);
-    const created = await saveOrder(draft, user);
-    if (!created.ok) throw new Error(created.message);
-    const [kept] = created.order.lines;
-
-    const updated = await saveOrder({ ...draft, id: created.order.id, lines: [{ ...kept, quantity: kept.quantity * 2 }] }, user);
-    expect(updated).toMatchObject({ ok: true, order: { deliveryDate: created.order.deliveryDate, lines: [{ quantity: kept.quantity * 2 }] } });
-
-    vi.setSystemTime(new Date(mskMoment("2026-10-08", "17:01")));
-    const late = await saveOrder({ ...draft, id: created.order.id, lines: [kept] }, admin);
-    expect(late).toEqual({ ok: false, message: expect.stringContaining("уже закрыт") });
-  });
-
-  it("отменённый заказ остаётся в списке и освобождает доставку", async () => {
-    const created = await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user);
-    if (!created.ok) throw new Error(created.message);
-    expect(await cancelOrder(created.order.id, user)).toMatchObject({ cancelledBy: user.user });
-    expect((await getOrders()).some((order) => order.id === created.order.id)).toBe(true);
-    await expect(cancelOrder(created.order.id, user)).rejects.toThrow(/нельзя отменить/);
-    expect(await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user)).toMatchObject({ ok: true });
-  });
-});
-
-describe("настройки", () => {
-  it("доступны только администратору и проверяют расписание", async () => {
-    const base = await getOrdersBootstrap();
-    const type = base.types[IN_THREE_DAYS - 1];
-    await expect(saveOrderType({ ...type, isActive: false }, user)).rejects.toThrow(/Недостаточно прав/);
-    await expect(saveOrderType({ ...type, closeCron: "0 25 * * *" }, admin)).rejects.toThrow(/час/);
-
-    await saveOrderType({ ...type, isActive: false }, admin);
-    expect(await saveOrder(await draftFor(IN_THREE_DAYS, QUIET_STORE), user)).toMatchObject({ ok: false });
-  });
-
-  it("новый день доставки ТТ действует на следующий же заказ", async () => {
-    const store = await freeStore(WEEKLY);
-    await setDeliveryDay(WEEKLY, store.id, 4, admin);
-    expect(await saveOrder(await draftFor(WEEKLY, store.id), user)).toMatchObject({ ok: true, order: { deliveryDate: "2026-10-16" } });
-
-    await cancelOrder((await getOrders())[0].id, user);
-    await setDeliveryDay(WEEKLY, store.id, null, admin);
-    // без своего дня — день якоря, понедельник
-    expect(await saveOrder(await draftFor(WEEKLY, store.id), user)).toMatchObject({ ok: true, order: { deliveryDate: "2026-10-12" } });
-  });
-
-  it("выключенная позиция пропадает из доступных, непустая группа не удаляется", async () => {
-    const catalog = await getCatalog(1);
-    const item = catalog.items.find((candidate) => candidate.isActive)!;
-    await patchItems([item.id], { isActive: false }, admin);
-    expect((await getCatalog(1)).items.find((candidate) => candidate.id === item.id)?.isActive).toBe(false);
-    await expect(deleteGroup(item.groupId, admin)).rejects.toThrow(/В группе есть позиции/);
+    const saved = await saveItem({ ...created, isActive: false });
+    expect(lastCall()).toMatchObject({ method: "PUT", url: `/Order/items/${created.id}`, body: { name: "Сок", actual: 0 } });
+    expect(saved).toEqual({ ...created, isActive: false });
   });
 });

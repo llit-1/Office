@@ -1,227 +1,183 @@
-// Точка обмена данными раздела «Заказы». Сейчас за ней демо-хранилище (orders.mock.ts);
-// при появлении API тела функций заменяются HTTP-вызовами, сигнатуры остаются.
-// Проверки в saveOrder / cancelOrder — то, что должен гарантировать сервер:
-// интерфейс лишь подсказывает заранее, источник истины — бэкенд.
-import { getDb, persistDb, resetDb } from "./orders.mock";
-import { canCancelOrder, canEditOrder, cronError, findStoreOffset, resolveSlot } from "./orders.rules";
+// Запросы раздела «Заказы» к OrderController. Здесь же — перевод ответов сервера в типы интерфейса.
+// Кто пользователь и какие торговые точки ему доступны, сервер определяет по токену.
+import { ApiError, get, getFriendlyErrorMessage, post, put } from "../../Services/api";
 import type {
-  Catalog,
   CatalogGroup,
   CatalogItem,
   Order,
+  OrderContents,
   OrderDraft,
+  OrderLine,
   OrdersBootstrap,
-  OrdersPermissions,
-  OrderTypeConfig,
-  SaveOrderResult,
-  UserRef,
+  ServerDateTime,
+  StoreOrders,
 } from "./orders.types";
 
-export interface Actor {
-  user: UserRef;
-  permissions: OrdersPermissions;
+/* ===== Ответы сервера ===== */
+
+interface ItemDto {
+  id: number;
+  rkcode: number | null;
+  name: string | null;
+  step: number;
+  groupId: number;
+  ruleId: number;
+  avaliableForNative: number;
+  avaliableForFranchise: number;
+  actual: number;
+  /** Количество в заказе; у позиции каталога его нет. */
+  quantity?: number | null;
 }
 
-export class OrdersApiError extends Error {}
-
-const latency = import.meta.env.MODE === "test" ? 0 : 160;
-const respond = <T,>(value: T): Promise<T> =>
-  new Promise((resolve) => { window.setTimeout(() => resolve(structuredClone(value)), latency); });
-const fail = (message: string): never => { throw new OrdersApiError(message); };
-
-export const getOrdersErrorMessage = (error: unknown, fallback: string) =>
-  error instanceof OrdersApiError ? error.message : fallback;
-
-/* ===== Чтение ===== */
-
-export function getOrdersBootstrap(): Promise<OrdersBootstrap> {
-  const db = getDb();
-  return respond({
-    types: [...db.types].sort((left, right) => left.id - right.id),
-    stores: [...db.stores].sort((left, right) => left.name.localeCompare(right.name, "ru")),
-    deliveryDays: db.deliveryDays,
-  });
+interface ItemGroupDto {
+  id: number;
+  name: string;
+  items: ItemDto[];
 }
 
-export function getCatalog(typeId: number): Promise<Catalog> {
-  const db = getDb();
-  const groups = db.groups.filter((group) => group.typeId === typeId).sort((left, right) => left.name.localeCompare(right.name, "ru"));
-  const ids = new Set(groups.map((group) => group.id));
-  return respond({
-    groups,
-    items: db.items.filter((item) => ids.has(item.groupId)).sort((left, right) => left.name.localeCompare(right.name, "ru")),
-  });
+interface LocationRulesDto {
+  locations: { guid: string; name: string }[];
+  rules: { id: number; name: string }[];
 }
 
-export function getOrders(): Promise<Order[]> {
-  return respond(getDb().orders);
+interface OrderDto {
+  id: number;
+  creationDateTime: ServerDateTime;
+  shipmentDateTime: ServerDateTime | null;
+  locationGuid: string;
+  ruleId: number;
+  userName: string | null;
+  items: ItemDto[] | null;
 }
 
-export function getOrder(id: number): Promise<Order | null> {
-  return respond(getDb().orders.find((order) => order.id === id) ?? null);
+interface OrdersDto {
+  location: string;
+  locationGUID: string;
+  officeOrders: OrderDto[] | null;
+}
+
+interface OrderContentsDto {
+  orderCreationDateTimes: ServerDateTime[];
+  itemGroups: ItemGroupDto[];
+  orderCreationDateTime: ServerDateTime;
+  orderShipmentDateTime: ServerDateTime;
+  orderItems: ItemDto[] | null;
+}
+
+const toItem = (dto: ItemDto): CatalogItem => ({
+  id: dto.id,
+  ruleId: dto.ruleId,
+  groupId: dto.groupId,
+  rkcode: dto.rkcode ?? null,
+  name: dto.name ?? "",
+  step: dto.step,
+  forOwn: dto.avaliableForNative === 1,
+  forPartner: dto.avaliableForFranchise === 1,
+  isActive: dto.actual !== 0,
+});
+
+const toItemDto = (item: CatalogItem): ItemDto => ({
+  id: item.id,
+  rkcode: item.rkcode,
+  name: item.name,
+  step: item.step,
+  groupId: item.groupId,
+  ruleId: item.ruleId,
+  avaliableForNative: item.forOwn ? 1 : 0,
+  avaliableForFranchise: item.forPartner ? 1 : 0,
+  actual: item.isActive ? 1 : 0,
+});
+
+const toGroup = (dto: ItemGroupDto): CatalogGroup => ({ id: dto.id, name: dto.name, items: dto.items.map(toItem) });
+
+const toLine = (dto: ItemDto): OrderLine => ({
+  itemId: dto.id,
+  rkcode: dto.rkcode ?? null,
+  name: dto.name ?? "",
+  step: dto.step,
+  quantity: typeof dto.quantity === "number" ? dto.quantity : null,
+});
+
+const toLines = (items: ItemDto[] | null) => (items ?? []).map(toLine).sort((left, right) => left.name.localeCompare(right.name, "ru"));
+
+/* ===== Ошибки ===== */
+
+/** Текст ошибки для пользователя: причину отказа по заказу сервер объясняет сам. */
+export function getOrdersErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof ApiError) {
+    if (error.status === 403) return "Нет доступа к этой торговой точке или действию.";
+    if ((error.status === 400 || error.status === 409) && error.message) return error.message;
+  }
+  return getFriendlyErrorMessage(error, fallback);
 }
 
 /* ===== Заказы ===== */
 
-export async function saveOrder(draft: OrderDraft, actor: Actor): Promise<SaveOrderResult> {
-  const db = getDb();
-  const now = new Date();
-  const reject = (message: string) => respond<SaveOrderResult>({ ok: false, message });
-
-  if (!actor.permissions.canEdit) return reject("Недостаточно прав для оформления заказа.");
-  const lines = draft.lines.filter((line) => line.quantity > 0);
-  if (lines.length === 0) return reject("Добавьте в заказ хотя бы одну позицию.");
-
-  if (draft.id !== null) {
-    const existing = db.orders.find((order) => order.id === draft.id);
-    if (!existing) return reject("Заказ не найден — возможно, его уже отменили.");
-    if (!canEditOrder(existing, now, actor.permissions)) return reject("Приём изменений по этому заказу уже закрыт.");
-    existing.lines = lines;
-    persistDb();
-    return respond<SaveOrderResult>({ ok: true, order: existing });
-  }
-
-  const type = db.types.find((candidate) => candidate.id === draft.typeId);
-  if (!type || !type.isActive) return reject("Эта вкладка заказов сейчас отключена.");
-  const store = db.stores.find((candidate) => candidate.id === draft.storeId);
-  if (!store) return reject("Выберите торговую точку, на которую оформляется заказ.");
-  if (store.closed) return reject("Торговая точка закрыта — заказ на неё оформить нельзя.");
-
-  // дату доставки и срок правок считает сервер — клиент их не присылает
-  const slot = resolveSlot(type, findStoreOffset(db.deliveryDays, type.id, store.id), now);
-  if (!slot) return reject("Для этой вкладки не настроено расписание приёма.");
-  const duplicate = db.orders.find((order) =>
-    order.typeId === type.id && order.storeId === store.id && order.deliveryDate === slot.deliveryDate && !order.cancelledAt);
-  if (duplicate) return reject(`На эту доставку у торговой точки уже есть заказ № ${duplicate.id}. Измените его.`);
-
-  db.seq.order += 1;
-  const order: Order = {
-    id: db.seq.order, typeId: type.id, storeId: store.id, storeName: store.name, deliveryDate: slot.deliveryDate,
-    closeAt: new Date(slot.closeAt).toISOString(), lines, createdAt: now.toISOString(), createdBy: actor.user,
-    cancelledAt: null, cancelledBy: null,
+export async function getOrdersBootstrap(): Promise<OrdersBootstrap> {
+  const dto = await get<LocationRulesDto>("/Order/rules");
+  return {
+    rules: dto.rules.map((rule) => ({ id: rule.id, name: rule.name })),
+    stores: dto.locations.map((location) => ({ guid: location.guid, name: location.name })),
   };
-  db.orders.unshift(order);
-  persistDb();
-  return respond<SaveOrderResult>({ ok: true, order });
 }
 
-export async function cancelOrder(id: number, actor: Actor): Promise<Order> {
-  const order = getDb().orders.find((candidate) => candidate.id === id) ?? fail("Заказ не найден.");
-  if (!canCancelOrder(order, new Date(), actor.permissions)) fail("Этот заказ уже нельзя отменить.");
-  order.cancelledAt = new Date().toISOString();
-  order.cancelledBy = actor.user;
-  persistDb();
-  return respond(order);
+/** Заказы типа по торговым точкам; storeGuid = null — по всем точкам пользователя. */
+export async function getOrders(ruleId: number, storeGuid: string | null): Promise<StoreOrders[]> {
+  const dto = await get<OrdersDto[]>(`/Order/rules/${ruleId}/orders`, { params: storeGuid ? { locationGuid: storeGuid } : undefined });
+  return dto.map((group) => ({
+    store: { guid: group.locationGUID, name: group.location },
+    orders: (group.officeOrders ?? []).map((order): Order => ({
+      id: order.id,
+      ruleId: order.ruleId,
+      storeGuid: group.locationGUID,
+      storeName: group.location,
+      creationDateTime: order.creationDateTime,
+      shipmentDateTime: order.shipmentDateTime ?? null,
+      userName: order.userName ?? "",
+      lines: toLines(order.items),
+    })),
+  }));
 }
 
-/* ===== Настройки ===== */
-
-const requireAdmin = (actor: Actor) => { if (!actor.permissions.canConfigure) fail("Недостаточно прав для изменения настроек."); };
-
-export async function saveOrderType(input: OrderTypeConfig, actor: Actor): Promise<OrderTypeConfig> {
-  requireAdmin(actor);
-  const db = getDb();
-  const type: OrderTypeConfig = { ...input, name: input.name.trim(), closeCron: input.closeCron.trim(), deliveryCron: input.deliveryCron.trim() };
-  if (!type.name) fail("Укажите название вкладки.");
-  if (db.types.some((candidate) => candidate.id !== type.id && candidate.name.toLowerCase() === type.name.toLowerCase())) {
-    fail("Вкладка с таким названием уже есть.");
-  }
-  const invalid = cronError(type.closeCron) ?? cronError(type.deliveryCron);
-  if (invalid) fail(invalid);
-  if (!Number.isInteger(type.offsetDays) || type.offsetDays < 0) fail("Сдвиг — целое число дней, не меньше нуля.");
-
-  const index = db.types.findIndex((candidate) => candidate.id === type.id);
-  if (index >= 0) db.types[index] = type;
-  else {
-    db.seq.type += 1;
-    type.id = db.seq.type;
-    db.types.push(type);
-  }
-  persistDb();
-  return respond(type);
+/** Состав заказа: что и сколько. */
+export async function getOrderLines(orderId: number): Promise<OrderLine[]> {
+  return toLines(await get<ItemDto[]>(`/Order/orders/${orderId}/items`));
 }
 
-/** Свой сдвиг дня доставки у ТТ; null — как у вкладки. */
-export async function setDeliveryDay(typeId: number, storeId: number, offsetDays: number | null, actor: Actor): Promise<void> {
-  requireAdmin(actor);
-  const db = getDb();
-  db.deliveryDays = db.deliveryDays.filter((item) => !(item.typeId === typeId && item.storeId === storeId));
-  if (offsetDays !== null) db.deliveryDays.push({ typeId, storeId, offsetDays });
-  persistDb();
-  return respond(undefined);
+/** Данные редактора; без creationDateTime сервер берёт ближайшую дату формирования. */
+export async function getOrderContents(ruleId: number, storeGuid: string, creationDateTime?: ServerDateTime | null): Promise<OrderContents> {
+  const dto = await get<OrderContentsDto>(`/Order/rules/${ruleId}/locations/${storeGuid}/contents`, {
+    params: creationDateTime ? { creationDateTime } : undefined,
+  });
+  return {
+    creationDateTimes: dto.orderCreationDateTimes,
+    creationDateTime: dto.orderCreationDateTime,
+    shipmentDateTime: dto.orderShipmentDateTime,
+    groups: dto.itemGroups.map(toGroup),
+    lines: toLines(dto.orderItems),
+  };
 }
 
-export async function saveGroup(input: CatalogGroup, actor: Actor): Promise<CatalogGroup> {
-  requireAdmin(actor);
-  const db = getDb();
-  const group: CatalogGroup = { ...input, name: input.name.trim() };
-  if (!group.name) fail("Укажите название группы.");
-  if (db.groups.some((candidate) => candidate.id !== group.id && candidate.typeId === group.typeId && candidate.name.toLowerCase() === group.name.toLowerCase())) {
-    fail("Группа с таким названием уже есть на этой вкладке.");
-  }
-  const index = db.groups.findIndex((candidate) => candidate.id === group.id);
-  if (index >= 0) db.groups[index] = group;
-  else {
-    db.seq.group += 1;
-    group.id = db.seq.group;
-    db.groups.push(group);
-  }
-  persistDb();
-  return respond(group);
+/** Оформляет заказ на дату или заменяет состав уже оформленного на неё. Возвращает номер заказа. */
+export async function saveOrder(draft: OrderDraft): Promise<number> {
+  const saved = await post<{ id: number }>("/Order/orders", {
+    creationDateTime: draft.creationDateTime,
+    locationGuid: draft.storeGuid,
+    ruleId: draft.ruleId,
+    items: draft.lines.map((line) => ({ id: line.itemId, quantity: line.quantity })),
+  });
+  return saved.id;
 }
 
-export async function deleteGroup(id: number, actor: Actor): Promise<void> {
-  requireAdmin(actor);
-  const db = getDb();
-  if (db.items.some((item) => item.groupId === id)) fail("В группе есть позиции. Перенесите или удалите их, затем удалите группу.");
-  db.groups = db.groups.filter((group) => group.id !== id);
-  persistDb();
-  return respond(undefined);
+/* ===== Настройки: каталог ===== */
+
+/** Все позиции типа заказа, включая выключенные, по группам. */
+export async function getCatalog(ruleId: number): Promise<CatalogGroup[]> {
+  return (await get<ItemGroupDto[]>(`/Order/rules/${ruleId}/items`)).map(toGroup);
 }
 
-export async function saveItem(input: CatalogItem, actor: Actor): Promise<CatalogItem> {
-  requireAdmin(actor);
-  const db = getDb();
-  const item: CatalogItem = { ...input, article: input.article.trim(), name: input.name.trim() };
-  if (!item.article) fail("Укажите артикул.");
-  if (!item.name) fail("Укажите наименование.");
-  if (!(item.step > 0)) fail("Кратность должна быть больше нуля.");
-  if (item.maxQuantity !== null && item.maxQuantity < item.step) fail("Максимум не может быть меньше кратности.");
-  if (!db.groups.some((group) => group.id === item.groupId)) fail("Выберите группу.");
-  if (db.items.some((candidate) => candidate.id !== item.id && candidate.groupId === item.groupId && candidate.article === item.article)) {
-    fail(`Позиция с артикулом ${item.article} уже есть в этой группе.`);
-  }
-  const index = db.items.findIndex((candidate) => candidate.id === item.id);
-  if (index >= 0) db.items[index] = item;
-  else {
-    db.seq.item += 1;
-    item.id = db.seq.item;
-    db.items.push(item);
-  }
-  persistDb();
-  return respond(item);
-}
-
-export async function patchItems(ids: number[], patch: Partial<Pick<CatalogItem, "isActive" | "forOwn" | "forPartner" | "groupId">>, actor: Actor): Promise<void> {
-  requireAdmin(actor);
-  const selected = new Set(ids);
-  getDb().items.forEach((item) => { if (selected.has(item.id)) Object.assign(item, patch); });
-  persistDb();
-  return respond(undefined);
-}
-
-export async function deleteItems(ids: number[], actor: Actor): Promise<void> {
-  requireAdmin(actor);
-  const db = getDb();
-  const selected = new Set(ids);
-  db.items = db.items.filter((item) => !selected.has(item.id));
-  persistDb();
-  return respond(undefined);
-}
-
-/** Возвращает демо-данные к исходному состоянию. Исчезнет вместе с демо-хранилищем. */
-export async function resetDemoData(actor: Actor): Promise<void> {
-  requireAdmin(actor);
-  resetDb();
-  return respond(undefined);
+/** Создаёт позицию (id = 0) или сохраняет изменённую. */
+export async function saveItem(item: CatalogItem): Promise<CatalogItem> {
+  const dto = toItemDto(item);
+  return toItem(item.id ? await put<ItemDto>(`/Order/items/${item.id}`, dto) : await post<ItemDto>("/Order/items", dto));
 }
