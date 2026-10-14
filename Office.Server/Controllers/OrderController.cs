@@ -25,7 +25,7 @@ public class OrderController : ControllerBase
     private const string SectionRoles = AdminRole + "," + AllItemsRole + "," + NativeItemsRole;
 
     private const int PreviousOrdersPerLocation = 10;
-    private const int UpcomingCreationDateTimes = 20;
+    private const int UpcomingCreationDateTimes = 7;
     private const double QuantityTolerance = 1e-6;
 
     private readonly RKNETDBContext _context;
@@ -110,12 +110,18 @@ public class OrderController : ControllerBase
 
     public class OrderContentsDto
     {
-        public List<DateTime> OrderCreationDateTimes { get; set; } = new();
+        public List<DateTimeMatch> DateTimeMatches { get; set; } = new();
         public List<OrderItemGroupDto> ItemGroups { get; set; } = new();
         public DateTime OrderCreationDateTime { get; set; }
         public DateTime OrderShipmentDateTime { get; set; }
         public List<OrderLineDto> OrderItems { get; set; } = new();
 
+    }
+
+    public class  DateTimeMatch
+    {
+        public List<DateTime> OrderCreationDateTime { get; set; } = new();
+        public List<DateTime> OrderShipmentDateTime { get; set; } = new();
     }
 
     // GET: api/Order/rules/{ruleId}/items?actual=1
@@ -328,9 +334,18 @@ public class OrderController : ControllerBase
         // набор позиций зависит от роли пользователя, а не от точки
         var items = UsableItems(_context.OfficeOrderItems.AsNoTracking().Where(x => x.RuleId == ruleId && x.Actual == 1));
 
+        var dateTimeMatches = new List<DateTimeMatch>
+        {
+            new DateTimeMatch
+            {
+                OrderCreationDateTime = creationDateTimes,
+                OrderShipmentDateTime = creationDateTimes.Select(x => GetShipmentDateTime(rule, x)?.AddDays(shipmentDayOffset) ?? DateTime.MinValue).ToList()
+            }
+        };
+
         return Ok(new OrderContentsDto
         {
-            OrderCreationDateTimes = creationDateTimes,
+            DateTimeMatches = dateTimeMatches,
             ItemGroups = await BuildItemGroupsAsync(items),
             OrderCreationDateTime = orderCreationDateTime,
             OrderShipmentDateTime = orderShipmentDateTime,
