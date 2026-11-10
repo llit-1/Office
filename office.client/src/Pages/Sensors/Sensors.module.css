@@ -818,6 +818,10 @@
     padding-right: 20px;
 }
 
+.sensorCardHeaderWithAlert {
+    padding-right: 32px;
+}
+
 .sensorTitle {
     margin: 0;
     font-family: var(--font-heading);
@@ -854,16 +858,40 @@
 .sensorIp {
     min-width: 0;
     max-width: 100%;
-    color: var(--color-text-muted);
+    display: inline-block;
+    padding: 4px 8px;
+    border: 1px solid;
+    border-radius: var(--radius-pill);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.1;
 }
 
+.sensorIpOnline {
+    color: var(--color-success);
+    background: color-mix(in srgb, var(--color-success) 12%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+}
+
+.sensorIpOffline {
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+    border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+}
+
+.sensorIpNeutral {
+    color: var(--color-text-muted);
+    background: var(--color-surface-muted);
+    border-color: var(--color-border);
+}
+
 .missingDataBadge {
+    position: absolute;
+    top: calc(var(--space-3) + 18px);
+    right: calc(var(--space-3) - 4px);
     width: 18px;
     height: 18px;
     border-radius: var(--radius-pill);

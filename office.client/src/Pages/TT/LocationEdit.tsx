@@ -23,6 +23,15 @@ import {
   type LocationLookups,
 } from "./ttApi";
 import { toInputDate, toNullableNumber, validateCoordinate, validateDate } from "./ttEditUtils";
+import {
+  currentRequisite,
+  RequisiteField,
+  requisiteHint,
+  RequisitesDialogs,
+  type Requisite,
+  type RequisiteDraft,
+  type RequisitesDialog,
+} from "./components/Requisites";
 import styles from "./TTEdit.module.css";
 
 type LocationFormValues = {
@@ -64,6 +73,9 @@ export default function LocationEdit() {
   const dispatch = useDispatch();
   const [lookups, setLookups] = useState<LocationLookups | null>(null);
   const [versionGuid, setVersionGuid] = useState<string | null>(null);
+  const [requisites, setRequisites] = useState<Requisite[]>([]);
+  const [draft, setDraft] = useState<RequisiteDraft | null>(null);
+  const [dialog, setDialog] = useState<RequisitesDialog>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -105,6 +117,8 @@ export default function LocationEdit() {
         if (cancelled) return;
         setLookups(nextLookups);
         setVersionGuid(location?.versionGuid ?? null);
+        setRequisites(location?.requisites ?? []);
+        setDraft(null);
         reset(location
           ? {
             name: location.name ?? "",
@@ -146,6 +160,7 @@ export default function LocationEdit() {
       longitude: toNullableNumber(values.longitude),
       versionStartDate: values.versionStartDate || null,
       versionEndDate: values.versionEndDate || null,
+      ...(isCreate ? {} : { newRequisites: draft }),
     };
     try {
       if (isCreate) await createLocation(group, payload);
@@ -222,17 +237,35 @@ export default function LocationEdit() {
               />
               {fieldError("locationTypeGuid")}
             </div>
-            <div className={styles.field}>
-              <Controller
-                name="entityGuid"
-                control={control}
-                rules={{ required: "Выберите юридическое лицо" }}
-                render={({ field }) => (
-                  <Select {...field} label="Юридическое лицо *" options={options(lookups.entities)} placeholder="Выберите организацию" search disabled={saving} {...errorProps("entityGuid")} />
-                )}
+            {isCreate ? (
+              <div className={styles.field}>
+                <Controller
+                  name="entityGuid"
+                  control={control}
+                  rules={{ required: "Выберите юридическое лицо" }}
+                  render={({ field }) => (
+                    <Select {...field} label="Юридическое лицо *" options={options(lookups.entities)} placeholder="Выберите организацию" search disabled={saving} {...errorProps("entityGuid")} />
+                  )}
+                />
+                {fieldError("entityGuid")}
+              </div>
+            ) : (
+              <RequisiteField
+                label="Юридическое лицо"
+                value={
+                  draft
+                    ? lookups.entities.find((item) => item.guid === draft.entityGuid)?.name ?? ""
+                    : currentRequisite(requisites)?.entityName ?? ""
+                }
+                hint={requisiteHint(requisites, draft)}
+                draft={!!draft}
+                disabled={saving}
+                historyDisabled={!requisites.length && !draft}
+                onEdit={() => setDialog("edit")}
+                onHistory={() => setDialog("history")}
+                onUndo={() => setDraft(null)}
               />
-              {fieldError("entityGuid")}
-            </div>
+            )}
             <div className={styles.field}>
               <Controller
                 name="parentGuid"
@@ -250,6 +283,17 @@ export default function LocationEdit() {
               />
             </div>
           </div>
+          {!isCreate && (
+            <RequisitesDialogs
+              open={dialog}
+              onClose={() => setDialog(null)}
+              withObd={false}
+              versions={requisites}
+              entities={lookups.entities}
+              draft={draft}
+              onApply={setDraft}
+            />
+          )}
         </section>
 
         <section className={`${styles.formCard} ${styles.contactCard}`} aria-labelledby="location-place">
@@ -326,16 +370,16 @@ export default function LocationEdit() {
         </section>
       </fieldset>
       <footer className={styles.footer}>
-        <span className={styles.saveHint} role="status" data-dirty={isDirty || undefined}>
-          {isDirty ? <span className={styles.dirtyDot} aria-hidden="true" /> : <CheckCircleOutlineOutlinedIcon aria-hidden="true" />}
-          {saving ? "Сохраняем…" : isDirty ? "Есть несохранённые изменения" : isCreate ? "Заполните данные" : "Все изменения сохранены"}
+        <span className={styles.saveHint} role="status" data-dirty={isDirty || draft ? true : undefined}>
+          {isDirty || draft ? <span className={styles.dirtyDot} aria-hidden="true" /> : <CheckCircleOutlineOutlinedIcon aria-hidden="true" />}
+          {saving ? "Сохраняем…" : isDirty || draft ? "Есть несохранённые изменения" : isCreate ? "Заполните данные" : "Все изменения сохранены"}
         </span>
         <div className={styles.actions}>
           <Button variant="secondary" disabled={saving} onClick={() => navigate(listPath)}>Отмена</Button>
           <Button
             variant="primary"
             type="submit"
-            disabled={(!isDirty && !isCreate) || saving}
+            disabled={(!isDirty && !isCreate && !draft) || saving}
             loading={saving}
             leadingIcon={<SaveOutlinedIcon />}
           >

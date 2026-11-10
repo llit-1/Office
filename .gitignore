@@ -350,5 +350,7 @@ MigrationBackup/
 
 # Ignore specific files
 Office.Server/Global.cs
+Office.Server/appsettings.Local.json
 Office.Server/App_Data/DataProtection-Keys/
 .codex-artifacts/
+.claude/

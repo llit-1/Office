@@ -9,6 +9,11 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("GUID")]
         public Guid Guid { get; set; }
         public string Name { get; set; } = string.Empty;
+
+        /// <summary>Своё название точки; Name и RKCode приходят из R-Keeper и не редактируются.</summary>
+        [Column("AltName"), MaxLength(50)]
+        public string? AltName { get; set; }
+
         public int? RKCode { get; set; }
         public int? AggregatorsCode { get; set; }
         public int Actual { get; set; }

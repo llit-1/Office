@@ -40,6 +40,38 @@
     color: var(--color-text-muted);
 }
 
+/* Поле с иконками справа: фон несёт обёртка, чтобы иконки стояли на том же фоне, что и текст. */
+.control {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    border-radius: var(--outlined-field-radius, var(--radius-control));
+    background: var(--color-surface);
+}
+
+.control[data-disabled] {
+    background: var(--color-disabled-surface);
+}
+
+.control[data-readonly] {
+    background: var(--color-surface-muted);
+}
+
+.control .input {
+    flex: 1;
+    background: transparent;
+}
+
+.endAdornment {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--space-1);
+    padding-right: var(--space-2);
+}
+
 /* iOS Safari рисует значение date/time-поля во внутреннем блоке и не центрирует его по вертикали:
    при фиксированной высоте поля текст прижимается к верху. Центрируем через line-height на высоту поля.
    @supports (-webkit-touch-callout: none) срабатывает только в iOS/iPadOS Safari — Android и десктоп не трогаем. */

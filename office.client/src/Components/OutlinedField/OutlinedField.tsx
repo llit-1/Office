@@ -7,15 +7,17 @@ type OutlinedFieldProps = {
   labelId?: string;
   labelVisible?: boolean;
   disabled?: boolean;
+  /** Ошибка ввода: красная обводка с вырезом под подпись. */
+  invalid?: boolean;
   className?: string;
   children: React.ReactNode;
 };
 
 const OutlinedField = React.forwardRef<HTMLDivElement, OutlinedFieldProps>(
-  ({ label, htmlFor, labelId, labelVisible = true, disabled = false, className, children }, ref) => (
+  ({ label, htmlFor, labelId, labelVisible = true, disabled = false, invalid = false, className, children }, ref) => (
     <div
       ref={ref}
-      className={`${styles.field} ${disabled ? styles.disabled : ""} ${className ?? ""}`}
+      className={`${styles.field} ${disabled ? styles.disabled : ""} ${invalid ? styles.invalid : ""} ${className ?? ""}`}
     >
       <label
         id={labelId}

@@ -10,6 +10,7 @@ import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import MoreHorizRoundedIcon from "@mui/icons-material/MoreHorizRounded";
 import RestaurantMenuRoundedIcon from "@mui/icons-material/RestaurantMenuRounded";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import SyncRoundedIcon from "@mui/icons-material/SyncRounded";
 import { useNotifications } from "@toolpad/core";
 import { useDispatch, useSelector } from "react-redux";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -24,6 +25,10 @@ import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
 import CategoryModal from "./components/CategoryModal";
 import ItemModal from "./components/ItemModal";
+import MenuImportModal from "./components/MenuImportModal";
+import { getRequestLocations } from "./deliveryRequests.api";
+import type { RequestLocation } from "./deliveryRequests.types";
+import type { LocationScope } from "./locationScope";
 import {
   createDeclaration,
   createDeliveryGroup,
@@ -67,6 +72,9 @@ const DECLARATION_BADGE: Record<DeclarationStatus, string> = {
   none: "Нет декларации",
 };
 
+/** Меню общее для всех точек — из категории импорт сразу предлагается на все ТТ. */
+const ALL_POINTS: LocationScope = { mode: "all" };
+
 export default function DeliveryMenuPage() {
   const { groupId } = useParams<{ groupId?: string }>();
   const selectedGroupId = groupId && Number.isInteger(Number(groupId)) ? Number(groupId) : null;
@@ -90,6 +98,9 @@ export default function DeliveryMenuPage() {
   const [loading, setLoading] = useState(true);
   const [loadedGroupId, setLoadedGroupId] = useState<number | null | undefined>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [importLocations, setImportLocations] = useState<RequestLocation[] | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
   const [search, setSearch] = useState("");
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -278,6 +289,21 @@ export default function DeliveryMenuPage() {
   const openCreateCategory = () => {
     setEditingCategory(null);
     setCategoryModalOpen(true);
+  };
+
+  const openImport = async () => {
+    if (!importLocations) {
+      setImportLoading(true);
+      try {
+        setImportLocations(await getRequestLocations());
+      } catch (error) {
+        show(getFriendlyErrorMessage(error, "Не удалось загрузить список точек."), { severity: "error", autoHideDuration: 5000 });
+        return;
+      } finally {
+        setImportLoading(false);
+      }
+    }
+    setImportOpen(true);
   };
 
   const openEditCategory = (category: DeliveryGroup) => {
@@ -559,11 +585,21 @@ export default function DeliveryMenuPage() {
                   <button
                     type="button"
                     className={styles.heroSecondaryButton}
+                    onClick={() => void openImport()}
+                    disabled={importLoading}
+                    aria-label="Импорт меню на все ТТ"
+                  >
+                    <SyncRoundedIcon />
+                    <span>Импорт<span className={styles.labelTail}> меню на все ТТ</span></span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.heroSecondaryButton}
                     onClick={() => openEditCategory(selectedGroup)}
                     aria-label="Изменить категорию"
                   >
                     <EditRoundedIcon />
-                    Изменить<span className={styles.labelTail}> категорию</span>
+                    <span>Изменить<span className={styles.labelTail}> категорию</span></span>
                   </button>
                   <button
                     type="button"
@@ -572,7 +608,7 @@ export default function DeliveryMenuPage() {
                     aria-label="Удалить категорию"
                   >
                     <DeleteOutlineRoundedIcon />
-                    Удалить<span className={styles.labelTail}> категорию</span>
+                    <span>Удалить<span className={styles.labelTail}> категорию</span></span>
                   </button>
                   <button type="button" className={styles.heroPrimaryButton} onClick={openCreateItem}>
                     <AddRoundedIcon />
@@ -793,6 +829,16 @@ export default function DeliveryMenuPage() {
         />
       )}
 
+      {canManageMenu && importLocations && (
+        <MenuImportModal
+          isOpen={importOpen}
+          kind="menu"
+          locations={importLocations}
+          current={null}
+          defaultScope={ALL_POINTS}
+          onClose={() => setImportOpen(false)}
+        />
+      )}
       {canUseStops && (
         <ConfirmModal
           isOpen={stopTarget !== null}

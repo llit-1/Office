@@ -178,7 +178,9 @@ function renderInline(container: Element, ctx: DocxContext, inherited: RunLook):
         break;
       case "hyperlink": {
         const relId = attr(node, "id");
-        const target = relId ? ctx.rels.get(relId) : null;
+        const rel = relId ? ctx.rels.get(relId) : null;
+        // В документе может лежать javascript:-ссылка — пропускаем только обычные адреса.
+        const target = rel && /^(https?:|mailto:)/i.test(rel.trim()) ? rel.trim() : null;
         const inner = renderInline(node, ctx, inherited);
         html += target
           ? `<a class="ov-link" href="${escapeHtml(target)}" target="_blank" rel="noopener noreferrer">${inner}</a>`

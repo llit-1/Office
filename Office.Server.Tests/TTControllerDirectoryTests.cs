@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Office.Server.Controllers;
+using Office.Server.DbContexts.RK7;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
 using Office.Server.Locations;
@@ -49,7 +50,10 @@ public class TTControllerDirectoryTests
 
         var controller = new TTController(
             db,
+            new Rk7Context(new DbContextOptionsBuilder<Rk7Context>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options),
             new EntityFolderService(configuration, NullLogger<EntityFolderService>.Instance),
+            new Office.Server.Nx.NxRestClient(null!, configuration),
+            new Office.Server.Nx.NxUserSyncService(new Office.Server.Nx.NxRestClient(null!, configuration), db, NullLogger<Office.Server.Nx.NxUserSyncService>.Instance),
             NullLogger<TTController>.Instance);
         return new Fixture(controller, db, root);
     }
@@ -80,10 +84,55 @@ public class TTControllerDirectoryTests
         Assert.Equal(location.Guid, version.LocationGuid);
         Assert.Equal(EntityGuid, version.EntityGuid);
         Assert.Null(version.OBD);
+        var requisite = Assert.Single(fixture.Db.OfficeLocationRequisites);
+        Assert.Equal(EntityGuid, requisite.EntityGuid);
+        Assert.Null(requisite.Obd);
+        Assert.Equal(new DateTime(2024, 1, 1), requisite.Begin);
 
         var edit = (await fixture.Controller.GetLocation("factory", location.Guid)).Result;
         Assert.IsType<OkObjectResult>(edit);
         Assert.IsType<NotFoundObjectResult>((await fixture.Controller.GetLocation("office", location.Guid)).Result);
+    }
+
+    [Fact]
+    public async Task OfficeEntityChangesOnlyThroughNewRequisitesVersion()
+    {
+        using var fixture = Create();
+        var otherEntity = new Entity { Guid = Guid.NewGuid(), Name = "ООО Ромашка", Owner = 1 };
+        fixture.Db.Entity.Add(otherEntity);
+        fixture.Db.SaveChanges();
+        await fixture.Controller.CreateLocation("office", new TTController.LocationSaveRequest
+        {
+            Name = "Офис К37",
+            LocationTypeGuid = OfficeType,
+            EntityGuid = EntityGuid,
+            VersionStartDate = new DateTime(2025, 3, 1),
+        });
+        var office = fixture.Db.Locations.Single();
+
+        var update = new TTController.LocationSaveRequest
+        {
+            Name = "Офис К37",
+            LocationTypeGuid = OfficeType,
+            EntityGuid = otherEntity.Guid,
+            VersionStartDate = new DateTime(2025, 3, 1),
+        };
+        Assert.IsType<NoContentResult>(await fixture.Controller.UpdateLocation("office", office.Guid, update));
+        Assert.Single(fixture.Db.OfficeLocationRequisites);
+        Assert.Equal(EntityGuid, fixture.Db.LocationVersions.Single().EntityGuid);
+
+        update.NewRequisites = new TTController.RequisitesVersionRequest { EntityGuid = otherEntity.Guid, Begin = new DateTime(2025, 9, 1) };
+        Assert.IsType<NoContentResult>(await fixture.Controller.UpdateLocation("office", office.Guid, update));
+
+        var history = fixture.Db.OfficeLocationRequisites.OrderBy(x => x.Begin).ToList();
+        Assert.Equal(new DateTime(2025, 9, 1), history[0].End);
+        Assert.Equal(otherEntity.Guid, history[1].EntityGuid);
+        Assert.Null(history[1].Obd);
+        Assert.Equal(otherEntity.Guid, fixture.Db.LocationVersions.Single().EntityGuid);
+        var edit = Assert.IsType<TTController.LocationEditDto>(
+            Assert.IsType<OkObjectResult>((await fixture.Controller.GetLocation("office", office.Guid)).Result).Value);
+        Assert.Equal(otherEntity.Guid, edit.EntityGuid);
+        Assert.Equal(2, edit.Requisites.Count);
     }
 
     [Fact]

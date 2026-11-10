@@ -4,6 +4,10 @@ export interface OfficeRole {
   description: string;
   role: string;
   officeGroup: string[];
+  /** Раздел портала: по нему роли собираются в блоки в редакторе группы. */
+  section?: string | null;
+  /** Ключ взаимоисключения: из ролей с одним ключом группе и пользователю — только одна. */
+  exclusiveKey?: string | null;
 }
 
 export interface OfficeGroup {

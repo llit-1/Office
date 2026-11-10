@@ -16,6 +16,8 @@ using System.Text;
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var builder = WebApplication.CreateBuilder(args);
+// Пароли и строки подключения живут только здесь: файл в .gitignore, в репозиторий не попадает.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 var allowedCorsOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()?
@@ -113,21 +115,6 @@ builder.Services.AddAuthentication(options =>
     };
     options.Events = new JwtBearerEvents
     {
-        OnMessageReceived = context =>
-        {
-            // Native media elements cannot attach an Authorization header.
-            // Accept a query JWT only on protected knowledge-library media routes.
-            var path = context.HttpContext.Request.Path;
-            if (path.StartsWithSegments("/api/KnowledgeLibrary", StringComparison.OrdinalIgnoreCase)
-                && (path.Value?.EndsWith("/cover", StringComparison.OrdinalIgnoreCase) == true
-                    || path.Value?.EndsWith("/folder-icon", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                var queryToken = context.Request.Query["access_token"].FirstOrDefault();
-                if (!string.IsNullOrWhiteSpace(queryToken))
-                    context.Token = queryToken;
-            }
-            return Task.CompletedTask;
-        },
         OnChallenge = context =>
         {
             context.Response.Headers[AuthConstants.AuthChallengeHeaderName] = "1";
@@ -158,8 +145,10 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddSingleton<ClientInfoParser>();
 builder.Services.AddScoped<KnowledgeLibrarySchemaInitializer>();
+builder.Services.AddScoped<Office.Server.Locations.LocationSchemaInitializer>();
 builder.Services.AddScoped<DeliveryCashRoleInitializer>();
 builder.Services.AddScoped<StockRoleInitializer>();
+builder.Services.AddScoped<Office.Server.Calculator.CalculatorRoleInitializer>();
 builder.Services.AddScoped<NxRoleInitializer>();
 // Сервер Nx отвечает по https с самоподписанным сертификатом — проверку отключаем только для этого клиента.
 builder.Services
@@ -184,6 +173,24 @@ builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(o
         });
 });
 
+builder.Services.AddDbContext<Office.Server.DbContexts.Calculator.CalculatorDbContext>(options =>
+{
+    options.UseSqlServer(Office.Server.DbContexts.Calculator.CalculatorDbContext.ConnectionStringFrom(Office.Server.Global.MSSqlConnectionString),
+        sqlServerOptionsAction: mssqlOptions =>
+        {
+            mssqlOptions.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(5), errorNumbersToAdd: null);
+        });
+});
+builder.Services.AddScoped<Office.Server.Calculator.CalculatorService>();
+builder.Services.AddHttpClient(Office.Server.Calculator.HttpCalculatorLogSink.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddScoped<Office.Server.Calculator.ICalculatorLogSink, Office.Server.Calculator.HttpCalculatorLogSink>();
+builder.Services.AddScoped<Office.Server.Calculator.ICalculatorDeferredJobs, Office.Server.Calculator.SqlAgentDeferredJobs>();
+builder.Services.AddHttpClient(Office.Server.Calculator.OpenMeteoWeather.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(5));
+builder.Services.AddSingleton<Office.Server.Calculator.IWeatherForecast, Office.Server.Calculator.OpenMeteoWeather>();
+// настройки нового расчёта и срочные заходы пока живут в памяти сервера
+builder.Services.AddSingleton<Office.Server.Calculator.CalculatorPlanningStore>();
+builder.Services.AddScoped<Office.Server.Calculator.CalculatorForecastService>();
+
 builder.Services.AddDbContext<Office.Server.DbContexts.PowerBi.PowerBiContext>(options =>
 {
     options.UseSqlServer(Office.Server.Global.PowerBiMSSqlConnectionString,
@@ -194,6 +201,16 @@ builder.Services.AddDbContext<Office.Server.DbContexts.PowerBi.PowerBiContext>(o
 });
 
 var app = builder.Build();
+
+try
+{
+    await using var locationScope = app.Services.CreateAsyncScope();
+    await locationScope.ServiceProvider.GetRequiredService<Office.Server.Locations.LocationSchemaInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Location schema (AltName, requisites) initialization failed.");
+}
 
 try
 {
@@ -223,6 +240,16 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Stock role initialization failed.");
+}
+
+try
+{
+    await using var calculatorRoleScope = app.Services.CreateAsyncScope();
+    await calculatorRoleScope.ServiceProvider.GetRequiredService<Office.Server.Calculator.CalculatorRoleInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Calculator role initialization failed.");
 }
 
 try
@@ -259,7 +286,23 @@ if (app.Environment.IsDevelopment())
     });
 }
 
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseHttpsRedirection();
+
+// Портал нельзя встроить в чужой сайт, браузер не угадывает тип файлов, полный адрес не уходит в Referer.
+var frameAncestors = string.Join(" ", allowedCorsOrigins.Prepend("'self'"));
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers.XContentTypeOptions = "nosniff";
+    headers.ContentSecurityPolicy = $"frame-ancestors {frameAncestors}";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    await next();
+});
 
 // The SPA shell and its generated assets must be available before a user has a JWT.
 // Otherwise the global fallback authorization policy challenges every JS/CSS request,

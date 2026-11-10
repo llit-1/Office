@@ -5,6 +5,7 @@ using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
 using Office.Server.Nx;
 using Office.Server.Reports;
+using Office.Server.Security;
 using System.DirectoryServices;
 using System.DirectoryServices.AccountManagement;
 
@@ -133,6 +134,13 @@ namespace Office.Server.Controllers
             if (string.IsNullOrWhiteSpace(model.Login))
                 return BadRequest(new { message = "Укажите логин пользователя." });
 
+            // Правка не должна добавить пользователю противоречащих ролей — проверяем до любых изменений.
+            var selectedGroups = model.OfficeGroup is { Count: > 0 }
+                ? await _context.OfficeGroup.Include(g => g.OfficeRole).Where(g => model.OfficeGroup.Contains(g.ID)).ToListAsync()
+                : [];
+            if (RoleConflicts.FindNewForUser(user.OfficeGroup, selectedGroups) is RoleConflicts.Conflict userConflict)
+                return BadRequest(new { message = RoleConflicts.Describe(userConflict) });
+
             // Доступы в Nx зависят от набора ТТ, роли NX и активности — запоминаем состояние до правок,
             // чтобы не дёргать Nx, когда меняли только ФИО, должность или ссылки на отчёты.
             var nxStateBefore = GetNxRelevantState(user);
@@ -163,15 +171,8 @@ namespace Office.Server.Controllers
             user.DefaultLocations = model.DefaultLocations;
             user.OfficeGroup.Clear();
 
-            if (model.OfficeGroup != null && model.OfficeGroup.Count > 0)
-            {
-                var groups = await _context.OfficeGroup
-                    .Where(g => model.OfficeGroup.Contains(g.ID))
-                    .ToListAsync();
-
-                foreach (var g in groups)
-                    user.OfficeGroup.Add(g);
-            }
+            foreach (var g in selectedGroups)
+                user.OfficeGroup.Add(g);
 
             // ===== Locations (Guid IDs) =====
             user.Locations.Clear();
@@ -265,15 +266,12 @@ namespace Office.Server.Controllers
                 Name = model.Name
             };
 
-            if (model.OfficeRole != null)
-            {
-                foreach (var role in model.OfficeRole)
-                {
-                    var dbRole = await _context.OfficeRole.FindAsync(role.ID);
-                    if (dbRole != null)
-                        group.OfficeRole.Add(dbRole);
-                }
-            }
+            var roles = await LoadRolesAsync(model.OfficeRole);
+            if (RoleConflicts.FindInGroup(roles, group.Name) is RoleConflicts.Conflict conflict)
+                return BadRequest(new { message = RoleConflicts.Describe(conflict) });
+
+            foreach (var role in roles)
+                group.OfficeRole.Add(role);
 
             _context.OfficeGroup.Add(group);
             await _context.SaveChangesAsync();
@@ -292,18 +290,28 @@ namespace Office.Server.Controllers
             if (group == null)
                 return NotFound();
 
+            // Проверки — до изменений группы: и внутри неё, и у каждого её участника вместе с его другими группами.
+            var roles = await LoadRolesAsync(model.OfficeRole);
+            if (RoleConflicts.FindInGroup(roles, model.Name) is RoleConflicts.Conflict conflict)
+                return BadRequest(new { message = RoleConflicts.Describe(conflict) });
+
+            var members = await _context.OfficeUser.AsNoTracking()
+                .Where(u => u.Actual == 1 && u.OfficeGroup.Any(g => g.ID == group.ID))
+                .Include(u => u.OfficeGroup).ThenInclude(g => g.OfficeRole)
+                .ToListAsync();
+            foreach (var member in members)
+            {
+                var memberGroups = member.OfficeGroup
+                    .Where(g => g.ID != group.ID)
+                    .Append(new OfficeGroup { ID = group.ID, Name = model.Name, OfficeRole = roles });
+                if (RoleConflicts.FindNewForUser(member.OfficeGroup, memberGroups) is RoleConflicts.Conflict memberConflict)
+                    return BadRequest(new { message = $"Пользователь {member.Login}: {RoleConflicts.Describe(memberConflict)}" });
+            }
+
             group.Name = model.Name;
             group.OfficeRole.Clear();
-
-            if (model.OfficeRole != null)
-            {
-                foreach (var role in model.OfficeRole)
-                {
-                    var dbRole = await _context.OfficeRole.FindAsync(role.ID);
-                    if (dbRole != null)
-                        group.OfficeRole.Add(dbRole);
-                }
-            }
+            foreach (var role in roles)
+                group.OfficeRole.Add(role);
 
             await _context.SaveChangesAsync();
             return Ok(group);
@@ -355,7 +363,9 @@ namespace Office.Server.Controllers
             {
                 Name = model.Name,
                 Description = model.Description,
-                Role = model.Role
+                Role = model.Role,
+                Section = RoleConflicts.Normalize(model.Section),
+                ExclusiveKey = RoleConflicts.Normalize(model.ExclusiveKey)
             };
 
             _context.OfficeRole.Add(role);
@@ -373,9 +383,44 @@ namespace Office.Server.Controllers
             if (role == null)
                 return NotFound();
 
+            // Новый ключ не должен сделать противоречивыми уже настроенные группы и пользователей.
+            var exclusiveKey = RoleConflicts.Normalize(model.ExclusiveKey);
+            if (exclusiveKey != null && !string.Equals(exclusiveKey, RoleConflicts.Normalize(role.ExclusiveKey), StringComparison.OrdinalIgnoreCase))
+            {
+                var updated = new OfficeRole { ID = role.ID, Name = model.Name, ExclusiveKey = exclusiveKey };
+                var groups = await _context.OfficeGroup.AsNoTracking()
+                    .Where(g => g.OfficeRole.Any(r => r.ID == role.ID))
+                    .Include(g => g.OfficeRole)
+                    .ToListAsync();
+                foreach (var group in groups)
+                {
+                    var groupRoles = group.OfficeRole.Where(r => r.ID != role.ID).Append(updated);
+                    if (RoleConflicts.FindNewInGroup(group.OfficeRole, groupRoles, group.Name) is RoleConflicts.Conflict conflict)
+                        return BadRequest(new { message = RoleConflicts.Describe(conflict) });
+                }
+
+                var users = await _context.OfficeUser.AsNoTracking()
+                    .Where(u => u.Actual == 1 && u.OfficeGroup.Any(g => g.OfficeRole.Any(r => r.ID == role.ID)))
+                    .Include(u => u.OfficeGroup).ThenInclude(g => g.OfficeRole)
+                    .ToListAsync();
+                foreach (var user in users)
+                {
+                    var userGroups = user.OfficeGroup.Select(g => new OfficeGroup
+                    {
+                        ID = g.ID,
+                        Name = g.Name,
+                        OfficeRole = g.OfficeRole.Select(r => r.ID == role.ID ? updated : r).ToList()
+                    });
+                    if (RoleConflicts.FindNewForUser(user.OfficeGroup, userGroups) is RoleConflicts.Conflict conflict)
+                        return BadRequest(new { message = $"Пользователь {user.Login}: {RoleConflicts.Describe(conflict)}" });
+                }
+            }
+
             role.Name = model.Name;
             role.Description = model.Description;
             role.Role = model.Role;
+            role.Section = RoleConflicts.Normalize(model.Section);
+            role.ExclusiveKey = exclusiveKey;
 
             await _context.SaveChangesAsync();
             return Ok(role);
@@ -394,6 +439,13 @@ namespace Office.Server.Controllers
             _context.OfficeRole.Remove(role);
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        /// <summary>Роли из базы по Id из запроса; несуществующие пропускаются.</summary>
+        private async Task<List<OfficeRole>> LoadRolesAsync(IEnumerable<OfficeRole>? requested)
+        {
+            var ids = (requested ?? []).Select(r => r.ID).Distinct().ToList();
+            return ids.Count == 0 ? [] : await _context.OfficeRole.Where(r => ids.Contains(r.ID)).ToListAsync();
         }
 
         public class OfficeGroupModel

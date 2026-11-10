@@ -22,6 +22,7 @@ import { pathSet, visibleSet } from "../../Store/stateForBackButtonSlice";
 import Input from "../../Components/Input/Input";
 import Button from "../../Components/Button/Button";
 import { MultiplySelect } from "../../Components/MultiplySelect/MultiplySelect";
+import { describeConflict, findNewUserConflict, findUserConflict } from "./roleConflicts";
 import Toggle from "../../Components/Toggle/Toggle";
 import Modal from "../../Components/Modal/Modal";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
@@ -257,6 +258,13 @@ export default function UserEdit() {
     () => userGroups.map((g) => g.id),
     [userGroups],
   );
+  /** Последняя отклонённая попытка добавить группу с противоречащей ролью. */
+  const [groupConflict, setGroupConflict] = useState<string | null>(null);
+  /** Противоречие в уже сохранённых группах — осталось с тех пор, когда оно не проверялось. */
+  const currentConflict = useMemo(() => {
+    const conflict = findUserConflict(userGroups);
+    return conflict ? describeConflict(conflict) : null;
+  }, [userGroups]);
   const selectedLocationGuids = useMemo(
     () => userLocations.map((l) => l.guid),
     [userLocations],
@@ -640,14 +648,24 @@ export default function UserEdit() {
                   selectedKeys={selectedGroupIds}
                   label="Поиск группы"
                   disabled={saving}
-                  onChange={(ids) =>
-                    setValue(
-                      "officeUser.officeGroup",
-                      allGroups.filter((group) => ids.includes(group.id)),
-                      { shouldDirty: true },
-                    )
-                  }
+                  onChange={(ids) => {
+                    const next = allGroups.filter((group) => ids.includes(group.id));
+                    // убрать группу можно всегда, а новая не должна добавлять противоречий
+                    const adds = next.some((group) => !selectedGroupIds.includes(group.id));
+                    const conflict = adds ? findNewUserConflict(userGroups, next) : null;
+                    if (conflict) {
+                      setGroupConflict(describeConflict(conflict));
+                      return;
+                    }
+                    setGroupConflict(null);
+                    setValue("officeUser.officeGroup", next, { shouldDirty: true });
+                  }}
                 />
+                {groupConflict ?? currentConflict ? (
+                  <p className={styles.fieldError} role="alert">
+                    {groupConflict ?? `${currentConflict} Уберите одну из групп.`}
+                  </p>
+                ) : null}
               </section>
               <section
                 className={styles.accessSection}

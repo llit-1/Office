@@ -1,18 +1,33 @@
 .page {
   --editor-heading: var(--color-text);
   width: 100%;
+  /* редактор не выше рабочей области: прокручивается только тело, панель с кнопками всегда видна */
+  height: 100%;
   min-width: 0;
   container-type: inline-size;
   color: var(--color-text);
 }
 .editor {
   width: 100%;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
+/* прокручиваемое тело редактора */
+.body {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 .layout {
+  flex: 1 0 auto;
   margin: 0;
   padding: 0;
   border: 0;
@@ -36,6 +51,23 @@
     var(--color-surface-muted) 50%,
     var(--color-surface)
   );
+}
+/* полоса сверху: заголовок слева, поле справа */
+.stacked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.stacked > .sidebar {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: var(--space-5);
+  border-right: 0;
+  border-bottom: 1px solid var(--color-border);
+  border-start-end-radius: var(--radius-lg);
+}
+.stacked > .sidebar > :last-child {
+  width: min(420px, 100%);
+  flex: none;
 }
 .heading {
   display: flex;
@@ -85,6 +117,15 @@
 .fields .description {
   height: 176px;
 }
+/* галочка с пояснением под ней, выровненным по тексту галочки */
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.option .hint {
+  padding-left: calc(24px + var(--space-2));
+}
 .hint {
   margin: 0;
 }
@@ -95,9 +136,7 @@
   border-radius: var(--radius-card);
 }
 .footer {
-  position: sticky;
-  bottom: 0;
-  z-index: var(--z-sticky);
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -145,10 +184,8 @@
   font-size: var(--font-size-compact);
   color: var(--color-danger-text);
 }
-.editor input[aria-invalid="true"] {
-  box-shadow: inset 0 0 0 var(--focus-ring-width) var(--color-danger-border);
-}
 .errorBanner {
+  flex: none;
   margin: var(--space-4);
   padding: var(--space-4);
   border: 1px solid var(--color-danger-border);
@@ -192,6 +229,13 @@
   }
 }
 @container (max-width: 700px) {
+  .stacked > .sidebar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .stacked > .sidebar > :last-child {
+    width: 100%;
+  }
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }

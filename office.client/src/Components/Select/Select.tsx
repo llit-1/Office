@@ -251,6 +251,7 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
         htmlFor={selectId}
         labelVisible={!hideLabel}
         disabled={disabled}
+        invalid={String((restProps as Record<string, unknown>)["aria-invalid"]) === "true"}
         className={`${styles.selectWrapper} ${wrapperSizeClass} ${wrapperClassName ?? ""}`}
       >
         {/* hidden native select to keep compatibility with register/ref/onChange */}

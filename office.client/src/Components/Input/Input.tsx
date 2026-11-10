@@ -9,14 +9,17 @@ type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "size"> & {
   maxLength?: number;
   labelVisible?: boolean;
   size?: "small" | "medium";
+  /** Кнопки-иконки внутри поля у правого края. */
+  endAdornment?: React.ReactNode;
 };
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, className, wrapperClassName, maxLength, labelVisible, size, ...rest }, ref) => {
+  ({ label, className, wrapperClassName, maxLength, labelVisible, size, endAdornment, ...rest }, ref) => {
     const generatedId = useId();
     const inputId = rest.id ?? generatedId;
     const wrapperSizeClass = size === "small" ? styles.sizeSmall : size === "medium" ? styles.sizeMedium : "";
     const showLabel = labelVisible !== false;
+    const input = <input id={inputId} ref={ref} className={`${styles.input} ${className ?? ""}`} {...rest} maxLength={maxLength} />;
 
     return (
       <OutlinedField
@@ -24,9 +27,15 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         htmlFor={inputId}
         labelVisible={showLabel}
         disabled={rest.disabled}
+        invalid={rest["aria-invalid"] === true || rest["aria-invalid"] === "true"}
         className={`${styles.inputWrapper} ${wrapperSizeClass} ${wrapperClassName ?? ""}`}
       >
-        <input id={inputId} ref={ref} className={`${styles.input} ${className ?? ""}`} {...rest} maxLength={maxLength} />
+        {endAdornment ? (
+          <div className={styles.control} data-disabled={rest.disabled || undefined} data-readonly={rest.readOnly || undefined}>
+            {input}
+            <span className={styles.endAdornment}>{endAdornment}</span>
+          </div>
+        ) : input}
       </OutlinedField>
     );
   },

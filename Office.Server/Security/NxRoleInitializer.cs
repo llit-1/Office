@@ -20,6 +20,7 @@ public sealed class NxRoleInitializer(RKNETDBContext db)
             Role = NxUserSyncService.RoleCode,
             Name = "NX - Видеонаблюдение",
             Description = "Доступ к камерам своих ТТ в Nx Witness",
+            Section = "Видео на ТТ",
         });
         await db.SaveChangesAsync(cancellationToken);
     }

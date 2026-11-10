@@ -1,8 +1,8 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useNotifications } from "@toolpad/core";
 import { useDispatch, useSelector } from "react-redux";
 import TabNavigation from "../../Components/TabNaviagtion/TabNavigation";
-import { callApi, del, get, post, put } from "../../Services/api";
+import { callApi, del, get, getAccessToken, getApiBaseUrl, post, put } from "../../Services/api";
 import type { RootState } from "../../Store";
 import { visibleSet, pathSet } from "../../Store/stateForBackButtonSlice";
 import { titleSet } from "../../Store/stateForPageTitleSlice";
@@ -15,6 +15,7 @@ import type {
   MaintenanceWindowItem,
   SensorFormState,
   SensorHistoryPoint,
+  SensorPingStatus,
   SensorRow,
   SensorRuleRow,
   SensorRuleSettings,
@@ -55,6 +56,10 @@ export default function Sensors() {
 
   const [activeTab, setActiveTab] = useState(0);
   const [sensors, setSensors] = useState<SensorRow[]>([]);
+  const [pingStatuses, setPingStatuses] = useState<Record<number, SensorPingStatus>>({});
+  const [pingCheckFinished, setPingCheckFinished] = useState(false);
+  const pingCheckStarted = useRef(false);
+  const pingAbortController = useRef<AbortController | null>(null);
   const [ruleRows, setRuleRows] = useState<SensorRuleRow[]>([]);
   const [sensorsLoading, setSensorsLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
@@ -122,6 +127,55 @@ export default function Sensors() {
       cancelled = true;
     };
   }, [notifications]);
+
+  useEffect(() => () => pingAbortController.current?.abort(), []);
+
+  useEffect(() => {
+    if (sensorsLoading || sensors.length === 0 || pingCheckStarted.current) return;
+
+    pingCheckStarted.current = true;
+    const abortController = new AbortController();
+    pingAbortController.current = abortController;
+
+    const applyPingResult = (line: string) => {
+      const result = JSON.parse(line) as { id?: number; status?: SensorPingStatus };
+      if (typeof result.id !== "number" || !["online", "offline", "unknown"].includes(result.status ?? "")) return;
+      setPingStatuses((current) => ({ ...current, [result.id!]: result.status! }));
+    };
+
+    const checkPings = async () => {
+      try {
+        const token = getAccessToken();
+        const apiBaseUrl = getApiBaseUrl().replace(/\/+$/, "");
+        const response = await fetch(`${apiBaseUrl}/Sensors/rooms/ping/stream`, {
+          credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: abortController.signal,
+        });
+        if (!response.ok || !response.body) throw new Error("Не удалось проверить ping датчиков");
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { value, done } = await reader.read();
+          buffer += decoder.decode(value, { stream: !done });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() ?? "";
+          lines.filter(Boolean).forEach(applyPingResult);
+          if (done) break;
+        }
+        if (buffer.trim()) applyPingResult(buffer);
+      } catch {
+        // An incomplete check stays unknown; it must not change the sensor's configured activity.
+      } finally {
+        if (!abortController.signal.aborted) setPingCheckFinished(true);
+      }
+    };
+
+    void checkPings();
+  }, [sensorsLoading, sensors.length]);
 
   // Статус датчика меняется со временем (задержка до уведомления), поэтому список тихо перечитываем раз в минуту.
   useEffect(() => {
@@ -462,6 +516,8 @@ export default function Sensors() {
       {activeTab === 0 && (
         <SensorsCardsTab
           sensors={sensors}
+          pingStatuses={pingStatuses}
+          pingCheckFinished={pingCheckFinished}
           filteredSensors={filteredSensors}
           sensorsLoading={sensorsLoading}
           searchText={searchText}

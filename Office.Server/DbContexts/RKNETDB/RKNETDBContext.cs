@@ -13,6 +13,9 @@ namespace Office.Server.DbContexts.RKNETDB
             // EF's direct OUTPUT clause for this table; keep trigger-compatible SQL.
             modelBuilder.Entity<Location>()
                 .ToTable("Locations", table => table.UseSqlOutputClause(false));
+            // у журнала калькулятора триггер CalculatorLogsTest_UpdatesActualDatas — тоже без OUTPUT
+            modelBuilder.Entity<CalculatorLogEntry>()
+                .ToTable("CalculatorLogsTest", table => table.UseSqlOutputClause(false));
 
             // ===== OfficeUser ↔ Locations =====
             modelBuilder.Entity<OfficeUser>()
@@ -245,6 +248,7 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<DbContexts.RKNETDB.Models.Location> Locations { get; set; } // локация
         public DbSet<DbContexts.RKNETDB.Models.LocationType> LocationTypes { get; set; } // типы локаций
         public DbSet<DbContexts.RKNETDB.Models.LocationVersion> LocationVersions { get; set; } // версии локаций
+        public DbSet<DbContexts.RKNETDB.Models.OfficeLocationRequisite> OfficeLocationRequisites { get; set; } // OBD и юрлицо локаций по периодам
         public DbSet<DbContexts.RKNETDB.Models.Entity> Entity { get; set; } // организации
         public DbSet<DbContexts.RKNETDB.Models.JobTitle> JobTitles { get; set; }
         public DbSet<DbContexts.RKNETDB.Models.PersonalityVersion> PersonalityVersions { get; set; }
@@ -297,5 +301,8 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<OfficeOrderGroup> OfficeOrderGroups { get; set; } // группы номенклатуры
         public DbSet<OfficeOrderRule> OfficeOrderRules { get; set; } // правила приёма и отгрузки
         public DbSet<OfficeOrderLocationRule> OfficeOrderLocationRules { get; set; } // сдвиг отгрузки по локациям
+        public DbSet<CalculatorLogEntry> CalculatorLogs { get; set; } // ввод в калькуляторе розницы (Office пишет сам, старый портал — через Buffer)
+        public DbSet<CalculatorCoefficientLog> CalculatorCoefficientLogs { get; set; } // журнал изменений коэффициентов калькулятора
+        public DbSet<OfficeCalculatorEntryWindow> OfficeCalculatorEntryWindows { get; set; } // окна захода в калькулятор
     }
 }

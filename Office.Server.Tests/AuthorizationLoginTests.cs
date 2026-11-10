@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Office.Server.Controllers;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using Office.Server.Security;
 using Xunit;
 
 namespace Office.Server.Tests;
@@ -17,11 +18,14 @@ public class AuthorizationLoginTests
         db, null!, null!, NullLogger<AuthorizationController>.Instance)
     {
         public bool Valid { get; set; } = true;
+        public int AdChecks { get; private set; }
+        private readonly LoginAttempts _attempts = new();
+        protected override LoginAttempts Attempts => _attempts;
         public AdUserInfo? DirectoryUser { get; set; } = new()
         {
             Login = "adsmolkin", UserPrincipalName = "Adsmolkin@shzhleb.ru", FirstName = "Александр"
         };
-        protected override bool ValidateAdUser(string login, string password) => Valid;
+        protected override bool ValidateAdUser(string login, string password) { AdChecks++; return Valid; }
         protected override AdUserInfo? GetAdUserInfo(string login) => DirectoryUser;
         public Task<IActionResult> SignIn(string login) => Login(new LoginModel { Login = login, Password = "test-password" });
     }
@@ -94,6 +98,32 @@ public class AuthorizationLoginTests
         controller.DirectoryUser = null;
         Assert.IsType<UnauthorizedObjectResult>(await controller.SignIn("adsmolkin"));
         Assert.Empty(db.OfficeUser);
+    }
+
+    [Fact]
+    public async Task RepeatedFailuresPauseLoginWithoutAskingAd()
+    {
+        using var db = CreateDb();
+        var controller = new Controller(db) { Valid = false };
+        for (var i = 0; i < LoginAttempts.MaxFailures; i++)
+            Assert.IsType<UnauthorizedObjectResult>(await controller.SignIn(i % 2 == 0 ? "adsmolkin" : "ADSMOLKIN@shzhleb.ru"));
+
+        controller.Valid = true;
+        var blocked = Assert.IsType<ObjectResult>(await controller.SignIn("SHZHLEB\\adsmolkin"));
+        Assert.Equal(429, blocked.StatusCode);
+        Assert.Equal(LoginAttempts.MaxFailures, controller.AdChecks);
+        Assert.Empty(db.OfficeUser);
+    }
+
+    [Fact]
+    public void FailureWindowExpires()
+    {
+        var attempts = new LoginAttempts();
+        var start = new DateTime(2026, 10, 26, 9, 0, 0, DateTimeKind.Utc);
+        for (var i = 0; i < LoginAttempts.MaxFailures; i++)
+            attempts.Fail("user", start);
+        Assert.NotNull(attempts.BlockedFor("user", start.AddMinutes(1)));
+        Assert.Null(attempts.BlockedFor("user", start + LoginAttempts.Window));
     }
 
     [Fact]

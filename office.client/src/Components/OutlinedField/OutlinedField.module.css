@@ -78,6 +78,15 @@
     border-width: 2px;
 }
 
+.invalid .label {
+    color: var(--color-danger-text);
+}
+
+.invalid .outline,
+.invalid:focus-within .outline {
+    border-color: var(--color-danger-border);
+}
+
 .disabled .label {
     color: var(--color-disabled-text);
 }

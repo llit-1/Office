@@ -29,7 +29,7 @@ export const menuParts: MenuPart[] = [
   {
     name: "Калькулятор",
     Icon: CalculateRoundedIcon,
-    path: "/Calculator/SelectCategory",
+    path: "/Calculator",
     img: "/img/calculator.svg",
     requiredRole: "Calculator",
   },

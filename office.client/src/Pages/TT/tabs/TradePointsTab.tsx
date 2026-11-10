@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import GenericTable, { type Column } from "../../../Components/GenericTable/GenericTable";
 import { includesNormalized } from "../../../Components/GenericTable/searchUtils";
 import useDebouncedValue from "../../../Hooks/useDebouncedValue";
@@ -11,6 +12,7 @@ const tableStateKey = "tt-trade-list";
 
 const columns: Column<TTListItem>[] = [
   { key: "name", label: "Наименование", responsivePriority: 0 },
+  { key: "altName", label: "Альт. название", defaultVisible: false, responsivePriority: 6 },
   { key: "type", label: "Тип", responsivePriority: 1 },
   { key: "rkCode", label: "Код RK", responsivePriority: 2 },
   { key: "aggregatorsCode", label: "Код ТТ", responsivePriority: 3 },
@@ -31,6 +33,7 @@ const columns: Column<TTListItem>[] = [
 ];
 
 export default function TradePointsTab() {
+  const navigate = useNavigate();
   const [searchText, setSearchText] = usePersistedSearchText(tableStateKey);
   const debouncedSearchText = useDebouncedValue(searchText);
   const [loading, setLoading] = useState(true);
@@ -62,7 +65,7 @@ export default function TradePointsTab() {
     () =>
       items.filter((item) =>
         includesNormalized(
-          `${item.name ?? ""} ${item.type ?? ""} ${item.address ?? ""} ${item.rkCode ?? ""} ${item.aggregatorsCode ?? ""} ${item.obd ?? ""}`,
+          `${item.name ?? ""} ${item.altName ?? ""} ${item.type ?? ""} ${item.address ?? ""} ${item.rkCode ?? ""} ${item.aggregatorsCode ?? ""} ${item.obd ?? ""}`,
           debouncedSearchText,
         ),
       ),
@@ -74,7 +77,8 @@ export default function TradePointsTab() {
       data={filteredItems}
       columns={columns}
       loading={loading}
-      addOption={false}
+      addOption
+      onAddClick={() => navigate("/TT/Edit/new")}
       routeTo="/TT/Edit"
       tableStateKey={tableStateKey}
       searchPlaceholder="Поиск"

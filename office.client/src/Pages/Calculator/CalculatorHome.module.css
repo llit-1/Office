@@ -1,0 +1,135 @@
+/* Главная калькуляторов: точка и карточки категорий. */
+
+.page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.loading {
+  min-height: 280px;
+  display: grid;
+  place-items: center;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.heading h1 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: var(--font-size-title-lg);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--line-height-title-lg);
+}
+
+.heading p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-body);
+}
+
+.storeSelect {
+  width: 320px;
+  max-width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 188px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: center;
+  text-decoration: none;
+  transition: border-color var(--duration-fast) var(--easing-standard), box-shadow var(--duration-fast) var(--easing-standard);
+}
+
+.card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.image {
+  width: 68px;
+  height: 68px;
+  flex: none;
+  object-fit: contain;
+}
+
+.title {
+  font-size: var(--font-size-title-sm);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--line-height-title-sm);
+}
+
+@media (max-width: 600px) {
+  .page {
+    gap: var(--space-4);
+  }
+
+  .header {
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+
+  .heading h1 {
+    font-size: var(--font-size-title-md);
+    line-height: var(--line-height-title-md);
+  }
+
+  .storeSelect {
+    width: 100%;
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-2);
+  }
+
+  .card {
+    min-height: 160px;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-2);
+    border-radius: var(--radius-card);
+  }
+
+  .image {
+    width: 56px;
+    height: 56px;
+  }
+
+  .title {
+    font-size: var(--font-size-title-sm);
+    line-height: var(--line-height-title-sm);
+  }
+}

@@ -14,11 +14,12 @@ import { getFriendlyErrorMessage } from "../../Services/api";
 import {
   createKnowledgeSection,
   deleteKnowledgeSection,
-  knowledgeCoverUrl,
+  knowledgeCoverPath,
   reindexKnowledgeSection,
   testKnowledgePath,
   updateKnowledgeSection,
 } from "./knowledgeLibrary.api";
+import KnowledgeImage from "./KnowledgeImage";
 import type { KnowledgeAdminSection, KnowledgeRole, KnowledgeSectionPayload } from "./knowledgeLibrary.types";
 import styles from "./KnowledgeLibrarySectionModal.module.css";
 
@@ -70,7 +71,7 @@ export default function KnowledgeLibrarySectionModal({ isOpen, section, roles, o
     setDeleteConfirmationOpen(false);
   }, [isOpen, section]);
 
-  const existingCover = section?.hasCover ? knowledgeCoverUrl(section.id) : null;
+  const existingCover = section?.hasCover ? knowledgeCoverPath(section.id) : null;
   const localCover = useMemo(() => editor.cover ? URL.createObjectURL(editor.cover) : null, [editor.cover]);
   useEffect(() => () => { if (localCover) URL.revokeObjectURL(localCover); }, [localCover]);
 
@@ -213,8 +214,10 @@ export default function KnowledgeLibrarySectionModal({ isOpen, section, roles, o
             <section className={styles.sideCard}>
               <header className={styles.sideHeader}><h4>Фото</h4><p>Отображается на карточке раздела</p></header>
               <label className={styles.coverPicker}>
-                {(localCover || existingCover) ? (
-                  <><img src={localCover || existingCover!} alt="Предпросмотр обложки" /><span className={styles.coverAction}>Заменить</span></>
+                {localCover ? (
+                  <><img src={localCover} alt="Предпросмотр обложки" /><span className={styles.coverAction}>Заменить</span></>
+                ) : existingCover ? (
+                  <><KnowledgeImage path={existingCover} alt="Предпросмотр обложки" /><span className={styles.coverAction}>Заменить</span></>
                 ) : (
                   <><ImageOutlinedIcon /><span>Выбрать файл</span></>
                 )}

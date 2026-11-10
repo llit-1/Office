@@ -23,13 +23,15 @@ type MenuImportModalProps = {
   kind: ImportKind;
   locations: RequestLocation[];
   current: RequestLocation | null;
+  /** С какого выбора точек начинать; по умолчанию — текущая точка. */
+  defaultScope?: LocationScope;
   onClose: () => void;
 };
 
 /** Запуск импорта меню или стоп-листов в Яндекс для одной, нескольких или всех точек. */
-export default function MenuImportModal({ isOpen, kind, locations, current, onClose }: MenuImportModalProps) {
+export default function MenuImportModal({ isOpen, kind, locations, current, defaultScope, onClose }: MenuImportModalProps) {
   const { operationType, title, subject } = IMPORT_KINDS[kind];
-  const [scope, setScope] = useState<LocationScope>(() => initialScope(current));
+  const [scope, setScope] = useState<LocationScope>(() => defaultScope ?? initialScope(current));
   const [submitted, setSubmitted] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -38,9 +40,11 @@ export default function MenuImportModal({ isOpen, kind, locations, current, onCl
 
   useEffect(() => {
     if (!isOpen) return;
-    setScope(initialScope(current));
+    setScope(defaultScope ?? initialScope(current));
     setSubmitted(false);
     setResults(null);
+    // defaultScope передаётся литералом — сбрасываем выбор только при открытии.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current, isOpen]);
 
   const guids = scopeGuids(scope, locations, current);

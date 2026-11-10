@@ -1,6 +1,7 @@
 export type TTListItem = {
   id: string;
   name: string;
+  altName?: string | null;
   type: string;
   rkCode: number | null;
   aggregatorsCode: number | null;

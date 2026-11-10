@@ -1,4 +1,5 @@
 import { ApiError, get, getFriendlyErrorMessage, post, put } from "../../Services/api";
+import type { Requisite, RequisiteDraft } from "./components/Requisites";
 
 export type LocationGroup = "factory" | "office";
 
@@ -17,6 +18,7 @@ export type LocationEditModel = {
   address: string | null;
   locationTypeGuid: string | null;
   entityGuid: string | null;
+  requisites?: Requisite[];
   parentGuid: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -35,6 +37,8 @@ export type LocationSavePayload = {
   longitude: number | null;
   versionStartDate: string | null;
   versionEndDate: string | null;
+  /** Новая версия юрлица у существующей локации. */
+  newRequisites?: RequisiteDraft | null;
 };
 
 export type EntityEditModel = {

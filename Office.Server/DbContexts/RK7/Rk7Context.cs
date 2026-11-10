@@ -12,6 +12,25 @@ namespace Office.Server.DbContexts.RK7
 
         public DbSet<Rk7MenuItem> MenuItems { get; set; } // справочник товаров
         public DbSet<Rk7Currency> Currencies { get; set; } // справочник валют
+        public DbSet<Rk7Restaurant> Restaurants { get; set; } // рестораны R-Keeper — источник новых ТТ
+    }
+
+    [Table("Restaurants")]
+    public class Rk7Restaurant
+    {
+        [System.ComponentModel.DataAnnotations.Key]
+        [Column("SIFR")]
+        public int Sifr { get; set; }
+
+        [Column("CODE")]
+        public int? Code { get; set; }
+
+        [Column("NAME")]
+        public string? Name { get; set; }
+
+        /// <summary>0 — удалён, 1 — черновик, 2 — неактивен, 3 — активен.</summary>
+        [Column("STATUS")]
+        public short? Status { get; set; }
     }
 
     [Keyless]

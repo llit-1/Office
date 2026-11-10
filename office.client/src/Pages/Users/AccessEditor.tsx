@@ -36,6 +36,7 @@ export default function AccessEditor({
   isDirty,
   isCreate,
   error,
+  stacked = false,
 }: {
   children: ReactNode;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -45,6 +46,8 @@ export default function AccessEditor({
   isDirty: boolean;
   isCreate: boolean;
   error: string | null;
+  /** Блоки друг под другом: первый — полосой сверху, второй — на всю ширину. */
+  stacked?: boolean;
 }) {
   return (
     <div className={styles.page}>
@@ -54,9 +57,11 @@ export default function AccessEditor({
         noValidate
         aria-busy={saving}
       >
-        <fieldset className={styles.layout} disabled={saving}>
-          {children}
-        </fieldset>
+        <div className={styles.body}>
+          <fieldset className={`${styles.layout} ${stacked ? styles.stacked : ""}`} disabled={saving}>
+            {children}
+          </fieldset>
+        </div>
         {error && (
           <p className={styles.errorBanner} role="alert">
             {error}

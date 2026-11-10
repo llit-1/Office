@@ -42,10 +42,26 @@ namespace Office.Server.Controllers
 
             var password = loginModel.Password;
             var login = loginModel.Login?.Trim();
-            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(login) || !ValidateAdUser(login, password))
+            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(login))
             {
                 return Unauthorized(new { message = "Данные введены некорректно!" });
             }
+
+            if (Attempts.BlockedFor(login, DateTime.UtcNow) is TimeSpan wait)
+            {
+                return StatusCode(StatusCodes.Status429TooManyRequests, new
+                {
+                    message = $"Слишком много неудачных попыток входа. Попробуйте через {Math.Ceiling(wait.TotalMinutes)} мин."
+                });
+            }
+
+            if (!ValidateAdUser(login, password))
+            {
+                Attempts.Fail(login, DateTime.UtcNow);
+                return Unauthorized(new { message = "Данные введены некорректно!" });
+            }
+
+            Attempts.Reset(login);
 
             var adUser = GetAdUserInfo(login);
             if (string.IsNullOrWhiteSpace(adUser?.Login))
@@ -232,6 +248,8 @@ namespace Office.Server.Controllers
             public string? fullName { get; set; }
             public string? position { get; set; }
         }
+
+        protected virtual LoginAttempts Attempts => LoginAttempts.Shared;
 
         protected virtual bool ValidateAdUser(string login, string password)
         {

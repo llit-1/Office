@@ -24,9 +24,17 @@ const removeLevelTwoStopsMock = vi.fn();
 const getActualDeclarationsMock = vi.fn();
 const lookupDeclarationMock = vi.fn();
 const createDeclarationMock = vi.fn();
+const getRequestLocationsMock = vi.fn();
+const importMenuMock = vi.fn();
 
 vi.mock("@toolpad/core", () => ({
   useNotifications: () => ({ show: showMock }),
+}));
+
+vi.mock("../../Pages/DeliveryMenu/deliveryRequests.api", () => ({
+  getRequestLocations: (...args: unknown[]) => getRequestLocationsMock(...args),
+  importMenu: (...args: unknown[]) => importMenuMock(...args),
+  getRequestErrorMessage: (_error: unknown, fallback: string) => fallback,
 }));
 
 vi.mock("../../Pages/DeliveryMenu/deliveryMenu.api", () => ({
@@ -180,6 +188,24 @@ describe("DeliveryMenuPage role controls", () => {
     expect(screen.getByRole("button", { name: "Добавить позицию" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "Редактировать Маргарита" })).not.toHaveLength(0);
     expect(screen.queryByRole("button", { name: /Поставить стоп|Снять стоп|Заблокировать/ })).not.toBeInTheDocument();
+  });
+
+  it("starts the menu import for every point right from a category", async () => {
+    getRequestLocationsMock.mockReset().mockResolvedValue([
+      { guid: "a", name: "Невский 96", rkCode: 1, aggregatorsCode: 11 },
+      { guid: "b", name: "Лесной 20", rkCode: 2, aggregatorsCode: 12 },
+    ]);
+    importMenuMock.mockReset().mockResolvedValue({});
+    renderPage(["MenuMarketing"]);
+    await openCategory();
+
+    fireEvent.click(screen.getByRole("button", { name: "Импорт меню на все ТТ" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Запустить импорт (2)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Запустить" }));
+
+    await waitFor(() => expect(importMenuMock).toHaveBeenCalledTimes(2));
+    expect(importMenuMock).toHaveBeenCalledWith({ locationGuid: "a", operationType: "menu" });
+    expect(importMenuMock).toHaveBeenCalledWith({ locationGuid: "b", operationType: "menu" });
   });
 
   it("loads items of active categories for declaration counters and the opened group on demand", async () => {

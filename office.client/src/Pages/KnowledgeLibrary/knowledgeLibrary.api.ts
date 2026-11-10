@@ -1,4 +1,4 @@
-import api, { get, getAccessToken, getApiBaseUrl } from "../../Services/api";
+import api, { get, getApiBaseUrl } from "../../Services/api";
 import type {
   KnowledgeAdminSection,
   KnowledgeBrowse,
@@ -85,18 +85,10 @@ export function knowledgeOnlineViewerUrl(ticket: string, fileName: string) {
   return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
 }
 
-export function knowledgeCoverUrl(sectionId: string) {
-  const base = String(getApiBaseUrl()).replace(/\/$/, "");
-  const token = getAccessToken();
-  const params = new URLSearchParams();
-  if (token) params.set("access_token", token);
-  return `${base}/KnowledgeLibrary/sections/${sectionId}/cover?${params}`;
-}
+export const knowledgeCoverPath = (sectionId: string) => `/KnowledgeLibrary/sections/${sectionId}/cover`;
 
-export function knowledgeFolderIconUrl(sectionId: string, documentId: string) {
-  const base = String(getApiBaseUrl()).replace(/\/$/, "");
-  const token = getAccessToken();
-  const params = new URLSearchParams();
-  if (token) params.set("access_token", token);
-  return `${base}/KnowledgeLibrary/sections/${sectionId}/documents/${documentId}/folder-icon?${params}`;
-}
+export const knowledgeFolderIconPath = (sectionId: string, documentId: string) =>
+  `/KnowledgeLibrary/sections/${sectionId}/documents/${documentId}/folder-icon`;
+
+export const loadKnowledgeImage = (path: string) =>
+  get<Blob>(path, { responseType: "blob", skipAuthRedirect: true });

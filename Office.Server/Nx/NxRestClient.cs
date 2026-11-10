@@ -50,6 +50,15 @@ public sealed class NxRestClient(IHttpClientFactory httpClientFactory, IConfigur
             .ToList();
     }
 
+    /// <summary>Создаёт локальную группу пользователей — как портал при добавлении ТТ.</summary>
+    public async Task<NxItemInfo> CreateUserGroupAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var body = new JsonObject { ["name"] = name, ["type"] = "local" };
+        var created = await SendAsync(HttpMethod.Post, "/rest/v4/userGroups", body, cancellationToken) as JsonObject
+            ?? throw new NxException($"NX не вернул созданную группу «{name}».");
+        return new NxItemInfo(GetString(created, "id"), GetString(created, "name") ?? name);
+    }
+
     public async Task<List<NxUserInfo>> GetUsersAsync(CancellationToken cancellationToken = default)
     {
         var users = await GetArrayAsync("/rest/v4/users", cancellationToken);

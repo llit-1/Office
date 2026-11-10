@@ -182,6 +182,105 @@ describe("Access editors", () => {
       ).toBeVisible();
     },
   );
+  it("shows group roles by section and keeps only one of mutually exclusive roles", async () => {
+    const orders = [
+      { id: 1, name: "Заказы ТТ Админ", role: "OrdersTTAdmin", description: "", officeGroup: [], section: "Заказы ТТ", exclusiveKey: "orders" },
+      { id: 2, name: "Заказы - Все позиции", role: "Order_man", description: "", officeGroup: [], section: "Заказы ТТ", exclusiveKey: "orders" },
+      { id: 3, name: "Заказы - Собственное управление", role: "Order_woman", description: "", officeGroup: [], section: "Заказы ТТ", exclusiveKey: "orders" },
+    ];
+    const reports = { ...role, section: "Отчёты" };
+    getMock.mockImplementation(() => Promise.resolve({
+      officeGroup: { id: 42, name: "Управляющие", officeRole: [orders[2]], officeUser: [] },
+      officeRoles: [reports, ...orders],
+    }));
+    mount("Groups");
+
+    const section = await screen.findByRole("group", { name: "Заказы ТТ" });
+    expect(screen.getByRole("group", { name: "Отчёты" })).toBeInTheDocument();
+    const choice = within(section).getByRole("group", { name: "Заказы ТТ: одна на выбор" });
+    // повтор раздела в названии внутри раздела не показываем
+    expect(within(choice).getByRole("checkbox", { name: "Собственное управление" })).toBeChecked();
+
+    // выбор другой роли снимает прежнюю
+    fireEvent.click(within(choice).getByRole("checkbox", { name: "Все позиции" }));
+    expect(within(choice).getByRole("checkbox", { name: "Собственное управление" })).not.toBeChecked();
+    expect(within(choice).getByRole("checkbox", { name: "Все позиции" })).toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: role.name }));
+    fireEvent.submit(screen.getByRole("button", { name: "Сохранить" }).closest("form")!);
+    await waitFor(() => expect(putMock).toHaveBeenCalledWith("/User/groups", expect.objectContaining({ officeRole: [{ id: 7 }, { id: 2 }] })));
+  });
+
+  it("does not save a group that still has two mutually exclusive roles", async () => {
+    const view = { id: 1, name: "Датчики - Просмотр данных", role: "SensorsView", description: "", officeGroup: [], section: "Датчики", exclusiveKey: "sensors" };
+    const edit = { id: 2, name: "Датчики - Редактирование данных", role: "SensorsEdit", description: "", officeGroup: [], section: "Датчики", exclusiveKey: "sensors" };
+    getMock.mockImplementation(() => Promise.resolve({
+      officeGroup: { id: 42, name: "Администратор Датчиков", officeRole: [view, edit], officeUser: [] },
+      officeRoles: [view, edit],
+    }));
+    mount("Groups");
+
+    // осталось с тех пор, когда противоречия не проверялись
+    expect(await screen.findByText("Выбраны сразу «Просмотр данных» и «Редактирование данных» — оставьте одну.")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Название группы *"), { target: { value: "Датчики" } });
+    fireEvent.submit(screen.getByRole("button", { name: "Сохранить" }).closest("form")!);
+    expect(await screen.findByText(/взаимоисключающие: в группе «Датчики» может быть только одна из них/)).toBeInTheDocument();
+    expect(putMock).not.toHaveBeenCalled();
+
+    // повторный клик снимает роль — сохранение проходит
+    fireEvent.click(screen.getByRole("checkbox", { name: "Просмотр данных" }));
+    expect(screen.queryByText(/Выбраны сразу/)).not.toBeInTheDocument();
+    fireEvent.submit(screen.getByRole("button", { name: "Сохранить" }).closest("form")!);
+    await waitFor(() => expect(putMock).toHaveBeenCalledWith("/User/groups", expect.objectContaining({ officeRole: [{ id: 2 }] })));
+  });
+
+  describe("role section", () => {
+    const mountRole = async () => {
+      getMock.mockImplementation((url: string) => Promise.resolve(
+        url.endsWith("/roles")
+          ? [
+              role,
+              { ...role, id: 8, name: "Заказы ТТ Админ", section: "Заказы ТТ", exclusiveKey: "orders" },
+              { ...role, id: 9, name: "Отчёты - 1С", section: "Отчёты", exclusiveKey: null },
+            ]
+          : role,
+      ));
+      mount("Roles");
+      await screen.findByDisplayValue("Reports");
+    };
+    const pickSection = async (name: string) => {
+      fireEvent.click(screen.getByRole("button", { name: "Раздел" }));
+      fireEvent.click(within(await screen.findByRole("listbox")).getByRole("option", { name }));
+    };
+    const save = () => fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
+
+    it("takes the exclusive key from roles of the section", async () => {
+      await mountRole();
+      const exclusive = screen.getByRole("checkbox", { name: "Одна на выбор в разделе" });
+      expect(exclusive).toBeDisabled();
+      await pickSection("Заказы ТТ");
+      fireEvent.click(exclusive);
+      expect(screen.getByText("Не сочетается с: «Заказы ТТ Админ»")).toBeInTheDocument();
+      save();
+      await waitFor(() => expect(putMock).toHaveBeenCalledWith("/User/roles", expect.objectContaining({ section: "Заказы ТТ", exclusiveKey: "orders" })));
+    });
+
+    it("uses the section name as a key when the section has no exclusive roles yet", async () => {
+      await mountRole();
+      await pickSection("Отчёты");
+      fireEvent.click(screen.getByRole("checkbox", { name: "Одна на выбор в разделе" }));
+      save();
+      await waitFor(() => expect(putMock).toHaveBeenCalledWith("/User/roles", expect.objectContaining({ section: "Отчёты", exclusiveKey: "отчёты" })));
+    });
+
+    it("lets type a new section", async () => {
+      await mountRole();
+      await pickSection("Новый раздел…");
+      fireEvent.change(screen.getByLabelText("Новый раздел"), { target: { value: " Касса " } });
+      save();
+      await waitFor(() => expect(putMock).toHaveBeenCalledWith("/User/roles", expect.objectContaining({ section: "Касса", exclusiveKey: null })));
+    });
+  });
+
   it("requires confirmation before deleting a role", async () => {
     mount("Roles");
     await screen.findByDisplayValue("Reports");

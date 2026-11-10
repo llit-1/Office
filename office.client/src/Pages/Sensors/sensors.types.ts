@@ -13,6 +13,8 @@ export type SensorStatus = "ok" | "pending" | "violation" | "inactive";
 
 export type SensorStatusFilter = "all" | SensorStatus;
 
+export type SensorPingStatus = "checking" | "online" | "offline" | "unknown";
+
 export interface SensorHistoryPoint {
   id: number;
   roomId: number;

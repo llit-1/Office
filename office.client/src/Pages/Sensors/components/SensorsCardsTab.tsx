@@ -3,7 +3,7 @@ import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
 import ShowChartRoundedIcon from "@mui/icons-material/ShowChartRounded";
 import Button from "../../../Components/Button/Button";
 import LoadingSpinner from "../../../Components/LoadingSpinner/LoadingSpinner";
-import type { SensorRow, SensorStatus, SensorStatusFilter } from "../sensors.types";
+import type { SensorPingStatus, SensorRow, SensorStatus, SensorStatusFilter } from "../sensors.types";
 import { getSensorStatus } from "../sensors.utils";
 import styles from "../Sensors.module.css";
 import dashboard from "../../../styles/entity-dashboard.module.css";
@@ -24,8 +24,17 @@ const statusTitles: Record<SensorStatus, string> = {
   inactive: "Датчик неактивен",
 };
 
+const pingMeta: Record<SensorPingStatus, { title: string; badge: string }> = {
+  checking: { title: "Проверяем ping", badge: styles.sensorIpNeutral },
+  online: { title: "Ping есть", badge: styles.sensorIpOnline },
+  offline: { title: "Нет ping", badge: styles.sensorIpOffline },
+  unknown: { title: "Не удалось проверить ping", badge: styles.sensorIpNeutral },
+};
+
 interface SensorsCardsTabProps {
   sensors: SensorRow[];
+  pingStatuses: Record<number, SensorPingStatus>;
+  pingCheckFinished: boolean;
   filteredSensors: SensorRow[];
   sensorsLoading: boolean;
   searchText: string;
@@ -41,6 +50,8 @@ interface SensorsCardsTabProps {
 
 export default function SensorsCardsTab({
   sensors,
+  pingStatuses,
+  pingCheckFinished,
   filteredSensors,
   sensorsLoading,
   searchText,
@@ -131,6 +142,7 @@ export default function SensorsCardsTab({
           <div className={dashboard.cardsGrid}>
             {filteredSensors.map((sensor) => {
               const status = getSensorStatus(sensor);
+              const pingStatus = pingStatuses[sensor.id] ?? (pingCheckFinished ? "unknown" : "checking");
 
               const isGraphDisabled = status === "inactive";
 
@@ -154,29 +166,32 @@ export default function SensorsCardsTab({
                   }}
                 >
                   <span className={`${dashboard.statusDot} ${statusMeta[status].dot}`} aria-hidden="true" />
+                  {!sensor.hasAlertSettings && (
+                    <span
+                      className={styles.missingDataBadge}
+                      title="Правило для датчика не настроено"
+                      aria-label="Правило для датчика не настроено"
+                    >
+                      !
+                    </span>
+                  )}
 
-                  <div className={styles.sensorCardHeader}>
+                  <div className={`${styles.sensorCardHeader} ${!sensor.hasAlertSettings ? styles.sensorCardHeaderWithAlert : ""}`}>
                     <h3 className={styles.sensorTitle} title={sensor.name}>
                       {sensor.name}
                     </h3>
                   </div>
 
                   <div className={styles.sensorMeta}>
-                    <span className={styles.sensorIp} title={sensor.ip}>
+                    <span
+                      className={`${styles.sensorIp} ${pingMeta[pingStatus].badge}`}
+                      title={`IP ${sensor.ip} — ${pingMeta[pingStatus].title}`}
+                      aria-label={`IP ${sensor.ip} — ${pingMeta[pingStatus].title}`}
+                    >
                       {sensor.ip}
                     </span>
 
                     <div className={dashboard.cardActions}>
-                      {!sensor.hasAlertSettings && (
-                        <span
-                          className={styles.missingDataBadge}
-                          title="Правило для датчика не настроено"
-                          aria-label="Правило для датчика не настроено"
-                        >
-                          !
-                        </span>
-                      )}
-
                       <button
                         type="button"
                         className={dashboard.cardActionButton}

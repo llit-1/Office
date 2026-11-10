@@ -31,8 +31,8 @@ import {
   getKnowledgeRecent,
   getKnowledgeRoles,
   getKnowledgeSections,
-  knowledgeCoverUrl,
-  knowledgeFolderIconUrl,
+  knowledgeCoverPath,
+  knowledgeFolderIconPath,
   knowledgeMediaUrl,
   knowledgeOnlineViewerUrl,
   removeKnowledgeFavorite,
@@ -55,6 +55,7 @@ import {
   getKnowledgePreviewType,
   isKnowledgeVisibleFile,
 } from "./knowledgeLibrary.utils";
+import KnowledgeImage from "./KnowledgeImage";
 import KnowledgeLibrarySectionModal from "./KnowledgeLibrarySectionModal";
 import styles from "./KnowledgeLibrary.module.css";
 
@@ -530,7 +531,9 @@ export default function KnowledgeLibrary() {
                         }}
                       >
                         <span className={styles.sectionIcon}>
-                          {section.hasCover ? <img src={knowledgeCoverUrl(section.id)} alt="" /> : <MenuBookRoundedIcon />}
+                          {section.hasCover
+                            ? <KnowledgeImage path={knowledgeCoverPath(section.id)} alt="" fallback={<MenuBookRoundedIcon />} />
+                            : <MenuBookRoundedIcon />}
                         </span>
                         <span className={styles.sectionCardBody}>
                           <span className={styles.sectionTitleRow}>
@@ -678,7 +681,14 @@ export default function KnowledgeLibrary() {
                         }}
                       >
                         {entry.hasIcon
-                          ? <img className={styles.folderCardIcon} src={knowledgeFolderIconUrl(sectionId!, entry.id)} alt="" />
+                          ? (
+                            <KnowledgeImage
+                              className={styles.folderCardIcon}
+                              path={knowledgeFolderIconPath(sectionId!, entry.id)}
+                              alt=""
+                              fallback={<FileTypeIcon extension="" isDirectory />}
+                            />
+                          )
                           : <FileTypeIcon extension="" isDirectory />}
                         <span className={styles.folderCardBody}>
                           <strong>{entry.name}</strong>

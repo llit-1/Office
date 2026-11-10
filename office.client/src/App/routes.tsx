@@ -93,16 +93,8 @@ export function renderConfiguredRoute(
 
 export const protectedRoutes: AppRouteConfig[] = [
   { path: "Main", page: "Main/Main" },
-  {
-    path: "Calculator",
-    page: "Calculator/Calculator",
-    role: "Calculator",
-    children: [
-      { path: "SelectCategory", page: "Calculator/CalculatorCategories" },
-      { path: "SelectTT", page: "Calculator/CalculatorSelectTT" },
-      { path: "Calculate/:Location", page: "Calculator/Calculate" },
-    ],
-  },
+  { path: "Calculator", page: "Calculator/CalculatorHome", role: "Calculator" },
+  { path: "/Calculator/:category", page: "Calculator/CalculatorPage", role: "Calculator" },
   { path: "TT", page: "TT/TT", role: "Location" },
   { path: "/TT/Edit/:id", page: "TT/TTEdit", role: "Location" },
   { path: "/TT/Location/:group/:id?", page: "TT/LocationEdit", role: "Location" },

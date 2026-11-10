@@ -53,6 +53,7 @@ function renderHeader() {
         notificationSoundEnabled: true,
         sensorChartExpanded: false,
         sensorChartLineWidth: 3,
+        ordersTypeId: null,
       },
     },
   });

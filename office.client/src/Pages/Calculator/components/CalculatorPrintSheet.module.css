@@ -1,0 +1,173 @@
+.printSheet {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  width: 190mm;
+  height: 276mm;
+  overflow: hidden;
+  visibility: hidden;
+  background: #fff;
+  color: #111;
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 1.2;
+}
+
+.content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  transform: scale(var(--print-scale, 1));
+  transform-origin: top left;
+}
+
+.header {
+  margin-bottom: 4mm;
+}
+
+.header h1 {
+  margin: 0 0 1mm;
+  font-size: 21pt;
+  line-height: 1.15;
+}
+
+.header p {
+  margin: 0;
+  color: #444;
+  font-size: 12pt;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2mm 6mm;
+  margin-bottom: 4mm;
+  padding: 2mm 0;
+  border-top: 1px solid #555;
+  border-bottom: 1px solid #555;
+}
+
+.summary span {
+  white-space: nowrap;
+}
+
+.summary strong {
+  margin-left: 1mm;
+  font-size: 15pt;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 5mm;
+}
+
+.columns[data-columns="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.column {
+  min-width: 0;
+}
+
+.columnHead,
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 46%) minmax(0, 54%);
+  align-items: center;
+  gap: 0;
+}
+
+.columnHead {
+  grid-template-columns: minmax(0, 46%) repeat(3, minmax(0, 18%));
+  padding: 1mm 0;
+  border-bottom: 2px solid #333;
+  color: #444;
+  font-size: 8pt;
+  font-weight: 700;
+  text-align: center;
+}
+
+.columnHead[data-sandwich] {
+  grid-template-columns: minmax(0, 40%) repeat(4, minmax(0, 15%));
+}
+
+.columnHead span:first-child {
+  text-align: left;
+}
+
+.columnHead span {
+  overflow-wrap: anywhere;
+}
+
+.item {
+  padding: 1.2mm 0;
+  border-bottom: 1px solid #aaa;
+  break-inside: avoid;
+}
+
+.item:has(.values[data-sandwich]) {
+  grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+}
+
+.itemInfo {
+  min-width: 0;
+}
+
+.itemName {
+  display: block;
+  font-size: 12pt;
+  overflow-wrap: anywhere;
+}
+
+.notes {
+  display: block;
+  margin-top: 1mm;
+  color: #555;
+  font-size: 8.5pt;
+}
+
+.values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+}
+
+.values[data-sandwich] {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.values b {
+  min-width: 0;
+  color: #111;
+  font-size: 15pt;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@page {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
+@media print {
+  :global(body > :not(#calculator-print-sheet)) {
+    display: none !important;
+  }
+
+  :global(html),
+  :global(body) {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .printSheet {
+    position: relative;
+    left: auto;
+    top: auto;
+    visibility: visible;
+  }
+}

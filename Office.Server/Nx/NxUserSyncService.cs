@@ -77,7 +77,85 @@ public sealed class NxUserSyncService(NxRestClient nxClient, RKNETDBContext db, 
         }
     }
 
-    private List<Guid> GetRequiredGroupIds(OfficeUser user, List<NxRestClient.NxItemInfo> nxGroups)
+    /// <summary>
+    /// ТТ меняет группу в Nx: её пользователи переходят в новую. Вызывается до сохранения ТТ, а прежняя группа
+    /// снимается явно: после сохранения она перестаёт быть управляемой и осталась бы у них навсегда.
+    /// Пользователи «Все ТТ» не затрагиваются. Предупреждения и ошибки — как в <see cref="SyncUserAsync"/>.
+    /// </summary>
+    public async Task<List<string>> MoveLocationUsersAsync(
+        Guid locationGuid,
+        Guid? previousLayout,
+        Guid? newLayout,
+        CancellationToken cancellationToken = default)
+    {
+        var users = (await db.OfficeUser
+                .AsNoTracking()
+                .Include(user => user.Locations)
+                .Include(user => user.OfficeGroup)
+                    .ThenInclude(group => group.OfficeRole)
+                .Where(user => user.Actual != 0
+                    && user.DefaultLocations != 1
+                    && user.Locations.Any(location => location.Guid == locationGuid))
+                .ToListAsync(cancellationToken))
+            .Where(HasNxRole)
+            .ToList();
+
+        if (users.Count == 0)
+        {
+            return [];
+        }
+
+        if (nxClient.TryGetConfigurationError(out var configurationError))
+        {
+            return [$"NX не настроен ({configurationError}). Изменения применены только на портале."];
+        }
+
+        var warnings = new List<string>();
+        try
+        {
+            var nxUsers = await nxClient.GetUsersAsync(cancellationToken);
+            var nxGroups = await nxClient.GetUserGroupsAsync(cancellationToken);
+            var managedGroupIds = await GetManagedGroupIdsAsync(nxGroups, cancellationToken);
+            if (previousLayout is Guid previous)
+            {
+                managedGroupIds.Add(previous);
+            }
+
+            foreach (var user in users)
+            {
+                if (!NxRestClient.UserExists(user.Login, nxUsers))
+                {
+                    warnings.Add($"Пользователь «{user.Login}» не найден в NX, изменения применены только на портале.");
+                    continue;
+                }
+
+                foreach (var location in user.Locations.Where(location => location.Guid == locationGuid))
+                {
+                    location.NXLayout = newLayout;
+                }
+
+                try
+                {
+                    // ТТ без группы здесь не ошибка: её и отвязывают, а другие ТТ пользователя править не просили.
+                    var requiredGroupIds = GetRequiredGroupIds(user, nxGroups, layoutRequired: false);
+                    await nxClient.SyncUserGroupsAsync(user.Login, requiredGroupIds, managedGroupIds, cancellationToken);
+                }
+                catch (NxException ex) when (IsAdministratorRightsForbidden(ex))
+                {
+                    logger.LogWarning(ex, "NX sync skipped for administrator account {Login}", user.Login);
+                    warnings.Add($"Пользователь «{user.Login}» имеет администраторские права в NX, изменения применены только на портале.");
+                }
+            }
+        }
+        catch (NxConfigurationException ex)
+        {
+            return [$"NX не настроен ({ex.Message}). Изменения применены только на портале."];
+        }
+
+        return warnings;
+    }
+
+    private List<Guid> GetRequiredGroupIds(OfficeUser user, List<NxRestClient.NxItemInfo> nxGroups, bool layoutRequired = true)
     {
         if (user.DefaultLocations == 1)
         {
@@ -97,7 +175,8 @@ public sealed class NxUserSyncService(NxRestClient nxClient, RKNETDBContext db, 
                 continue;
             }
 
-            var requiresLayout = location.Actual == 1
+            var requiresLayout = layoutRequired
+                && location.Actual == 1
                 && location.LocationTypeGuid is Guid typeGuid
                 && NxLayoutRequiredLocationTypes.Contains(typeGuid);
 

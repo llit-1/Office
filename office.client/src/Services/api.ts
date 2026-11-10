@@ -393,6 +393,8 @@ export async function callApi<T>(
     notifications?: { show: (text: string, opts?: Record<string, unknown> | undefined) => void } | undefined;
     setError?: UseFormSetError<Record<string, unknown>> | undefined;
     successMessage?: string | undefined;
+    /** false — не показывать ошибку уведомлением: страница выводит её сама. */
+    errorNotification?: boolean | undefined;
   },
 ): Promise<{ ok: true; data: T } | { ok: false; error: ApiError }> {
   try {
@@ -404,7 +406,7 @@ export async function callApi<T>(
   } catch (err: unknown) {
     const friendly = getFriendlyErrorMessage(err);
     const isUnauthorized = err instanceof ApiError && err.status === 401;
-    if (options?.notifications && !isUnauthorized) {
+    if (options?.notifications && options.errorNotification !== false && !isUnauthorized) {
       options.notifications.show(friendly, { severity: "error", autoHideDuration: 5000 });
     }
 

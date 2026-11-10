@@ -5,6 +5,10 @@ using Microsoft.EntityFrameworkCore;
 using Office.Server.DbContexts.PowerBi;
 using Office.Server.DbContexts.PowerBi.Models;
 using Office.Server.Sensors;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
+using System.Text.Json;
 
 namespace Office.Server.Controllers
 {
@@ -99,6 +103,72 @@ namespace Office.Server.Controllers
                 state = states.GetValueOrDefault(x.Id, SensorStatusCalculator.Ok),
                 hasAlertSettings = settingsByRoom.ContainsKey(x.Id)
             }));
+        }
+
+        [HttpGet("rooms/ping/stream")]
+        public async Task StreamRoomPings()
+        {
+            var allowedRoomIds = await GetAllowedRoomIdsAsync();
+            var rooms = await _powerBiContext.SensorRooms
+                .AsNoTracking()
+                .Where(x => allowedRoomIds == null || allowedRoomIds.Contains(x.Id))
+                .Select(x => new { x.Id, x.Ip })
+                .ToListAsync();
+
+            Response.ContentType = "application/x-ndjson; charset=utf-8";
+            Response.Headers.CacheControl = "no-store";
+
+            var remaining = new Queue<(int Id, string Ip)>(rooms.Select(x => (x.Id, x.Ip)));
+            var running = new List<Task<(int Id, string Status)>>();
+            const int maxParallelPings = 12;
+
+            while (running.Count < maxParallelPings && remaining.Count > 0)
+            {
+                var room = remaining.Dequeue();
+                running.Add(PingRoomAsync(room.Id, room.Ip));
+            }
+
+            while (running.Count > 0 && !HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                var finished = await Task.WhenAny(running);
+                running.Remove(finished);
+                var result = await finished;
+
+                try
+                {
+                    await Response.WriteAsync(JsonSerializer.Serialize(new { id = result.Id, status = result.Status }) + "\n", HttpContext.RequestAborted);
+                    await Response.Body.FlushAsync(HttpContext.RequestAborted);
+                }
+                catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (remaining.Count > 0)
+                {
+                    var room = remaining.Dequeue();
+                    running.Add(PingRoomAsync(room.Id, room.Ip));
+                }
+            }
+        }
+
+        private static async Task<(int Id, string Status)> PingRoomAsync(int id, string ip)
+        {
+            if (!IPAddress.TryParse(ip?.Trim(), out var address) || address.AddressFamily != AddressFamily.InterNetwork)
+            {
+                return (id, "unknown");
+            }
+
+            try
+            {
+                using var ping = new Ping();
+                var reply = await ping.SendPingAsync(address, 2000);
+                return (id, reply.Status == IPStatus.Success ? "online" : "offline");
+            }
+            catch
+            {
+                return (id, "unknown");
+            }
         }
 
         [HttpGet("{roomId:int}/history")]

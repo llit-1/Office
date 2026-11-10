@@ -15,13 +15,16 @@ namespace Office.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/DeliveryRequests")]
-[Authorize(Roles = "DeliveryRequests,MenuAdmin")]
+// Список точек и импорт меню нужны и разделу «Меню доставки» (кнопка в категории); остальное — только «Запросам».
+[Authorize(Roles = "DeliveryRequests,MenuAdmin,MenuMarketing")]
 public sealed class DeliveryRequestsController(
     RKNETDBContext db,
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<DeliveryRequestsController> logger) : ControllerBase
 {
+    private const string RequestRoles = "DeliveryRequests,MenuAdmin";
+
     private static readonly HashSet<Guid> DeliveryLocationTypeGuids =
     [
         Guid.Parse("94AD659C-AF5B-4CA0-50AD-08DBDF6ABE84"),
@@ -66,6 +69,7 @@ public sealed class DeliveryRequestsController(
             .ToList());
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("block")]
     public async Task<IActionResult> Block([FromBody] BlockRequest request, CancellationToken cancellationToken)
     {
@@ -95,6 +99,7 @@ public sealed class DeliveryRequestsController(
         }, cancellationToken);
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("block/status")]
     public async Task<IActionResult> BlockStatus([FromBody] BlockStatusRequest request, CancellationToken cancellationToken)
     {
@@ -112,6 +117,7 @@ public sealed class DeliveryRequestsController(
         }, cancellationToken);
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("unblock")]
     public async Task<IActionResult> Unblock([FromBody] UnblockRequest request, CancellationToken cancellationToken)
     {
@@ -150,6 +156,7 @@ public sealed class DeliveryRequestsController(
     }
 
     /// <summary>Загрузка продаж Яндекса за день в нашу базу (по всем точкам сразу).</summary>
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("sales/load")]
     public async Task<IActionResult> SalesLoad([FromBody] SalesLoadRequest request, CancellationToken cancellationToken)
     {
@@ -165,6 +172,7 @@ public sealed class DeliveryRequestsController(
         return await ForwardAsync("sales/load", new { date = Moment(date) }, cancellationToken);
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("orders/history")]
     public async Task<IActionResult> OrdersHistory([FromBody] OrdersHistoryRequest request, CancellationToken cancellationToken)
     {
@@ -186,6 +194,7 @@ public sealed class DeliveryRequestsController(
         }, cancellationToken);
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpPost("orders/details")]
     public async Task<IActionResult> OrdersDetails([FromBody] OrdersDetailsRequest request, CancellationToken cancellationToken)
     {
@@ -198,6 +207,7 @@ public sealed class DeliveryRequestsController(
         return await ForwardAsync("orders/details", new { eatsIds }, cancellationToken);
     }
 
+    [Authorize(Roles = RequestRoles)]
     [HttpGet("orders/{eatsId}/logs")]
     public async Task<IActionResult> OrderLogs(string eatsId, CancellationToken cancellationToken)
     {

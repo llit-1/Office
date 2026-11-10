@@ -70,7 +70,7 @@ describe("HamburgerMenuDesktop", () => {
     expect(setIsMenuOpen).toHaveBeenCalledWith(false);
     await waitFor(() => {
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/Calculator/SelectCategory"
+        "/Calculator"
       );
     });
   });
@@ -104,7 +104,7 @@ describe("HamburgerMenuDesktop", () => {
     const { setIsMenuOpen } = renderMenu(["Calculator"]);
     const calculatorLink = screen.getByRole("link", { name: "Калькулятор" });
 
-    expect(calculatorLink).toHaveAttribute("href", "/Calculator/SelectCategory");
+    expect(calculatorLink).toHaveAttribute("href", "/Calculator");
     calculatorLink.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, button: 1 }));
 
     expect(setIsMenuOpen).not.toHaveBeenCalled();

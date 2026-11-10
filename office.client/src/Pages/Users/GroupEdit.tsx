@@ -10,7 +10,6 @@ import ShieldOutlinedIcon from "@mui/icons-material/ShieldOutlined";
 import LoadingSpinner from "../../Components/LoadingSpinner/LoadingSpinner";
 import Button from "../../Components/Button/Button";
 import Input from "../../Components/Input/Input";
-import { MultiplySelect } from "../../Components/MultiplySelect/MultiplySelect";
 import { useForm } from "react-hook-form";
 import type { UseFormSetError } from "react-hook-form";
 import { useNotifications } from "@toolpad/core";
@@ -24,6 +23,8 @@ import {
 } from "../../Services/api";
 import ConfirmModal from "../../Components/ConfirmModal/ConfirmModal";
 import type { OfficeGroup, OfficeRole } from "../../Interfaces/Users";
+import RoleSectionsPicker from "./RoleSectionsPicker";
+import { describeConflict, findUserConflict } from "./roleConflicts";
 
 const DEFAULTS: OfficeGroup = {
   id: 0,
@@ -76,14 +77,13 @@ export default function GroupEdit() {
   // Выбранные роли группы (из формы)
   const groupRoles = watch("officeRole");
 
-  // selectedKeys для MultiplySelect
   const selectedRoleIds = useMemo(
     () => groupRoles.map((r) => r.id),
     [groupRoles],
   );
 
   // Обновляем выбранные роли в форме по массиву id
-  const onRolesChange = (ids: Array<string | number>) => {
+  const onRolesChange = (ids: number[]) => {
     const nextSelectedRoles = availableRoles.filter((r) => ids.includes(r.id));
     setValue("officeRole", nextSelectedRoles, { shouldDirty: true });
   };
@@ -161,6 +161,12 @@ export default function GroupEdit() {
   }, [id, isCreate, notifications, reset, setError, retry]);
 
   const onSubmit = async (model: OfficeGroup) => {
+    // взаимоисключающие роли сервер не примет — говорим об этом сразу
+    const conflict = findUserConflict([{ name: model.name, officeRole: model.officeRole ?? [] }]);
+    if (conflict) {
+      setSaveError(describeConflict(conflict));
+      return;
+    }
     setSaving(true);
     setSaveError(null);
 
@@ -184,6 +190,8 @@ export default function GroupEdit() {
       {
         notifications,
         setError: asApiSetError(setError),
+        // ошибку показывает баннер над кнопками — второе уведомление не нужно
+        errorNotification: false,
         successMessage: isCreate ? "Группа создана" : "Группа сохранена",
       },
     );
@@ -208,6 +216,7 @@ export default function GroupEdit() {
 
     const result = await callApi(del(`/User/groups/${id}`), {
       notifications,
+      errorNotification: false,
       successMessage: "Группа удалена",
     });
 
@@ -241,12 +250,13 @@ export default function GroupEdit() {
         isDirty={isDirty}
         isCreate={isCreate}
         error={saveError}
+        stacked
       >
         <section className={styles.sidebar}>
           <AccessEditorHeading
             icon={<GroupsOutlinedIcon />}
             title="Группа доступа"
-            description="Название и назначение группы"
+            description="Участники получают все права группы"
           />
           <div>
             <Input
@@ -269,20 +279,15 @@ export default function GroupEdit() {
         <section className={styles.section}>
           <AccessEditorHeading
             icon={<ShieldOutlinedIcon />}
-            title="Роли группы"
-            description="Выберите права, которые получат участники"
+            title="Права"
+            description="Отметьте, что будет доступно участникам"
           />
-          <div className={styles.picker}>
-            <MultiplySelect
-              label="Поиск роли"
-              items={availableRoles}
-              getKey={(role) => role.id}
-              getLabel={(role) => role.name || String(role.id)}
-              selectedKeys={selectedRoleIds}
-              onChange={onRolesChange}
-              disabled={saving}
-            />
-          </div>
+          <RoleSectionsPicker
+            roles={availableRoles}
+            selectedIds={selectedRoleIds}
+            onChange={onRolesChange}
+            disabled={saving}
+          />
         </section>
       </AccessEditor>
       <ConfirmModal

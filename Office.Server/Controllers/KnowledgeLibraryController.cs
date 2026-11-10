@@ -1,3 +1,4 @@
+using Office.Server.Security;
 using System.Security.Claims;
 using System.Linq.Expressions;
 using Microsoft.AspNetCore.Authorization;
@@ -330,6 +331,7 @@ public sealed class KnowledgeLibraryController(
             var contentType = ContentTypes.TryGetContentType(document.Name, out var detected)
                 ? detected
                 : "application/octet-stream";
+            SafeFileHeaders.Apply(Response, document.Name);
             return download
                 ? File(stream, contentType, document.Name, enableRangeProcessing: true)
                 : File(stream, contentType, enableRangeProcessing: true);
@@ -413,6 +415,7 @@ public sealed class KnowledgeLibraryController(
             var contentType = ContentTypes.TryGetContentType(data.Document.Name, out var detected)
                 ? detected
                 : "application/octet-stream";
+            SafeFileHeaders.Apply(Response, data.Document.Name);
             return download
                 ? File(stream, contentType, data.Document.Name, enableRangeProcessing: true)
                 : File(stream, contentType, enableRangeProcessing: true);
@@ -731,9 +734,14 @@ public sealed class KnowledgeLibraryController(
 
             if (userAccess is not null)
             {
-                var currentLocationVersions = db.LocationVersions
+                // Юрлицо берётся из реквизитов, действующих сегодня; учитываются только работающие локации.
+                var today = DateTime.Today;
+                var currentRequisites = db.OfficeLocationRequisites
                     .AsNoTracking()
-                    .Where(x => x.Actual == 1 && x.VersionEndDate == null && x.EntityGuid != null);
+                    .Where(x => x.EntityGuid != null
+                        && x.Begin <= today
+                        && (x.End == null || x.End > today)
+                        && db.LocationVersions.Any(v => v.LocationGuid == x.LocationGuid && v.Actual == 1 && v.VersionEndDate == null));
 
                 if (userAccess.DefaultLocations != 1)
                 {
@@ -741,11 +749,11 @@ public sealed class KnowledgeLibraryController(
                         .AsNoTracking()
                         .Where(x => x.Id == userId.Value)
                         .SelectMany(x => x.Locations.Select(location => location.Guid));
-                    currentLocationVersions = currentLocationVersions
+                    currentRequisites = currentRequisites
                         .Where(x => linkedLocationIds.Contains(x.LocationGuid));
                 }
 
-                var entityNames = await currentLocationVersions
+                var entityNames = await currentRequisites
                     .Where(x => x.Entity != null)
                     .Select(x => x.Entity!.Name)
                     .Distinct()

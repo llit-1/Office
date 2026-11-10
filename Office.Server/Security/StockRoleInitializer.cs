@@ -20,6 +20,7 @@ public sealed class StockRoleInitializer(RKNETDBContext db)
             Role = StockRoles.Admin,
             Name = "Склад - Администратор",
             Description = "Структура склада и списание объектов",
+            Section = "Склад",
         });
         await db.SaveChangesAsync(cancellationToken);
     }

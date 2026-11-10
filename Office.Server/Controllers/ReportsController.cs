@@ -1,3 +1,4 @@
+using Office.Server.Security;
 using System.Data.Common;
 using System.Globalization;
 using System.Security.Claims;
@@ -218,6 +219,7 @@ public class ReportsController(
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             var name = Path.GetFileName(fullPath);
             var contentType = ContentTypes.TryGetContentType(name, out var detected) ? detected : "application/octet-stream";
+            SafeFileHeaders.Apply(Response, name);
             return download
                 ? File(stream, contentType, name, enableRangeProcessing: true)
                 : File(stream, contentType, enableRangeProcessing: true);

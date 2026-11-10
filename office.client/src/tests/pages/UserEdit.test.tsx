@@ -90,6 +90,59 @@ function chooseBinding(value: string) {
   fireEvent.change(select, { target: { value } });
 }
 
+describe("UserEdit: взаимоисключающие роли", () => {
+  const ordersAdmin = { id: 11, name: "Заказы ТТ Админ", role: "OrdersTTAdmin", description: "", officeGroup: [], section: "Заказы ТТ", exclusiveKey: "orders" };
+  const ordersOwn = { id: 12, name: "Заказы - Собственное управление", role: "Order_woman", description: "", officeGroup: [], section: "Заказы ТТ", exclusiveKey: "orders" };
+  const conflictGroups = [
+    { id: 1, name: "Управляющие", officeRole: [ordersOwn], officeUser: [] },
+    { id: 2, name: "Офис", officeRole: [ordersAdmin], officeUser: [] },
+    { id: 3, name: "Бухгалтерия", officeRole: [], officeUser: [] },
+  ];
+
+  beforeEach(() => {
+    getMock.mockReset();
+    putMock.mockReset().mockResolvedValue({});
+  });
+
+  it("не даёт добавить группу, роли которой противоречат ролям других групп", async () => {
+    getMock.mockResolvedValue({ ...structuredClone(model), officeGroups: conflictGroups, officeUser: { ...structuredClone(model.officeUser), officeGroup: [conflictGroups[0]] } });
+    renderEditor();
+    await screen.findByDisplayValue("ivanova");
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Офис" }));
+    expect(await screen.findByText(
+      "Роли «Заказы - Собственное управление» (группа «Управляющие») и «Заказы ТТ Админ» (группа «Офис») взаимоисключающие: у пользователя может быть только одна из них.",
+    )).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Офис" })).not.toBeChecked();
+
+    // группа без противоречий добавляется, сообщение уходит
+    fireEvent.click(screen.getByRole("checkbox", { name: "Бухгалтерия" }));
+    expect(screen.getByRole("checkbox", { name: "Бухгалтерия" })).toBeChecked();
+    expect(screen.queryByText(/взаимоисключающие/)).not.toBeInTheDocument();
+  });
+
+  it("противоречие в уже сохранённых группах показывает и даёт его убрать", async () => {
+    getMock.mockResolvedValue({ ...structuredClone(model), officeGroups: conflictGroups, officeUser: { ...structuredClone(model.officeUser), officeGroup: [conflictGroups[0], conflictGroups[1]] } });
+    renderEditor();
+    await screen.findByDisplayValue("ivanova");
+
+    expect(screen.getByText(/взаимоисключающие: у пользователя может быть только одна из них\. Уберите одну из групп\./)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Офис" }));
+    expect(screen.getByRole("checkbox", { name: "Офис" })).not.toBeChecked();
+    expect(screen.queryByText(/взаимоисключающие/)).not.toBeInTheDocument();
+  });
+
+  it("старое противоречие не мешает добавить постороннюю группу", async () => {
+    getMock.mockResolvedValue({ ...structuredClone(model), officeGroups: conflictGroups, officeUser: { ...structuredClone(model.officeUser), officeGroup: [conflictGroups[0], conflictGroups[1]] } });
+    renderEditor();
+    await screen.findByDisplayValue("ivanova");
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "Бухгалтерия" }));
+
+    expect(screen.getByRole("checkbox", { name: "Бухгалтерия" })).toBeChecked();
+  });
+});
+
 describe("UserEdit", () => {
   beforeEach(() => {
     getMock.mockReset().mockResolvedValue(structuredClone(model));
