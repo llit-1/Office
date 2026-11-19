@@ -11,7 +11,7 @@ namespace Office.Server.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [AllowAnonymous]
+    // AllowAnonymous is per action: on the class it would also switch off the role check of impersonate.
     public class AuthorizationController : ControllerBase
     {
         private static readonly TimeZoneInfo MoscowTimeZone = ResolveMoscowTimeZone();
@@ -33,6 +33,7 @@ namespace Office.Server.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login([FromBody] LoginModel loginModel)
         {
             if (loginModel is null)
@@ -172,65 +173,90 @@ namespace Office.Server.Controllers
         }
 
         [HttpPost("refresh")]
+        [AllowAnonymous]
         public async Task<IActionResult> Refresh()
         {
-            var rawRefreshToken = Request.Cookies[AuthConstants.RefreshCookieName];
-            if (string.IsNullOrWhiteSpace(rawRefreshToken))
+            var (officeUser, failure) = await LoadRefreshUserAsync();
+            if (officeUser is null)
             {
-                LogRefreshRejection("missing_cookie");
-                ClearRefreshCookie();
-                return Unauthorized(new { message = "Refresh token is missing" });
+                return failure!;
             }
 
-            if (!_authTokenService.TryReadRefreshToken(rawRefreshToken, out var refreshPayload, out var failureReason) ||
-                refreshPayload is null)
+            AppendRefreshCookie(officeUser);
+            var target = await ResolveImpersonationTargetAsync(officeUser);
+            if (target is not null)
             {
-                LogRefreshRejection(failureReason);
-                ClearRefreshCookie();
-                return Unauthorized(new { message = "Refresh token is invalid" });
-            }
-
-            if (refreshPayload.ExpiresAtUtc <= DateTime.UtcNow)
-            {
-                LogRefreshRejection("expired", refreshPayload.OfficeUserId);
-                ClearRefreshCookie();
-                return Unauthorized(new { message = "Refresh token expired" });
-            }
-
-            OfficeUser? officeUser;
-            try
-            {
-                officeUser = await OfficeUsersWithRoles().FirstOrDefaultAsync(x =>
-                    x.Id == refreshPayload.OfficeUserId &&
-                    x.Login == refreshPayload.Login);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    "Refresh token validation could not load user {OfficeUserId}. The cookie was preserved for retry.",
-                    refreshPayload.OfficeUserId);
-                return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-                {
-                    message = "Session validation is temporarily unavailable"
-                });
-            }
-
-            if (officeUser is null || officeUser.Actual != 1)
-            {
-                LogRefreshRejection("user_inactive_or_missing", refreshPayload.OfficeUserId);
-                ClearRefreshCookie();
-                return Unauthorized(new { message = "User is not active" });
+                return Ok(BuildImpersonatedAnswer(target, officeUser));
             }
 
             _logger.LogDebug("Session refreshed for user {OfficeUserId}.", officeUser.Id);
-            return Ok(IssueTokens(officeUser, null));
+            return Ok(BuildAnswer(officeUser, null));
+        }
+
+        /// <summary>
+        /// Вход админа под чужой учёткой. Кука обновления остаётся админской, а сеанс «под другим» живёт
+        /// в отдельной куке: её читает refresh, поэтому сеанс переживает перезагрузку и общий для вкладок.
+        /// </summary>
+        [HttpPost("impersonate/{userId:int}")]
+        [Authorize(Roles = AuthConstants.AdminRole)]
+        public async Task<IActionResult> Impersonate(int userId)
+        {
+            var admin = await LoadCallerAsync();
+            if (admin is null || admin.Actual != 1 || !AuthTokenService.HasAdminRole(admin))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Нет прав на вход под другим пользователем" });
+            }
+
+            if (admin.Id == userId)
+            {
+                return Conflict(new { message = "Это ваша учётная запись" });
+            }
+
+            var target = await OfficeUsersWithRoles().FirstOrDefaultAsync(x => x.Id == userId);
+            if (target is null)
+            {
+                return NotFound(new { message = "Пользователь не найден" });
+            }
+
+            if (AuthTokenService.HasAdminRole(target))
+            {
+                return Conflict(new { message = "Нельзя войти под учётной записью администратора" });
+            }
+
+            var issue = _authTokenService.CreateImpersonationToken(admin, target);
+            Response.Cookies.Append(
+                AuthConstants.ImpersonationCookieName,
+                issue.RawToken,
+                _authTokenService.BuildImpersonationCookie(issue.ExpiresAtUtc));
+
+            await WriteSuccessfulLoginLogAsync(target);
+            await _rKNETDBContext.SaveChangesAsync();
+
+            return Ok(BuildImpersonatedAnswer(target, admin));
+        }
+
+        /// <summary>«Вернуться»: работает по куке обновления, токен в этот момент принадлежит другому.</summary>
+        [HttpPost("impersonate/stop")]
+        [AllowAnonymous]
+        public async Task<IActionResult> StopImpersonation()
+        {
+            ClearImpersonationCookie();
+            var (officeUser, failure) = await LoadRefreshUserAsync();
+            if (officeUser is null)
+            {
+                return failure!;
+            }
+
+            AppendRefreshCookie(officeUser);
+            return Ok(BuildAnswer(officeUser, null));
         }
 
         [HttpPost("logout")]
+        [AllowAnonymous]
         public IActionResult Logout()
         {
             ClearRefreshCookie();
+            ClearImpersonationCookie();
             return NoContent();
         }
 
@@ -247,6 +273,8 @@ namespace Office.Server.Controllers
             public int responseCode { get; set; }
             public string? fullName { get; set; }
             public string? position { get; set; }
+            /// <summary>ФИО админа, вошедшего под этим пользователем; null — обычный вход.</summary>
+            public string? impersonatedBy { get; set; }
         }
 
         protected virtual LoginAttempts Attempts => LoginAttempts.Shared;
@@ -283,25 +311,150 @@ namespace Office.Server.Controllers
         {
             await WriteSuccessfulLoginLogAsync(officeUser);
             await _rKNETDBContext.SaveChangesAsync();
-            return IssueTokens(officeUser, adUser);
+            // A fresh sign-in must not revive an impersonation left over from an earlier session.
+            ClearImpersonationCookie();
+            AppendRefreshCookie(officeUser);
+            return BuildAnswer(officeUser, adUser);
         }
 
-        private AuthAnswer IssueTokens(OfficeUser officeUser, AdUserInfo? adUser)
+        private void AppendRefreshCookie(OfficeUser officeUser)
         {
             var refreshToken = _authTokenService.CreateRefreshToken(officeUser);
             Response.Cookies.Append(
                 AuthConstants.RefreshCookieName,
                 refreshToken.RawToken,
                 _authTokenService.BuildRefreshCookie(refreshToken.ExpiresAtUtc));
+        }
 
-            return new AuthAnswer
+        private AuthAnswer BuildAnswer(OfficeUser officeUser, AdUserInfo? adUser) => new()
+        {
+            id = officeUser.Id,
+            token = _authTokenService.CreateAccessToken(officeUser),
+            responseCode = 1,
+            fullName = GetDisplayName(officeUser, adUser),
+            position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim(),
+            impersonatedBy = null
+        };
+
+        private AuthAnswer BuildImpersonatedAnswer(OfficeUser target, OfficeUser admin) => new()
+        {
+            id = target.Id,
+            token = _authTokenService.CreateAccessToken(
+                target, TimeSpan.FromMinutes(AuthConstants.ImpersonatedAccessTokenLifetimeMinutes)),
+            responseCode = 1,
+            fullName = GetDisplayName(target, null),
+            position = target.Position?.Trim(),
+            impersonatedBy = GetDisplayName(admin, null) ?? admin.Login
+        };
+
+        /// <summary>
+        /// Пользователь из куки обновления, как раньше в refresh. При отказе удаляет обе куки,
+        /// кроме сбоя базы: тогда куки остаются для повтора.
+        /// </summary>
+        private async Task<(OfficeUser? User, IActionResult? Failure)> LoadRefreshUserAsync()
+        {
+            var rawRefreshToken = Request.Cookies[AuthConstants.RefreshCookieName];
+            if (string.IsNullOrWhiteSpace(rawRefreshToken))
             {
-                id = officeUser.Id,
-                token = _authTokenService.CreateAccessToken(officeUser),
-                responseCode = 1,
-                fullName = GetDisplayName(officeUser, adUser),
-                position = adUser?.Position?.Trim() ?? officeUser.Position?.Trim()
-            };
+                return Reject("missing_cookie", null, "Refresh token is missing");
+            }
+
+            if (!_authTokenService.TryReadRefreshToken(rawRefreshToken, out var refreshPayload, out var failureReason) ||
+                refreshPayload is null)
+            {
+                return Reject(failureReason, null, "Refresh token is invalid");
+            }
+
+            if (refreshPayload.ExpiresAtUtc <= DateTime.UtcNow)
+            {
+                return Reject("expired", refreshPayload.OfficeUserId, "Refresh token expired");
+            }
+
+            OfficeUser? officeUser;
+            try
+            {
+                officeUser = await OfficeUsersWithRoles().FirstOrDefaultAsync(x =>
+                    x.Id == refreshPayload.OfficeUserId &&
+                    x.Login == refreshPayload.Login);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Refresh token validation could not load user {OfficeUserId}. The cookie was preserved for retry.",
+                    refreshPayload.OfficeUserId);
+                return (null, StatusCode(StatusCodes.Status503ServiceUnavailable, new
+                {
+                    message = "Session validation is temporarily unavailable"
+                }));
+            }
+
+            if (officeUser is null || officeUser.Actual != 1)
+            {
+                return Reject("user_inactive_or_missing", refreshPayload.OfficeUserId, "User is not active");
+            }
+
+            return (officeUser, null);
+
+            (OfficeUser?, IActionResult?) Reject(string reason, int? officeUserId, string message)
+            {
+                LogRefreshRejection(reason, officeUserId);
+                ClearRefreshCookie();
+                ClearImpersonationCookie();
+                return (null, Unauthorized(new { message }));
+            }
+        }
+
+        /// <summary>
+        /// Цель сеанса «под другим», если кука сеанса действительна для этого админа. Иначе удаляет куку
+        /// и возвращает null: админ получает свой токен.
+        /// </summary>
+        private async Task<OfficeUser?> ResolveImpersonationTargetAsync(OfficeUser admin)
+        {
+            var raw = Request.Cookies[AuthConstants.ImpersonationCookieName];
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            OfficeUser? target = null;
+            if (_authTokenService.TryReadImpersonationToken(raw, out var payload) &&
+                payload is not null &&
+                payload.AdminId == admin.Id &&
+                payload.AdminLogin == admin.Login &&
+                payload.ExpiresAtUtc > DateTime.UtcNow &&
+                AuthTokenService.HasAdminRole(admin))
+            {
+                target = await OfficeUsersWithRoles().FirstOrDefaultAsync(x =>
+                    x.Id == payload.TargetId && x.Login == payload.TargetLogin);
+                if (target is not null && AuthTokenService.HasAdminRole(target))
+                {
+                    target = null;
+                }
+            }
+
+            if (target is null)
+            {
+                ClearImpersonationCookie();
+            }
+
+            return target;
+        }
+
+        private async Task<OfficeUser?> LoadCallerAsync()
+        {
+            var raw = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            return int.TryParse(raw, out var id)
+                ? await OfficeUsersWithRoles().FirstOrDefaultAsync(x => x.Id == id)
+                : null;
+        }
+
+        private void ClearImpersonationCookie()
+        {
+            Response.Cookies.Append(
+                AuthConstants.ImpersonationCookieName,
+                string.Empty,
+                _authTokenService.BuildExpiredImpersonationCookie());
         }
 
         private async Task WriteSuccessfulLoginLogAsync(OfficeUser officeUser)

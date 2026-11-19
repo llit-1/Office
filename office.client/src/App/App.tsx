@@ -1,21 +1,12 @@
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
 import useWindowSize from "../Hooks/useWindowSize";
 import Header from "../Header/Header";
 import HamburgerMenuDesktop from "../HamburgerMenuDesktop/HamburgerMenuDesktop";
 import { HeaderMobile } from "../HeaderMobile/HeaderMobile";
-import type { RootState } from "../Store";
-import {
-  accessTokenRolesMatch,
-  getAccessToken,
-  post,
-  refreshSession,
-} from "../Services/api";
-import { login } from "../Store/authSlice";
-import { clearUserData, setUserData } from "../Store/userDataSlice";
-import { getUserData } from "../Services/userData";
+import useUserDataPolling from "../Hooks/useUserDataPolling";
 import { navigateWithPreloadedRoute } from "./routes";
+import ImpersonationBanner from "../Components/ImpersonationBanner/ImpersonationBanner";
 import "./App.css";
 
 let notificationAudioContext: AudioContext | null = null;
@@ -125,16 +116,6 @@ function App() {
   const { width } = useWindowSize();
   const navigate = useNavigate();
   const location = useLocation();
-  const dispatch = useDispatch();
-  const userId = useSelector((state: RootState) => state.auth.id);
-  const token = useSelector((state: RootState) => state.auth.token);
-  const notificationSoundEnabled = useSelector(
-    (state: RootState) => state.preferences.notificationSoundEnabled
-  );
-
-  const effectiveUserId =
-    typeof userId === "number" && !Number.isNaN(userId) ? userId : null;
-
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -192,74 +173,11 @@ function App() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!token || effectiveUserId === null) {
-      dispatch(clearUserData());
-      return;
-    }
-
-    let cancelled = false;
-
-    const loadUserData = async () => {
-      try {
-        const normalizedData = await getUserData();
-
-        if (!accessTokenRolesMatch(getAccessToken(), normalizedData.roles)) {
-          const refreshedSession = await refreshSession();
-          if (refreshedSession?.responseCode === 1 && refreshedSession.token) {
-            dispatch(login({
-              id: refreshedSession.id,
-              token: refreshedSession.token,
-              fullName: refreshedSession.fullName,
-              position: refreshedSession.position,
-            }));
-          }
-        }
-
-        const newNotificationIds = normalizedData.newNotifications.map((item) => item.id);
-
-        if (newNotificationIds.length > 0) {
-          if (notificationSoundEnabled) {
-            await playNotificationBeep();
-          }
-
-          try {
-            await post("/Notification/setnotificationsstatusone", newNotificationIds);
-            normalizedData.activeNotifications = [
-              ...normalizedData.newNotifications.map((item) => ({ ...item, status: 1 })),
-              ...normalizedData.activeNotifications,
-            ].sort(
-              (left, right) =>
-                new Date(right.dateTime).getTime() - new Date(left.dateTime).getTime()
-            );
-            normalizedData.newNotifications = [];
-          } catch (statusUpdateError) {
-            console.error("Failed to update notification statuses", statusUpdateError);
-          }
-        }
-
-        if (!cancelled) {
-          dispatch(setUserData(normalizedData));
-        }
-      } catch (error) {
-        console.error("Failed to refresh user data", error);
-      }
-    };
-
-    void loadUserData();
-
-    const intervalId = window.setInterval(() => {
-      void loadUserData();
-    }, 30_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-    };
-  }, [dispatch, token, effectiveUserId, notificationSoundEnabled]);
+  useUserDataPolling(playNotificationBeep);
 
   return (
     <>
+      <ImpersonationBanner />
       <main>
         {width >= 750 ? (
           <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />

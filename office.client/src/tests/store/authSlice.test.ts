@@ -17,8 +17,17 @@ describe("authSlice", () => {
       token: "token",
       fullName: "Иванов Иван",
       position: "Инженер",
+      impersonatedBy: null,
       initialized: true,
     });
+  });
+
+  it("keeps who is impersonating and drops it on the next regular session", () => {
+    const impersonated = authReducer(undefined, login({ id: 2, token: "t", impersonatedBy: "Иванов Иван" }));
+    expect(impersonated.impersonatedBy).toBe("Иванов Иван");
+
+    const back = authReducer(impersonated, login({ id: 1, token: "t2" }));
+    expect(back.impersonatedBy).toBeNull();
   });
 
   it("clears auth state and localStorage on logout", () => {
@@ -36,6 +45,7 @@ describe("authSlice", () => {
       token: null,
       fullName: null,
       position: null,
+      impersonatedBy: null,
       initialized: true,
     });
     expect(localStorage.getItem("token")).toBeNull();

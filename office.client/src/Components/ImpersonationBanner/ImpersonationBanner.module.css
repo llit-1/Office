@@ -1,0 +1,22 @@
+/* Fixed, so it takes no room: #root is exactly one screen, and an extra row there adds scrollbars. */
+.banner {
+  position: fixed;
+  left: 50%;
+  bottom: calc(25px + var(--space-3));
+  z-index: 1000;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  max-width: calc(100vw - 2 * var(--space-4));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  /* concentric corners: radius-lg (16) = button radius-control (8) + the space-2 (8) gap around it */
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  box-shadow: var(--shadow-md);
+  font-weight: 600;
+}

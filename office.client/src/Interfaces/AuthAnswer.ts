@@ -5,4 +5,6 @@ export interface AuthAnswer
     responseCode: number | null;
     fullName?: string | null;
     position?: string | null;
+    /** ФИО админа, вошедшего под этим пользователем; null — обычный вход. */
+    impersonatedBy?: string | null;
 }

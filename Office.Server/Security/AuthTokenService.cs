@@ -6,12 +6,14 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 
 namespace Office.Server.Security
 {
     public sealed class AuthTokenService
     {
         private readonly IDataProtector _refreshTokenProtector;
+        private readonly IDataProtector _impersonationProtector;
         private readonly ILogger<AuthTokenService> _logger;
 
         public AuthTokenService(
@@ -19,10 +21,20 @@ namespace Office.Server.Security
             ILogger<AuthTokenService> logger)
         {
             _refreshTokenProtector = dataProtectionProvider.CreateProtector("Office.Server.Auth.RefreshToken.v1");
+            _impersonationProtector = dataProtectionProvider.CreateProtector("Office.Server.Auth.Impersonation.v1");
             _logger = logger;
         }
 
-        public string CreateAccessToken(OfficeUser user)
+        /// <summary>Роль «Админ» без учёта регистра и пробелов — так же, как роли попадают в токен.</summary>
+        public static bool HasAdminRole(OfficeUser user) =>
+            user.OfficeGroup
+                .SelectMany(group => group.OfficeRole)
+                .Any(role => string.Equals(role.Role?.Trim(), AuthConstants.AdminRole, StringComparison.OrdinalIgnoreCase));
+
+        public string CreateAccessToken(OfficeUser user) =>
+            CreateAccessToken(user, TimeSpan.FromMinutes(AuthConstants.AccessTokenLifetimeMinutes));
+
+        public string CreateAccessToken(OfficeUser user, TimeSpan lifetime)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(Global.SecretKey);
@@ -42,7 +54,7 @@ namespace Office.Server.Security
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(AuthConstants.AccessTokenLifetimeMinutes),
+                Expires = DateTime.UtcNow.Add(lifetime),
                 SigningCredentials = new SigningCredentials(
                     new SymmetricSecurityKey(key),
                     SecurityAlgorithms.HmacSha256Signature)
@@ -115,31 +127,72 @@ namespace Office.Server.Security
             }
         }
 
-        public CookieOptions BuildRefreshCookie(DateTime expiresAtUtc)
+        public ImpersonationIssue CreateImpersonationToken(OfficeUser admin, OfficeUser target)
         {
-            return new CookieOptions
+            var payload = new ImpersonationPayload
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                IsEssential = true,
-                Path = "/api/Authorization",
-                Expires = new DateTimeOffset(expiresAtUtc)
+                AdminId = admin.Id,
+                AdminLogin = admin.Login,
+                TargetId = target.Id,
+                TargetLogin = target.Login,
+                ExpiresAtUtc = DateTime.UtcNow.AddHours(AuthConstants.ImpersonationLifetimeHours)
+            };
+            return new ImpersonationIssue
+            {
+                RawToken = _impersonationProtector.Protect(JsonSerializer.Serialize(payload)),
+                ExpiresAtUtc = payload.ExpiresAtUtc
             };
         }
 
-        public CookieOptions BuildExpiredRefreshCookie()
+        public bool TryReadImpersonationToken(string rawToken, out ImpersonationPayload? payload)
         {
-            return new CookieOptions
+            payload = null;
+            try
             {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                IsEssential = true,
-                Path = "/api/Authorization",
-                Expires = DateTimeOffset.UnixEpoch
-            };
+                payload = JsonSerializer.Deserialize<ImpersonationPayload>(_impersonationProtector.Unprotect(rawToken));
+                return payload is not null;
+            }
+            catch (Exception ex) when (ex is CryptographicException or JsonException)
+            {
+                _logger.LogWarning(ex, "Impersonation cookie could not be read.");
+                return false;
+            }
         }
+
+        public CookieOptions BuildRefreshCookie(DateTime expiresAtUtc) => BuildCookie(new DateTimeOffset(expiresAtUtc));
+
+        public CookieOptions BuildExpiredRefreshCookie() => BuildCookie(DateTimeOffset.UnixEpoch);
+
+        public CookieOptions BuildImpersonationCookie(DateTime expiresAtUtc) => BuildCookie(new DateTimeOffset(expiresAtUtc));
+
+        public CookieOptions BuildExpiredImpersonationCookie() => BuildCookie(DateTimeOffset.UnixEpoch);
+
+        // Both cookies share the path: the browser sends the impersonation cookie to refresh, and a delete
+        // with a different path would not remove it.
+        private static CookieOptions BuildCookie(DateTimeOffset expires) => new()
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            IsEssential = true,
+            Path = AuthConstants.CookiePath,
+            Expires = expires
+        };
+    }
+
+    public sealed class ImpersonationIssue
+    {
+        public string RawToken { get; init; } = string.Empty;
+        public DateTime ExpiresAtUtc { get; init; }
+    }
+
+    public sealed class ImpersonationPayload
+    {
+        public int AdminId { get; init; }
+        public string AdminLogin { get; init; } = string.Empty;
+        public int TargetId { get; init; }
+        public string TargetLogin { get; init; } = string.Empty;
+        public DateTime ExpiresAtUtc { get; init; }
     }
 
     public sealed class RefreshTokenIssue

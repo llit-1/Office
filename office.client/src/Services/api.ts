@@ -37,6 +37,19 @@ interface AuthInternalRequestConfig extends InternalAxiosRequestConfig {
 let accessToken: string | null = null;
 let refreshPromise: Promise<AuthAnswer> | null = null;
 let scheduledRefreshTimer: number | null = null;
+// Who the session belongs to: user id plus the admin acting as him. Another tab can start or stop
+// impersonation, and then the next refresh here returns a different person.
+let sessionIdentity: string | null = null;
+let identityChangeHandler: (path: string) => void = (path) => window.location.assign(path);
+
+function identityOf(session: AuthAnswer) {
+  return `${session.id}|${session.impersonatedBy ?? ""}`;
+}
+
+/** Full page load under the new identity; main.tsx also clears per-user persisted state here. */
+export function setSessionIdentityChangeHandler(handler: (path: string) => void) {
+  identityChangeHandler = handler;
+}
 
 const AUTH_CHALLENGE_HEADER = "x-office-auth-challenge";
 const ACCESS_TOKEN_REFRESH_LEEWAY_MS = 60_000;
@@ -81,6 +94,7 @@ export function setAccessToken(token: string | null) {
 
 export function clearAccessToken() {
   accessToken = null;
+  sessionIdentity = null;
   clearScheduledRefresh();
   try {
     localStorage.removeItem("token");
@@ -234,6 +248,12 @@ async function requestSessionRefresh(): Promise<AuthAnswer> {
       } as AuthRequestConfig)
       .then((session) => {
         setAccessToken(session.token);
+        const identity = identityOf(session);
+        const changed = sessionIdentity !== null && sessionIdentity !== identity;
+        sessionIdentity = identity;
+        if (changed) {
+          identityChangeHandler(window.location.pathname);
+        }
         return session;
       })
       .finally(() => {
@@ -254,6 +274,32 @@ export async function refreshSession(): Promise<AuthAnswer | null> {
     }
 
     throw error;
+  }
+}
+
+/** Вход админа под пользователем. Отказ сервера пробрасывается как ApiError с текстом. */
+export async function startImpersonation(userId: number) {
+  // skipAuthRefresh: a 403 here is a real refusal, not a stale token worth refreshing.
+  const session = await post<AuthAnswer>(`/Authorization/impersonate/${userId}`, undefined, {
+    skipAuthRefresh: true,
+  } as AuthRequestConfig);
+  sessionIdentity = identityOf(session);
+  identityChangeHandler("/Main");
+}
+
+/** «Вернуться». Если своя сессия уже истекла, это полный выход на страницу входа. */
+export async function stopImpersonation(returnPath: string) {
+  try {
+    const session = await post<AuthAnswer>("/Authorization/impersonate/stop", undefined, {
+      skipAuthRefresh: true,
+      skipAuthRedirect: true,
+    } as AuthRequestConfig);
+    sessionIdentity = identityOf(session);
+    identityChangeHandler(returnPath);
+  } catch (error) {
+    if (!isTerminalSessionRefreshError(error)) throw error;
+    clearAccessToken();
+    identityChangeHandler("/Login");
   }
 }
 
@@ -363,7 +409,7 @@ export function getFriendlyErrorMessage(err: unknown, fallback = "Ошибка �
         case 405:
           return "Метод запроса не поддерживается сервером.";
         case 409:
-          return "Конфликт данных на сервере.";
+          return err.message || "Конфликт данных на сервере.";
         case 422:
           return err.message || "Ошибка валидации данных.";
         case 500:

@@ -5,6 +5,8 @@ interface AuthState {
   token: string | null;
   fullName: string | null;
   position: string | null;
+  /** ФИО админа, который сейчас под этим пользователем; null — обычный вход. */
+  impersonatedBy?: string | null;
   initialized: boolean;
 }
 
@@ -13,6 +15,7 @@ const initialState: AuthState = {
   token: null,
   fullName: null,
   position: null,
+  impersonatedBy: null,
   initialized: false,
 };
 
@@ -20,7 +23,15 @@ const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    login(state, action: PayloadAction<{ id?: number; token?: string; fullName?: string | null; position?: string | null }>) {
+    login(state, action: PayloadAction<{
+      id?: number;
+      token?: string;
+      fullName?: string | null;
+      position?: string | null;
+      impersonatedBy?: string | null;
+    }>) {
+      // Not optional-on-undefined like the rest: every session answer says who, if anyone, is impersonating.
+      state.impersonatedBy = action.payload.impersonatedBy ?? null;
       if (typeof action.payload.id !== 'undefined') {
         state.id = action.payload.id ?? null;
       }
@@ -40,6 +51,7 @@ const authSlice = createSlice({
       state.token = null;
       state.fullName = null;
       state.position = null;
+      state.impersonatedBy = null;
       state.initialized = true;
       try {
         localStorage.removeItem('authToken'); // legacy key

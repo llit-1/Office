@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import type { RootState } from "../../Store";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import type { UseFormSetError } from "react-hook-form";
@@ -32,6 +33,7 @@ import {
   getFriendlyErrorMessage,
   post,
   put,
+  startImpersonation,
 } from "../../Services/api";
 
 import type {
@@ -233,6 +235,26 @@ export default function UserEdit() {
     null,
   );
   const [bidError, setBidError] = useState<string | null>(null);
+  const [impersonating, setImpersonating] = useState(false);
+  const isAdmin = useSelector((state: RootState) =>
+    (state.userData?.roles ?? []).some((role) => role.trim().toLowerCase() === "admin"),
+  );
+  const currentUserId = useSelector((state: RootState) => state.auth?.id ?? null);
+  // Whether the target is an admin too is decided by the server: the card does not know his roles.
+  const canImpersonate = isAdmin && !isCreate && Number(id) !== currentUserId;
+
+  const handleImpersonate = async () => {
+    setImpersonating(true);
+    try {
+      await startImpersonation(Number(id));
+    } catch (error) {
+      notifications.show(getFriendlyErrorMessage(error, "Не удалось войти под пользователем"), {
+        severity: "error",
+        autoHideDuration: 5000,
+      });
+      setImpersonating(false);
+    }
+  };
   const {
     register,
     reset,
@@ -914,6 +936,16 @@ export default function UserEdit() {
             </span>
           </div>
           <div className={styles.actions}>
+            {canImpersonate && (
+              <Button
+                variant="ghost"
+                onClick={() => void handleImpersonate()}
+                loading={impersonating}
+                disabled={saving}
+              >
+                Войти как
+              </Button>
+            )}
             <Button onClick={() => navigate("/Users")} disabled={saving}>
               Отмена
             </Button>

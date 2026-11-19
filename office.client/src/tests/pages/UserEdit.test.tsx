@@ -12,11 +12,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import UserEdit from "../../Pages/Users/UserEdit";
 import backButton from "../../Store/stateForBackButtonSlice";
 import pageTitle from "../../Store/stateForPageTitleSlice";
+import auth, { login } from "../../Store/authSlice";
+import userData, { setUserData } from "../../Store/userDataSlice";
 
-const { getMock, putMock, postMock, notifications } = vi.hoisted(() => ({
+const { getMock, putMock, postMock, startImpersonationMock, notifications } = vi.hoisted(() => ({
   getMock: vi.fn(),
   putMock: vi.fn(),
   postMock: vi.fn(),
+  startImpersonationMock: vi.fn(),
   notifications: { show: vi.fn() },
 }));
 vi.mock("@toolpad/core", () => ({ useNotifications: () => notifications }));
@@ -24,6 +27,7 @@ vi.mock("../../Services/api", () => ({
   get: (...args: unknown[]) => getMock(...args),
   put: (...args: unknown[]) => putMock(...args),
   post: (...args: unknown[]) => postMock(...args),
+  startImpersonation: (...args: unknown[]) => startImpersonationMock(...args),
   getFriendlyErrorMessage: (error: Error) => error.message,
   callApi: async (promise: Promise<unknown>) => {
     try {
@@ -324,5 +328,60 @@ describe("UserEdit", () => {
         }),
       ),
     );
+  });
+});
+
+describe("UserEdit: вход под пользователем", () => {
+  function renderAs(roles: string[], currentUserId = 1) {
+    const store = configureStore({ reducer: { backButton, pageTitle, auth, userData } });
+    store.dispatch(login({ id: currentUserId, token: "token" }));
+    store.dispatch(setUserData({ newNotifications: [], activeNotifications: [], roles }));
+    render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={["/Users/Edit/42"]}>
+          <Routes>
+            <Route path="/Users/Edit/:id" element={<UserEdit />} />
+          </Routes>
+        </MemoryRouter>
+      </Provider>,
+    );
+  }
+
+  beforeEach(() => {
+    getMock.mockReset().mockResolvedValue(structuredClone(model));
+    startImpersonationMock.mockReset();
+    notifications.show.mockReset();
+  });
+
+  it("is offered only to an admin", async () => {
+    renderAs(["Users"]);
+    await screen.findByDisplayValue("ivanova");
+    expect(screen.queryByRole("button", { name: "Войти как" })).not.toBeInTheDocument();
+  });
+
+  it("is not offered on the admin's own card", async () => {
+    renderAs(["Users", "Admin"], 42);
+    await screen.findByDisplayValue("ivanova");
+    expect(screen.queryByRole("button", { name: "Войти как" })).not.toBeInTheDocument();
+  });
+
+  it("signs the admin in as this user", async () => {
+    startImpersonationMock.mockResolvedValue(undefined);
+    renderAs(["Users", "Admin"]);
+    fireEvent.click(await screen.findByRole("button", { name: "Войти как" }));
+    expect(startImpersonationMock).toHaveBeenCalledWith(42);
+  });
+
+  it("shows the server refusal", async () => {
+    startImpersonationMock.mockRejectedValue(new Error("Нельзя войти под учётной записью администратора"));
+    renderAs(["Users", "Admin"]);
+    fireEvent.click(await screen.findByRole("button", { name: "Войти как" }));
+    await waitFor(() =>
+      expect(notifications.show).toHaveBeenCalledWith(
+        "Нельзя войти под учётной записью администратора",
+        expect.objectContaining({ severity: "error" }),
+      ),
+    );
+    expect(screen.getByRole("button", { name: "Войти как" })).toBeEnabled();
   });
 });

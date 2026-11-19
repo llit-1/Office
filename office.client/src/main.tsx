@@ -8,7 +8,8 @@ import App from "./App/App";
 import store, { persistor, RootState } from "./Store/index";
 import { login, logout, setAuthInitialized } from "./Store/authSlice";
 import { clearUserData } from "./Store/userDataSlice";
-import { refreshSession, setAccessToken } from "./Services/api";
+import { refreshSession, setAccessToken, setSessionIdentityChangeHandler } from "./Services/api";
+import { reloadAsAnotherUser } from "./Services/sessionSwitch";
 import { warmUpFonts } from "./fontBootstrap";
 import RequireAuth from "./App/RequireAuth";
 import {
@@ -23,6 +24,8 @@ import "./styles/design-tokens.css";
 
 const bootStartedAt = (window as Window & { __officeBootStartedAt?: number }).__officeBootStartedAt
   ?? performance.now();
+
+setSessionIdentityChangeHandler((path) => reloadAsAnotherUser(persistor, path));
 
 try {
   const savedTheme = localStorage.getItem("theme");
@@ -88,6 +91,7 @@ function StartupChecker() {
             token: session.token,
             fullName: session.fullName ?? null,
             position: session.position ?? null,
+            impersonatedBy: session.impersonatedBy ?? null,
           }),
         );
         return;

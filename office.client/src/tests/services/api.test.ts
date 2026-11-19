@@ -12,6 +12,9 @@ import api, {
   isTerminalSessionRefreshError,
   refreshSession,
   setAccessToken,
+  setSessionIdentityChangeHandler,
+  startImpersonation,
+  stopImpersonation,
 } from "../../Services/api";
 
 const originalAdapter = api.defaults.adapter;
@@ -221,5 +224,96 @@ describe("api helpers", () => {
       expect(result.error).toBe(error);
     }
     expect(show).toHaveBeenCalled();
+  });
+});
+
+describe("api: вход под другим пользователем", () => {
+  const onSwitch = vi.fn();
+
+  function ok(config: InternalAxiosRequestConfig, data: unknown) {
+    return { data, status: 200, statusText: "OK", headers: new AxiosHeaders(), config };
+  }
+
+  function failure(config: InternalAxiosRequestConfig, status: number, message: string) {
+    return new AxiosError(message, AxiosError.ERR_BAD_REQUEST, config, undefined, {
+      data: { message },
+      status,
+      statusText: message,
+      headers: new AxiosHeaders(),
+      config,
+    });
+  }
+
+  beforeEach(() => {
+    onSwitch.mockReset();
+    setSessionIdentityChangeHandler(onSwitch);
+  });
+
+  afterEach(() => {
+    api.defaults.adapter = originalAdapter;
+    clearAccessToken();
+  });
+
+  it("reloads the page when a refresh returns another person", async () => {
+    const sessions = [
+      { id: 1, token: "admin-token", responseCode: 1, impersonatedBy: null },
+      { id: 1, token: "admin-token-2", responseCode: 1, impersonatedBy: null },
+      { id: 2, token: "tt-token", responseCode: 1, impersonatedBy: "Иванов Иван" },
+    ];
+    api.defaults.adapter = async (config) => ok(config, sessions.shift());
+
+    await refreshSession();
+    await refreshSession();
+    expect(onSwitch).not.toHaveBeenCalled();
+
+    await refreshSession();
+    expect(onSwitch).toHaveBeenCalledWith(window.location.pathname);
+  });
+
+  it("starts impersonation and opens the main page under the user", async () => {
+    const requested: string[] = [];
+    api.defaults.adapter = async (config) => {
+      requested.push(`${config.method} ${config.url}`);
+      return ok(config, { id: 2, token: "tt-token", responseCode: 1, impersonatedBy: "Иванов Иван" });
+    };
+
+    await startImpersonation(2);
+
+    expect(requested).toEqual(["post /Authorization/impersonate/2"]);
+    expect(onSwitch).toHaveBeenCalledWith("/Main");
+  });
+
+  it("shows the server refusal and does not refresh on 403", async () => {
+    const requested: string[] = [];
+    api.defaults.adapter = async (config) => {
+      requested.push(config.url ?? "");
+      throw failure(config, 403, "Нет прав на вход под другим пользователем");
+    };
+
+    await expect(startImpersonation(2)).rejects.toMatchObject({
+      message: "Нет прав на вход под другим пользователем",
+    });
+    expect(requested).toEqual(["/Authorization/impersonate/2"]);
+    expect(onSwitch).not.toHaveBeenCalled();
+  });
+
+  it("returns to the admin and opens the given page", async () => {
+    api.defaults.adapter = async (config) => ok(config, { id: 1, token: "admin-token", responseCode: 1, impersonatedBy: null });
+
+    await stopImpersonation("/Users/Edit/2");
+
+    expect(onSwitch).toHaveBeenCalledWith("/Users/Edit/2");
+  });
+
+  it("logs out completely when the admin session has expired on return", async () => {
+    setAccessToken("tt-token");
+    api.defaults.adapter = async (config) => {
+      throw failure(config, 401, "Refresh token expired");
+    };
+
+    await stopImpersonation("/Users/Edit/2");
+
+    expect(onSwitch).toHaveBeenCalledWith("/Login");
+    expect(getAccessToken()).toBeNull();
   });
 });
