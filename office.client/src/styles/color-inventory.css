@@ -35,6 +35,9 @@
   --color-warning: #f59e0b;
   --color-warning-bg: #ffe7c8;
   --color-warning-text: #805400;
+  /* Plain hues for categorical marks (attention chips), when warning amber and brand orange are too close. */
+  --color-yellow: #eab308;
+  --color-blue: #3b82f6;
   --color-filter-indicator: #5865F1;
 
   /* Info */
@@ -170,6 +173,8 @@
   --color-warning-light: #f59e0b80;
   --color-warning-bg: #453417;
   --color-warning-text: #ffc65c;
+  --color-yellow: #facc15;
+  --color-blue: #60a5fa;
   --color-filter-indicator: #ffb07c;
 
   --color-info: #46c8df;

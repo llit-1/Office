@@ -19,10 +19,74 @@ type Column<T> =
   | { label: string; key: keyof T }  // обычная колонка
   | { label: string; render: (row: T) => React.ReactNode; sortValue?: (row: T) => string | number };
 
-const userColumns: Column<OfficeUser>[] = [
-  { label: "Имя", render: (g) => `${g.surname} ${g.name}` , sortValue: (g) => `${g.surname} ${g.name}` },
-  { label: "Должность", key: "position" },
-];
+interface TradePointFormatIssue {
+  userId: number;
+  login: string;
+  issues: string[];
+}
+
+interface UserAttentionReason {
+  userId: number;
+  reason: string;
+}
+
+interface UserAttention {
+  noAccess: UserAttentionReason[];
+  stale: UserAttentionReason[];
+}
+
+type AttentionKey = "format" | "noAccess" | "stale";
+
+interface AttentionChip {
+  key: AttentionKey;
+  label: string;
+  /** userId → почему учётка попала в чип */
+  reasons: Map<number, string>;
+}
+
+interface AttentionMark {
+  key: AttentionKey;
+  reason: string;
+}
+
+// «Все ТТ» sorts above any real count
+const ALL_LOCATIONS_SORT = 1_000_000;
+
+function userColumns(marks: Map<number, AttentionMark[]>): Column<OfficeUser>[] {
+  return [
+    {
+      label: "Имя",
+      render: (g) => (
+        <span className={styles.nameCell}>
+          {`${g.surname} ${g.name}`}
+          {/* one dot per reason, coloured like its chip */}
+          {marks.get(g.id)?.map((mark) => (
+            <span
+              key={mark.key}
+              className={styles.issueDot}
+              data-kind={mark.key}
+              role="img"
+              aria-label={`Требует внимания: ${mark.reason}`}
+              title={mark.reason}
+            />
+          ))}
+        </span>
+      ),
+      sortValue: (g) => `${g.surname} ${g.name}`,
+    },
+    { label: "Должность", key: "position" },
+    {
+      label: "ТТ",
+      render: (g) => (g.defaultLocations === 1 ? "Все" : g.locations?.length ?? 0),
+      sortValue: (g) => (g.defaultLocations === 1 ? ALL_LOCATIONS_SORT : g.locations?.length ?? 0),
+    },
+    {
+      label: "Группы",
+      render: (g) => g.officeGroup?.length ?? 0,
+      sortValue: (g) => g.officeGroup?.length ?? 0,
+    },
+  ];
+}
 
 const groupColumns: Column<OfficeGroup>[] = [
   { label: "Название", key: "name" },
@@ -47,6 +111,44 @@ export default function Users() {
   const [groups, setGroups] = useState<OfficeGroup[]>([]);
   const [roles, setRoles] = useState<OfficeRole[]>([]);
   const [loading, setLoading] = useState(true);
+  // Учётки, на которые стоит посмотреть; грузятся отдельно и не задерживают таблицу.
+  const [formatIssues, setFormatIssues] = useState<TradePointFormatIssue[]>([]);
+  const [attention, setAttention] = useState<UserAttention | null>(null);
+  const [activeChip, setActiveChip] = useState<AttentionKey | null>(null);
+
+  // only non-empty chips are shown
+  const chips = useMemo<AttentionChip[]>(() => {
+    const all: AttentionChip[] = [
+      {
+        key: "format",
+        label: "Неверный формат ТТ",
+        reasons: new Map(formatIssues.map((item) => [item.userId, `формат учётки точки: ${item.issues.join(", ")}`])),
+      },
+      {
+        key: "noAccess",
+        label: "Без доступа",
+        reasons: new Map((attention?.noAccess ?? []).map((item) => [item.userId, item.reason])),
+      },
+      {
+        key: "stale",
+        label: "Не заходили 90 дней",
+        reasons: new Map((attention?.stale ?? []).map((item) => [item.userId, item.reason])),
+      },
+    ];
+    return all.filter((chip) => chip.reasons.size > 0);
+  }, [formatIssues, attention]);
+
+  const reasonsByUser = useMemo(() => {
+    const result = new Map<number, AttentionMark[]>();
+    for (const chip of chips) {
+      for (const [userId, reason] of chip.reasons) {
+        result.set(userId, [...(result.get(userId) ?? []), { key: chip.key, reason }]);
+      }
+    }
+    return result;
+  }, [chips]);
+
+  const selectedChip = chips.find((chip) => chip.key === activeChip) ?? null;
 
   const getUsers = async (): Promise<OfficeUser[] | null> => {
     setLoading(true);
@@ -95,6 +197,19 @@ export default function Users() {
   }, [dispatch]);
 
   useEffect(() => {
+    let cancelled = false;
+    void callApi(get<TradePointFormatIssue[]>("/User/tradepoint-format")).then((result) => {
+      if (!cancelled && result.ok) setFormatIssues(result.data);
+    });
+    void callApi(get<UserAttention>("/User/attention")).then((result) => {
+      if (!cancelled && result.ok) setAttention(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     loadByIndex(activeIndex);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeIndex]);
@@ -104,7 +219,8 @@ export default function Users() {
   const filteredData = useMemo(() => {
     if (activeIndex === 0) {
       return users.filter((u) =>
-        includesNormalized(`${u.surname ?? ""} ${u.name ?? ""}`, debouncedSearchText),
+        (!selectedChip || selectedChip.reasons.has(u.id))
+        && includesNormalized(`${u.surname ?? ""} ${u.name ?? ""}`, debouncedSearchText),
       );
     }
 
@@ -113,7 +229,7 @@ export default function Users() {
     }
 
     return roles.filter((r) => includesNormalized(r.name ?? "", debouncedSearchText));
-  }, [debouncedSearchText, users, groups, roles, activeIndex]);
+  }, [debouncedSearchText, users, groups, roles, activeIndex, selectedChip]);
 
 
   return (
@@ -121,17 +237,48 @@ export default function Users() {
       <div className={styles.tt_wrapper}>
         <div className={styles.tabAndSearchWrapper}>
           <TabNavigation
-            items={["Пользователи", "Группы", "Роли"]}
+            items={[
+              <span className={styles.tabLabel} key="users">
+                Пользователи
+                {/* on the users tab the count is on the chip next to the tabs */}
+                {reasonsByUser.size > 0 && activeIndex !== 0 && (
+                  <span className={styles.tabCount} aria-label={`требуют внимания: ${reasonsByUser.size}`}>
+                    {reasonsByUser.size}
+                  </span>
+                )}
+              </span>,
+              "Группы",
+              "Роли",
+            ]}
             activeIndex={activeIndex}
             onChange={handleClick}
           />
+          {/* in the tab row, not above the table: a row of its own pushes the full-height table off the screen */}
+          {activeIndex === 0 && chips.length > 0 && (
+            <div className={styles.chips}>
+              {chips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  className={styles.issueChip}
+                  data-kind={chip.key}
+                  aria-pressed={activeChip === chip.key}
+                  // one filter at a time: another chip replaces it, the same chip clears it
+                  onClick={() => setActiveChip((current) => (current === chip.key ? null : chip.key))}
+                >
+                  <span className={styles.issueDot} data-kind={chip.key} aria-hidden="true" />
+                  <span>{chip.label}: {chip.reasons.size}</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {activeIndex === 0 && (
         <GenericTable<OfficeUser>
           data={filteredData as OfficeUser[]}
-          columns={userColumns}
+          columns={userColumns(reasonsByUser)}
           routeTo="/Users/Edit"
           loading={loading}
           addOption={false}

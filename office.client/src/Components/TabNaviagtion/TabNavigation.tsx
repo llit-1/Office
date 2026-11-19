@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import styles from "./Tabnavigation.module.css"
 
 interface TabNavigationProps {
-  items: string[];
+  items: React.ReactNode[];
   activeIndex: number;
   onChange: (index: number) => void;
 }
