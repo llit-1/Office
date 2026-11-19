@@ -23,6 +23,6 @@ public class SwaggerTests
 
         var document = app.Services.GetRequiredService<ISwaggerProvider>().GetSwagger("v1");
 
-        Assert.Contains(document.Paths.Keys, path => path.StartsWith("/api/CalculatorPlanning", StringComparison.Ordinal));
+        Assert.Contains(document.Paths.Keys, path => path.StartsWith("/api/Calculator", StringComparison.Ordinal));
     }
 }

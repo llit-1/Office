@@ -1,0 +1,148 @@
+/* One hue per kind of weather: the header icon, the tile icons and the tile tint share it. */
+[data-kind="sun"],
+[data-kind="partly"] {
+  --weather-color: var(--color-yellow);
+}
+
+/* slate rather than plain grey: overcast is the usual Petersburg sky, it should not look switched off */
+[data-kind="cloud"] {
+  --weather-color: color-mix(in srgb, var(--color-blue) 40%, var(--color-text-muted));
+}
+
+[data-kind="drizzle"],
+[data-kind="rain"],
+[data-kind="storm"] {
+  --weather-color: var(--color-blue);
+}
+
+[data-kind="snow"] {
+  --weather-color: var(--color-info);
+}
+
+.root {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+/* Quiet text next to the bell; a button only to open the day forecast. */
+.weather {
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-compact);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--easing-standard);
+}
+
+.weather:hover,
+.weather[aria-expanded="true"] {
+  background: var(--color-bg-strong);
+}
+
+.weather:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: -2px;
+}
+
+.icon {
+  width: 20px;
+  height: 20px;
+}
+
+.weather .icon {
+  color: var(--weather-color);
+}
+
+/* Same family as the profile menu next to it: border, soft shadow, radius-control, 12px padding. */
+.popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: var(--z-dropdown);
+  box-sizing: border-box;
+  width: min(320px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  box-shadow: 0 0 10px 3px var(--color-overlay-soft);
+  color: var(--color-text);
+  cursor: default;
+}
+
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  font-size: var(--font-size-compact);
+}
+
+.updated {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.parts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 4px inside a 12px padding: far from the outer corner, so no concentric conflict */
+.part {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--weather-color) 14%, var(--color-surface));
+  color: var(--color-text-muted);
+}
+
+.part .icon {
+  color: var(--weather-color);
+}
+
+/* the part of the day that is going on now */
+.part[data-now] {
+  border-color: var(--weather-color);
+}
+
+.partName {
+  font-size: 12px;
+}
+
+.partTemp {
+  color: var(--color-text);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.partTemp[data-frost] {
+  color: var(--color-blue);
+}
+
+.precipitation {
+  margin: var(--space-3) 0 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+}

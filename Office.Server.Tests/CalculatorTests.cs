@@ -251,13 +251,6 @@ public class CalculatorTests
         }
     }
 
-    /// <summary>Погода не нужна этим тестам: прогноза нет — расчёт идёт без погоды.</summary>
-    internal sealed class FakeWeather(IReadOnlyDictionary<DateTime, WeatherDay>? days = null) : IWeatherForecast
-    {
-        public Task<IReadOnlyDictionary<DateTime, WeatherDay>> GetAsync(double latitude, double longitude, CancellationToken ct) =>
-            Task.FromResult(days ?? new Dictionary<DateTime, WeatherDay>());
-    }
-
     private sealed record Env(RKNETDBContext Db, CalculatorDbContext Calc, FakeSink Sink, CalculatorController Controller) : IDisposable
     {
         public void Dispose()
@@ -297,6 +290,13 @@ public class CalculatorTests
         calc.Items.AddRange(Item(1, "Круассан"), Item(2, "Слойка с мясом"));
         var croissant = OnTT(1);
         calc.ItemOnTT.AddRange(croissant, OnTT(2));
+        calc.Sales.AddRange(Sales(croissant, Pair(Morning, ThuFri), 4, (11, 8)));
+        calc.ItemBlocks.Add(new CalcItemBlock { Id = 1, ItemRkCode = 2, TTCode = null, Type = 3, Enable = true, Begin = Thursday.Date, End = Thursday.Date.AddDays(3) });
+        calc.SaveChanges();
+        db.ChangeTracker.Clear();
+        calc.ChangeTracker.Clear();
+
+        var sink = new FakeSink();
         return new Env(db, calc, sink, NewController(db, calc, sink, userId, Thursday));
     }
 
@@ -306,13 +306,6 @@ public class CalculatorTests
 
     private static CalculatorController NewController(RKNETDBContext db, CalculatorDbContext calc, FakeSink sink, int userId, DateTime now)
     {
-        calc.Sales.AddRange(Sales(croissant, Pair(Morning, ThuFri), 4, (11, 8)));
-        calc.ItemBlocks.Add(new CalcItemBlock { Id = 1, ItemRkCode = 2, TTCode = null, Type = 3, Enable = true, Begin = Thursday.Date, End = Thursday.Date.AddDays(3) });
-        calc.SaveChanges();
-        db.ChangeTracker.Clear();
-        calc.ChangeTracker.Clear();
-
-        var sink = new FakeSink();
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, "Calculator")], "Test");
         return new CalculatorController(db, calc, new GlobalService(db), new CalculatorService(calc, db), sink, NullLogger<CalculatorController>.Instance)
         {

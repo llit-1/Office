@@ -7,6 +7,7 @@ import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useEffect, useRef, useState } from "react";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
 import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
+import WeatherNow from "../Components/WeatherNow/WeatherNow";
 import { logout } from "../Store/authSlice";
 import { clearUserData } from "../Store/userDataSlice";
 import { logoutSession } from "../Services/api";
@@ -151,6 +152,8 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
       >
         {title}
       </div>
+
+      <WeatherNow />
 
       <div
         className={styles.button_notifications}
