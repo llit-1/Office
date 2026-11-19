@@ -298,9 +298,11 @@ export function computePopupPosition(
   const availableAbove = Math.max(0, anchorRect.top - gap - margin);
   const minimumUsableHeight = Math.min(180, popupHeight);
 
+  // Вверх открываем, только если меню помещается целиком или сверху места не меньше, чем снизу:
+  // у короткой таблицы кнопка стоит высоко, и меню сверху обрезалось бы.
   const shouldOpenBelow = preferAbove
-    ? availableAbove < minimumUsableHeight && availableBelow > availableAbove
-    : availableBelow >= minimumUsableHeight || availableBelow >= availableAbove;
+    ? availableAbove < popupHeight && availableBelow > availableAbove
+    :availableBelow >= minimumUsableHeight || availableBelow >= availableAbove;
 
   const availableHeight = shouldOpenBelow ? availableBelow : availableAbove;
   const renderedHeight = Math.min(popupHeight, availableHeight);
@@ -623,7 +625,7 @@ function GenericTable<T extends WithId>({
       const button = settingsButtonRef.current;
       if (!button) return;
       const estimatedColumnsMenuHeight = columnsWithId.length > 1
-        ? 250 + columnsWithId.length * 38 + (isPresetEditorOpen ? 50 : 0)
+        ? 250 + Math.min(columnsWithId.length * 38, 250) + (isPresetEditorOpen ? 50 : 0)
         : 220 + (isPresetEditorOpen ? 50 : 0);
 
       const popupPosition = computePopupPosition(

@@ -88,6 +88,25 @@ describe("GenericTable", () => {
     expect(position.top + 550).toBeLessThanOrEqual(anchorRect.top - 8);
   });
 
+  it("opens the settings menu below a short table when it does not fit above", () => {
+    const anchorRect = {
+      top: 250,
+      bottom: 290,
+      left: 280,
+      right: 320,
+      width: 40,
+      height: 40,
+      x: 280,
+      y: 250,
+      toJSON: () => ({}),
+    } as DOMRect;
+
+    const position = computePopupPosition(anchorRect, 280, 500, 425, 920, true);
+
+    expect(position.top).toBe(298);
+    expect(position.maxHeight).toBe(614);
+  });
+
   it("filters rows by selected column values, hides zero-result options, and restores saved state", async () => {
     const user = userEvent.setup();
     const firstRender = renderTable();

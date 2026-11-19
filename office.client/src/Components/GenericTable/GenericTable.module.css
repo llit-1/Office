@@ -185,6 +185,7 @@
 
 .columnsMenu {
   position: fixed;
+  overflow-y: auto;
 }
 
 .filterSearch {
