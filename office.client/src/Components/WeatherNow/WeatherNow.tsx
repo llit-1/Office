@@ -10,11 +10,15 @@ import GrainOutlined from "@mui/icons-material/GrainOutlined";
 import { get } from "../../Services/api";
 import styles from "./WeatherNow.module.css";
 
-export interface WeatherPart {
+export interface WeatherDay {
+  date: string;
+  /** «Сегодня», «Завтра», «Сб 21». */
   name: string;
   temperature: number;
   code: number;
   description: string;
+  /** Осадки за день, мм. */
+  rain: number;
 }
 
 export interface WeatherNowData {
@@ -22,12 +26,11 @@ export interface WeatherNowData {
   code: number;
   description: string;
   place: string;
-  updatedAt: string;
-  parts: WeatherPart[];
-  precipitation: string | null;
+  /** Сегодня и следующие дни, до недели. */
+  days: WeatherDay[];
 }
 
-// the server keeps the day forecast for 2 hours; asking every 30 minutes keeps «now» on the current hour
+// the server caches the week for 30 minutes; the parser updates it a few times a day
 const REFRESH_MS = 30 * 60 * 1000;
 
 /** WMO-код погоды → иконка. */
@@ -54,13 +57,8 @@ export function weatherKind(code: number): WeatherKind {
   return "cloud";
 }
 
-/** Часть дня, которая идёт сейчас; ночь после полуночи — «Ночь». */
-export function currentPartName(now: Date): string {
-  const hour = now.getHours();
-  if (hour < 6) return "Ночь";
-  if (hour < 12) return "Утро";
-  if (hour < 18) return "День";
-  return "Вечер";
+export function formatRain(mm: number) {
+  return `${mm.toLocaleString("ru-RU", { maximumFractionDigits: 1 })} мм`;
 }
 
 export function formatTemperature(value: number) {
@@ -115,7 +113,6 @@ export default function WeatherNow() {
 
   const Icon = weatherIcon(weather.code);
   const temperature = formatTemperature(weather.temperature);
-  const nowPart = currentPartName(new Date());
 
   return (
     <div className={styles.root} ref={rootRef}>
@@ -132,32 +129,32 @@ export default function WeatherNow() {
       </button>
 
       {open && (
-        <div className={styles.popover} role="dialog" aria-label="Прогноз на сегодня">
+        <div className={styles.popover} role="dialog" aria-label="Прогноз на неделю">
           <div className={styles.head}>
-            <span>{weather.place} · сегодня</span>
-            <span className={styles.updated}>обновлено в {weather.updatedAt}</span>
+            <span>{weather.place}</span>
+            <span className={styles.updated}>средняя за день</span>
           </div>
-          <ul className={styles.parts}>
-            {weather.parts.map((part) => {
-              const PartIcon = weatherIcon(part.code);
+          <ul className={styles.days}>
+            {weather.days.map((day, index) => {
+              const DayIcon = weatherIcon(day.code);
               return (
                 <li
-                  key={part.name}
-                  className={styles.part}
-                  title={part.description}
-                  data-kind={weatherKind(part.code)}
-                  data-now={part.name === nowPart || undefined}
+                  key={day.date}
+                  className={styles.day}
+                  title={day.description}
+                  data-kind={weatherKind(day.code)}
+                  data-now={index === 0 || undefined}
                 >
-                  <span className={styles.partName}>{part.name}</span>
-                  <span className={styles.partTemp} data-frost={part.temperature < 0 || undefined}>
-                    {formatTemperature(part.temperature)}
+                  <span className={styles.dayName}>{day.name}</span>
+                  <DayIcon className={styles.icon} aria-label={day.description} />
+                  <span className={styles.dayTemp} data-frost={day.temperature < 0 || undefined}>
+                    {formatTemperature(day.temperature)}
                   </span>
-                  <PartIcon className={styles.icon} aria-label={part.description} />
+                  <span className={styles.dayRain}>{day.rain >= 0.1 ? formatRain(day.rain) : ""}</span>
                 </li>
               );
             })}
           </ul>
-          {weather.precipitation && <p className={styles.precipitation}>{weather.precipitation}</p>}
         </div>
       )}
     </div>

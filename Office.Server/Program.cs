@@ -191,9 +191,6 @@ builder.Services.AddScoped<Office.Server.Calculator.CalculatorService>();
 builder.Services.AddHttpClient(Office.Server.Calculator.HttpCalculatorLogSink.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddScoped<Office.Server.Calculator.ICalculatorLogSink, Office.Server.Calculator.HttpCalculatorLogSink>();
 builder.Services.AddScoped<Office.Server.Calculator.ICalculatorDeferredJobs, Office.Server.Calculator.SqlAgentDeferredJobs>();
-// погода в шапке портала: Open-Meteo, ответ кешируется
-builder.Services.AddHttpClient(Office.Server.Weather.PortalWeather.HttpClientName, client => client.Timeout = TimeSpan.FromSeconds(5));
-builder.Services.AddSingleton<Office.Server.Weather.PortalWeather>();
 
 builder.Services.AddDbContext<Office.Server.DbContexts.PowerBi.PowerBiContext>(options =>
 {

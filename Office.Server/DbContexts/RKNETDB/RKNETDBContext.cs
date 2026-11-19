@@ -284,6 +284,8 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<VideoInfo> VideoInfo { get; set; }
         public DbSet<VideoOrientation> VideoOrientation { get; set; }
         public DbSet<VideoDeviceHeartbeat> VideoDeviceHeartbeats { get; set; }
+        // заполняет парсер погоды Яндекса, портал только читает
+        public DbSet<WeatherStatistic> WeatherStatistics { get; set; }
         public DbSet<OfficeKnowledgeSection> OfficeKnowledgeSections { get; set; }
         public DbSet<OfficeKnowledgeSectionCover> OfficeKnowledgeSectionCovers { get; set; }
         public DbSet<OfficeKnowledgeSectionRole> OfficeKnowledgeSectionRoles { get; set; }

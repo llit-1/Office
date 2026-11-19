@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import WeatherNow, {
-  currentPartName,
+  formatRain,
   formatTemperature,
   weatherKind,
   type WeatherNowData,
@@ -10,19 +10,16 @@ import WeatherNow, {
 const { getMock } = vi.hoisted(() => ({ getMock: vi.fn() }));
 vi.mock("../../Services/api", () => ({ get: (...args: unknown[]) => getMock(...args) }));
 
-const day: WeatherNowData = {
-  temperature: -3,
-  code: 3,
-  description: "пасмурно",
-  place: "Заставская 30",
-  updatedAt: "14:00",
-  parts: [
-    { name: "Утро", temperature: -5, code: 3, description: "пасмурно" },
-    { name: "День", temperature: -3, code: 3, description: "пасмурно" },
-    { name: "Вечер", temperature: -4, code: 73, description: "снег" },
-    { name: "Ночь", temperature: -7, code: 0, description: "ясно" },
+const week: WeatherNowData = {
+  temperature: 2,
+  code: 63,
+  description: "дождь",
+  place: "Санкт-Петербург",
+  days: [
+    { date: "2026-11-19", name: "Сегодня", temperature: 2, code: 63, description: "дождь", rain: 1 },
+    { date: "2026-11-20", name: "Завтра", temperature: 4, code: 3, description: "пасмурно", rain: 0 },
+    { date: "2026-11-21", name: "Сб 21", temperature: -3, code: 73, description: "снег", rain: 2.4 },
   ],
-  precipitation: "Снег вечером, до 2 см",
 };
 
 describe("WeatherNow", () => {
@@ -30,34 +27,32 @@ describe("WeatherNow", () => {
     getMock.mockReset();
   });
 
-  it("shows the temperature now and opens the day by parts on click", async () => {
-    getMock.mockResolvedValue(day);
+  it("shows today's temperature and opens the week on click", async () => {
+    getMock.mockResolvedValue(week);
     render(<WeatherNow />);
 
-    const button = await screen.findByRole("button", { name: "Погода: Заставская 30, пасмурно, −3°" });
-    expect(button).toHaveTextContent("−3°");
+    const button = await screen.findByRole("button", { name: "Погода: Санкт-Петербург, дождь, +2°" });
+    expect(button).toHaveTextContent("+2°");
+    expect(button).toHaveAttribute("data-kind", "rain");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
     fireEvent.click(button);
 
-    const dialog = within(screen.getByRole("dialog", { name: "Прогноз на сегодня" }));
-    expect(dialog.getByText("Заставская 30 · сегодня")).toBeInTheDocument();
-    expect(dialog.getByText("обновлено в 14:00")).toBeInTheDocument();
-    expect(dialog.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Утро−5°", "День−3°", "Вечер−4°", "Ночь−7°",
-    ]);
-    expect(dialog.getByLabelText("снег")).toBeInTheDocument();
-    expect(dialog.getByText("Снег вечером, до 2 см")).toBeInTheDocument();
+    const dialog = within(screen.getByRole("dialog", { name: "Прогноз на неделю" }));
+    const days = dialog.getAllByRole("listitem");
+    expect(days.map((day) => day.textContent)).toEqual(["Сегодня+2°1 мм", "Завтра+4°", "Сб 21−3°2,4 мм"]);
+    expect(days.map((day) => day.getAttribute("data-kind"))).toEqual(["rain", "cloud", "snow"]);
+    expect(days.map((day) => day.hasAttribute("data-now"))).toEqual([true, false, false]);
+    expect(within(days[2]).getByText("−3°")).toHaveAttribute("data-frost", "true");
     expect(getMock).toHaveBeenCalledWith("/Weather");
   });
 
   it("closes on a click elsewhere and on Escape", async () => {
-    getMock.mockResolvedValue({ ...day, precipitation: null });
+    getMock.mockResolvedValue(week);
     render(<WeatherNow />);
     const button = await screen.findByRole("button", { name: /Погода/ });
 
     fireEvent.click(button);
-    expect(screen.queryByText(/Снег вечером/)).not.toBeInTheDocument(); // no line when it stays dry
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
@@ -82,38 +77,14 @@ describe("WeatherNow", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("colours the header and every part by its kind of weather, marks frost and the part going on now", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date(2026, 10, 19, 19, 30));
-    try {
-      getMock.mockResolvedValue(day);
-      render(<WeatherNow />);
-      const button = await screen.findByRole("button", { name: /Погода/ });
-      expect(button).toHaveAttribute("data-kind", "cloud");
-
-      fireEvent.click(button);
-      const parts = screen.getAllByRole("listitem");
-      expect(parts.map((part) => part.getAttribute("data-kind"))).toEqual(["cloud", "cloud", "snow", "sun"]);
-      expect(parts.map((part) => part.hasAttribute("data-now"))).toEqual([false, false, true, false]);
-      expect(within(parts[0]).getByText("−5°")).toHaveAttribute("data-frost", "true");
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it.each([
-    [0, "sun"], [2, "partly"], [3, "cloud"], [45, "cloud"], [53, "drizzle"], [63, "rain"], [81, "rain"], [75, "snow"], [86, "snow"], [96, "storm"],
+    [0, "sun"], [2, "partly"], [3, "cloud"], [53, "drizzle"], [63, "rain"], [71, "snow"], [73, "snow"],
   ])("code %i is %s", (code, kind) => {
     expect(weatherKind(code)).toBe(kind);
   });
 
-  it.each([
-    [3, "Ночь"], [6, "Утро"], [11, "Утро"], [12, "День"], [18, "Вечер"], [23, "Вечер"],
-  ])("at %i o'clock it is %s", (hour, part) => {
-    expect(currentPartName(new Date(2026, 10, 19, hour, 0))).toBe(part);
-  });
-
-  it("writes temperatures with a sign and no minus zero", () => {
+  it("writes temperatures with a sign and no minus zero, rain in millimetres", () => {
     expect([formatTemperature(5), formatTemperature(0), formatTemperature(-2)]).toEqual(["+5°", "0°", "−2°"]);
+    expect([formatRain(1), formatRain(0.42)]).toEqual(["1 мм", "0,4 мм"]);
   });
 });

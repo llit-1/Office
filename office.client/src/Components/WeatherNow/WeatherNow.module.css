@@ -94,55 +94,55 @@
   white-space: nowrap;
 }
 
-.parts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-2);
+/* one row per day: name, icon, temperature, rain */
+.days {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 /* 4px inside a 12px padding: far from the outer corner, so no concentric conflict */
-.part {
-  display: flex;
-  flex-direction: column;
+.day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 20px 44px 52px;
   align-items: center;
-  gap: 2px;
-  padding: var(--space-2) var(--space-1);
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: color-mix(in srgb, var(--weather-color) 14%, var(--color-surface));
   color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
 }
 
-.part .icon {
+.day .icon {
   color: var(--weather-color);
 }
 
-/* the part of the day that is going on now */
-.part[data-now] {
+/* today */
+.day[data-now] {
   border-color: var(--weather-color);
 }
 
-.partName {
-  font-size: 12px;
-}
-
-.partTemp {
+.dayName {
   color: var(--color-text);
-  font-size: 16px;
-  font-weight: 600;
 }
 
-.partTemp[data-frost] {
+.dayTemp {
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: right;
+}
+
+.dayTemp[data-frost] {
   color: var(--color-blue);
 }
 
-.precipitation {
-  margin: var(--space-3) 0 0;
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--color-border);
-  color: var(--color-text-muted);
+.dayRain {
   font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
 }

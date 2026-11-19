@@ -1,57 +1,41 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.Weather;
 
 namespace Office.Server.Controllers;
 
 /// <summary>
-/// Погода для шапки портала. Где находится человек, портал не знает, поэтому: у учётки с одной точкой
-/// (обычно учётка ТТ) — погода у этой точки, у всех остальных — в городе из настроек (по умолчанию Санкт-Петербург).
-/// Доступна любому вошедшему пользователю.
+/// Погода для шапки портала из RKNET.WeatherStatistics (парсер Яндекса кладёт туда среднюю за день по городу):
+/// сегодня и неделя вперёд. Интернет серверу не нужен. Доступна любому вошедшему пользователю.
 /// </summary>
 [Route("api/[controller]")]
 [ApiController]
-public class WeatherController(RKNETDBContext db, PortalWeather weather, IConfiguration configuration) : ControllerBase
+public class WeatherController(RKNETDBContext db, IMemoryCache cache, IConfiguration configuration) : ControllerBase
 {
-    private const double DefaultLatitude = 59.94;
-    private const double DefaultLongitude = 30.31;
     private const string DefaultPlace = "Санкт-Петербург";
+    private const string CacheKey = "portal-weather-week";
+    // the parser writes a few times a day at most; every page open does not need its own query
+    private static readonly TimeSpan CacheLifetime = TimeSpan.FromMinutes(30);
 
     [HttpGet]
-    public async Task<ActionResult<WeatherNowDto>> Get(CancellationToken cancellationToken)
+    public async Task<ActionResult<WeatherWeekDto>> Get(CancellationToken cancellationToken)
     {
-        var (latitude, longitude, place) = await ResolvePlaceAsync(cancellationToken);
-        var forecast = await weather.GetAsync(latitude, longitude, cancellationToken);
-        // Moscow server time, the same zone the forecast is asked in
-        var summary = forecast is null ? null : WeatherSummary.Build(forecast, Now(), place);
-        return summary is null ? NoContent() : summary;
-    }
-
-    protected virtual DateTime Now() => DateTime.Now;
-
-    private async Task<(double Latitude, double Longitude, string Place)> ResolvePlaceAsync(CancellationToken cancellationToken)
-    {
-        if (int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+        var today = Today();
+        var key = $"{CacheKey}:{today:yyyy-MM-dd}";
+        if (!cache.TryGetValue(key, out WeatherWeekDto? week))
         {
-            var points = await db.OfficeUser.AsNoTracking()
-                .Where(user => user.Id == userId && user.DefaultLocations != 1)
-                .SelectMany(user => user.Locations)
-                .Where(location => location.Actual == 1 && location.Latitude != null && location.Longitude != null)
-                .Select(location => new { location.Latitude, location.Longitude, Name = location.AltName ?? location.Name })
-                .Take(2)
+            var rows = await db.WeatherStatistics.AsNoTracking()
+                .Where(row => row.Date >= today && row.Date < today.AddDays(WeatherWeek.Days))
                 .ToListAsync(cancellationToken);
-
-            // one point: that is where the person works; several points or «все ТТ» — the city
-            if (points.Count == 1)
-                return (Math.Round(points[0].Latitude!.Value, 2), Math.Round(points[0].Longitude!.Value, 2), points[0].Name);
+            week = WeatherWeek.Build(rows, today, configuration["Weather:Place"] ?? DefaultPlace);
+            cache.Set(key, week, CacheLifetime);
         }
 
-        return (
-            configuration.GetValue("Weather:Latitude", DefaultLatitude),
-            configuration.GetValue("Weather:Longitude", DefaultLongitude),
-            configuration["Weather:Place"] ?? DefaultPlace);
+        return week is null ? NoContent() : week;
     }
-}
 
+    /// <summary>Сегодня по времени сервера (Москва) — так же, как пишет даты парсер.</summary>
+    protected virtual DateTime Today() => DateTime.Today;
+}
