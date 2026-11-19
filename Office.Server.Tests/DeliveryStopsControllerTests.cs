@@ -33,6 +33,7 @@ public class DeliveryStopsControllerTests
             ["/itemmanager/getallgroups"] = (HttpStatusCode.OK, """[{"id":10,"yaName":"Выпечка","actual":1,"image":"AAAA"}]"""),
             ["/itemmanager/groups/10/items"] = (HttpStatusCode.OK, """[{"rkcode":832518,"yeName":"Бриошь","image":"BBBB"}]"""),
             ["/api/stop"] = (HttpStatusCode.OK, "[]"),
+            ["/api/cash/getlocations"] = (HttpStatusCode.OK, """[{"guid":"34170dc4-c6a0-4b67-08b0-08def207acdb","name":"Заставская 30","actual":1}]"""),
             ["/api/stop/204"] = (HttpStatusCode.OK, ""),
         };
 
@@ -65,6 +66,7 @@ public class DeliveryStopsControllerTests
         {
             ["DeliveryMenuApi:BaseUrl"] = "https://yeapi.test/itemmanager",
             ["DeliveryMenuApi:StopUrl"] = "https://yeapi.test/api/stop",
+            ["DeliveryMenuApi:CashUrl"] = "https://yeapi.test/api/cash",
         }).Build();
 
         var api = new FakeYeapi();
@@ -118,6 +120,46 @@ public class DeliveryStopsControllerTests
 
         Assert.IsType<ForbidResult>(result);
         Assert.DoesNotContain(api.Requests, x => x.Method == HttpMethod.Post);
+    }
+
+    [Fact]
+    public async Task GetLocations_OffersAuditorCashPointsFromYeapi()
+    {
+        var (controller, api) = Create();
+        api.Responses["/api/cash/getlocations"] = (HttpStatusCode.OK,
+            """[{"guid":"17e747e2-8936-474e-bc8b-03952dde29cc","name":"Чайковского 21 ","rkcode":1001347,"actual":1},{"guid":"6767ebaa-9833-4a5d-9ed2-02ad654af919","name":"Закрытая","actual":0}]""");
+
+        var result = Assert.IsType<OkObjectResult>((await controller.GetLocations(CancellationToken.None)).Result);
+
+        // точка из базы (Заставская 30) в список не попадает: её нет в yeapi
+        var location = Assert.Single(Assert.IsAssignableFrom<IEnumerable<StopLocationDto>>(result.Value));
+        Assert.Equal(Guid.Parse("17e747e2-8936-474e-bc8b-03952dde29cc"), location.Guid);
+        Assert.Equal("Чайковского 21", location.Name);
+        Assert.Equal(1001347, location.RkCode);
+    }
+
+    [Fact]
+    public async Task UpdateStopPack_RejectsPointMissingFromYeapi()
+    {
+        var (controller, api) = Create();
+        api.Responses["/api/cash/getlocations"] = (HttpStatusCode.OK, "[]");
+
+        var result = await controller.UpdateStopPack(204, LocationPack(832518), CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.DoesNotContain(api.Requests, x => x.Method == HttpMethod.Put);
+    }
+
+    [Fact]
+    public async Task GetLocations_FallsBackToDatabaseWhenYeapiIsUnavailable()
+    {
+        var (controller, api) = Create();
+        api.Responses["/api/cash/getlocations"] = (HttpStatusCode.BadGateway, "");
+
+        var result = Assert.IsType<OkObjectResult>((await controller.GetLocations(CancellationToken.None)).Result);
+
+        var location = Assert.Single(Assert.IsAssignableFrom<IEnumerable<StopLocationDto>>(result.Value));
+        Assert.Equal(ShopGuid, location.Guid);
     }
 
     [Fact]

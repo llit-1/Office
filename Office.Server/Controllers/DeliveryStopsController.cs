@@ -44,6 +44,9 @@ public sealed class DeliveryStopsController(
     private string StopApiUrl => (configuration["DeliveryMenuApi:StopUrl"]
         ?? "https://yeapi.ludilove.ru/api/stop").TrimEnd('/');
 
+    private string CashApiUrl => (configuration["DeliveryMenuApi:CashUrl"]
+        ?? "https://yeapi.ludilove.ru/api/cash").TrimEnd('/');
+
     [HttpGet("stop-locations")]
     public async Task<ActionResult<IReadOnlyList<StopLocationDto>>> GetLocations(CancellationToken cancellationToken)
     {
@@ -54,7 +57,7 @@ public sealed class DeliveryStopsController(
             return Unauthorized();
 
         return Ok(locations
-            .OrderBy(x => x.Name)
+            .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
             .Select(x => new StopLocationDto(x.Guid, x.Name, x.Actual, x.RKCode, x.AggregatorsCode)));
     }
 
@@ -469,7 +472,11 @@ public sealed class DeliveryStopsController(
         if (user is null)
             return null;
 
-        // Auditors see all locations of the types supported by stop lists, including inactive ones.
+        // Аудитор ставит стопы на те же точки, из которых кассы выбирают свою (yeapi getlocations).
+        if (User.IsInRole("MenuAuditor") && await GetCashLocationsAsync(cancellationToken) is { } cashLocations)
+            return cashLocations;
+
+        // yeapi недоступен: отдаём точки из базы, чтобы страница открылась.
         if (User.IsInRole("MenuAuditor"))
             return await db.Locations
                 .AsNoTracking()
@@ -494,6 +501,38 @@ public sealed class DeliveryStopsController(
                 .OrderBy(x => x.Name)
                 .ToList();
     }
+
+    /// <summary>Актуальные точки касс из yeapi; null — сервис не ответил.</summary>
+    private async Task<List<DbContexts.RKNETDB.Models.Location>?> GetCashLocationsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient("DeliveryMenuApi");
+            var locations = await ReadJsonAsync<List<CashLocationRecordDto>>(client, $"{CashApiUrl}/getlocations", cancellationToken) ?? [];
+            return locations
+                .Where(x => x.Guid != Guid.Empty && (x.Actual ?? 1) == 1 && !string.IsNullOrWhiteSpace(x.Name))
+                .GroupBy(x => x.Guid)
+                .Select(x => x.First())
+                .Select(x => new DbContexts.RKNETDB.Models.Location
+                {
+                    Guid = x.Guid,
+                    Name = x.Name!.Trim(),
+                    RKCode = x.Rkcode,
+                    Actual = 1,
+                    LocationTypeGuid = x.Locationtypeguid
+                })
+                .OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Could not load cash locations for stops, falling back to database");
+            return null;
+        }
+    }
+
+    private sealed record CashLocationRecordDto(Guid Guid, string? Name, Guid? Locationtypeguid, int? Rkcode, int? Actual);
 
     private async Task<string> GetCurrentUserDisplayNameAsync(CancellationToken cancellationToken)
     {
