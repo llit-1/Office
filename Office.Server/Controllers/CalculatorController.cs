@@ -92,6 +92,8 @@ namespace Office.Server.Controllers
             public int TtCode { get; set; }
             public string TtName { get; set; } = "";
             public DateTime Now { get; set; }
+            /// <summary>Конец сессии калькулятора (время сервера) — для таймера.</summary>
+            public DateTime SessionEnd { get; set; }
             public int Reaction { get; set; }
             public string Period { get; set; } = "";
             public int PeriodFrom { get; set; }
@@ -124,6 +126,8 @@ namespace Office.Server.Controllers
         public sealed class CalculatorSavedDto
         {
             public DateTime SavedAt { get; set; }
+            /// <summary>Конец сессии калькулятора (время сервера) — для таймера.</summary>
+            public DateTime SessionEnd { get; set; }
         }
 
         /// <summary>Точки пользователя, которые есть в калькуляторе; без учебных центров и офисов.</summary>
@@ -145,6 +149,8 @@ namespace Office.Server.Controllers
                 return NotFound(new { message = "Точка недоступна" });
 
             var now = Now();
+            // сессия начинается с открытия калькулятора, а не с первого ввода
+            var session = await SessionAsync(now, ct);
             var sheet = await calculator.BuildAsync(category, tt, now, ct);
             if (sheet is null)
                 return Conflict(new { message = "Для текущего времени в калькуляторе не настроен период — сообщите аудитору" });
@@ -171,6 +177,7 @@ namespace Office.Server.Controllers
                 TtCode = tt,
                 TtName = location.Name,
                 Now = now,
+                SessionEnd = session.End,
                 Reaction = sheet.Reaction,
                 Period = CalculatorPeriods.CleanName(sheet.Periods.This.TimeGroup.Name),
                 PeriodFrom = sheet.Periods.This.TimeGroup.FirstHour,
@@ -216,7 +223,7 @@ namespace Office.Server.Controllers
 
             var now = Now();
             var sent = await SendAsync(context, request.Rest!.Value, request.Result, request.Fact, now, ct);
-            return sent ?? Ok(new CalculatorSavedDto { SavedAt = now });
+            return sent ?? Ok(new CalculatorSavedDto { SavedAt = now, SessionEnd = (await SessionAsync(now, ct)).End });
         }
 
         /// <summary>«Не печём сегодня»: блокировка позиции на точке до конца дня.</summary>
@@ -304,6 +311,12 @@ namespace Office.Server.Controllers
             }
         }
 
+        private CalculatorSession? _session;
+
+        /// <summary>Сессия пользователя; одно действие — одна отметка, сколько бы строк ни ушло в журнал.</summary>
+        private async Task<CalculatorSession> SessionAsync(DateTime now, CancellationToken ct) =>
+            _session ??= await CalculatorSessions.TouchAsync(db, UserId() ?? 0, now, ct);
+
         private async Task<ActionResult?> SendAsync(ItemContext context, int rest, int result, int? fact, DateTime now, CancellationToken ct)
         {
             try
@@ -319,7 +332,7 @@ namespace Office.Server.Controllers
                     Result = result,
                     Fact = fact,
                     Date = now,
-                    SessionId = CalculatorLogRecord.SessionFor(UserId() ?? 0, now),
+                    SessionId = (await SessionAsync(now, ct)).Id,
                 }, ct);
                 return null;
             }

@@ -31,7 +31,7 @@ vi.mock("../../Services/api", async () => ({
   post: async (url: string, body?: unknown) => {
     api.calls.push({ method: "POST", url, body });
     if (url.endsWith("/blocks")) return { kind: "soft", canUnlock: true, text: "Заблокировал(а) Тест в 10:05" };
-    return { savedAt: "2026-10-16T10:06:00" };
+    return { savedAt: "2026-10-16T10:06:00", sessionEnd: "2026-10-16T11:05:00" };
   },
   del: async (url: string, config?: { params?: unknown }) => {
     api.calls.push({ method: "DELETE", url, params: config?.params });
@@ -68,6 +68,7 @@ const sheet: CalculatorSheet = {
   ttCode: 1023253,
   ttName: "Невский 96",
   now: "2026-10-16T10:05:00",
+  sessionEnd: "2026-10-16T11:05:00",
   reaction: 2,
   period: "Утро",
   periodFrom: 7,
@@ -150,12 +151,15 @@ it("печать показывает актуальный расчёт отде
   await waitFor(() => expect(print).toHaveBeenCalledOnce());
   const printSheet = document.getElementById("calculator-print-sheet");
   expect(printSheet).not.toBeNull();
-  expect(printSheet).toHaveTextContent("Выпечка");
+  expect(printSheet?.querySelector("h1")).toHaveTextContent("Выпечка");
   expect(printSheet).toHaveTextContent("Невский 96");
-  expect(printSheet?.querySelectorAll("[data-print-row]")).toHaveLength(sheet.items.length);
-  const croissantRow = Array.from(printSheet!.querySelectorAll("[data-print-row]")).find((row) => row.textContent?.includes("Круассан"));
-  expect(croissantRow?.querySelector('[data-print-value="rest"]')).toHaveTextContent("3");
-  expect(croissantRow?.querySelector('[data-print-value="plan"]')).toHaveTextContent(String(planFor(croissant, sheet, 3)));
+  // на листе только то, что ставить: по режимам печи, заблокированных нет
+  const printRows = Array.from(printSheet!.querySelectorAll("[data-print-row]"));
+  expect(printRows.map((row) => row.textContent)).toEqual([
+    `Круассандефрост 30 мин${planFor(croissant, sheet, 3)}`, // факт не ввели — в печь уходит план
+    "Сосиска в тестедефрост 1 ч5",
+  ]);
+  expect(printSheet).not.toHaveTextContent("Слойка с мясом");
 
   act(() => window.dispatchEvent(new Event("afterprint")));
   await waitFor(() => expect(document.getElementById("calculator-print-sheet")).toBeNull());
@@ -164,8 +168,34 @@ it("печать показывает актуальный расчёт отде
 
 it("все позиции остаются на одном экране без пагинации", async () => {
   const user = userEvent.setup();
+const wideScreen = () =>
+  vi.stubGlobal("matchMedia", (query: string) => ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
+const fourteen = Array.from({ length: 14 }, (_, index) => item({ rkCode: 100 + index, name: `Позиция ${index + 1}` }));
+const pageZoom = () => (screen.getByRole("region", { name: "Позиции" }).parentElement as HTMLElement).style.zoom;
+
+it("на узком экране длинная категория не ужимается, а прокручивается", async () => {
   const originalRect = HTMLElement.prototype.getBoundingClientRect;
   const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const result = originalRect.call(this);
+    if (this.tagName === "DIV" && this.querySelector('section[aria-label="Позиции"]')) {
+      return { ...result, top: 100, bottom: 100 + 5000, height: 5000 } as DOMRect;
+    }
+    return result;
+  });
+  try {
+    api.sheet = { ...sheet, items: fourteen };
+    renderCalculator("/Calculator/bakery");
+    await screen.findByRole("textbox", { name: "Осталось: Позиция 14" });
+    expect(screen.getByRole("region", { name: "Позиции" }).children).toHaveLength(1);
+    expect(pageZoom()).toBe("");
+  } finally {
+    rect.mockRestore();
+  }
+});
+
+  const originalRect = HTMLElement.prototype.getBoundingClientRect;
+  const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+  wideScreen();
     const result = originalRect.call(this);
     if (this.tagName === "DIV" && this.querySelector('section[aria-label="Позиции"]')) {
       const height = (220 + this.querySelectorAll("[data-calculator-row]").length * 180) * Number(this.style.zoom || 1);
@@ -175,26 +205,50 @@ it("все позиции остаются на одном экране без �
   });
 
   try {
-    api.sheet = { ...sheet, items: [...sheet.items, item({ rkCode: 5, name: "Булочка" })] };
+    api.sheet = { ...sheet, items: [...sheet.items, ...fourteen] };
     renderCalculator("/Calculator/bakery");
     expect(await screen.findByRole("textbox", { name: "Осталось: Круассан" })).toBeInTheDocument();
-    expect(screen.getAllByRole("textbox", { name: /^Осталось:/ })).toHaveLength(5);
+    expect(screen.getAllByRole("textbox", { name: /^Осталось:/ })).toHaveLength(18);
     expect(screen.getByRole("textbox", { name: "Осталось: Слойка с мясом" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Осталось: Булочка" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Осталось: Позиция 14" })).toBeInTheDocument();
     expect(screen.queryByRole("navigation", { name: "Страницы позиций" })).not.toBeInTheDocument();
-    const page = screen.getByRole("region", { name: "Позиции" }).parentElement as HTMLElement;
-    expect(Number(page.style.zoom)).toBeLessThan(1);
+    expect(Number(pageZoom())).toBeLessThan(1);
 
     const print = vi.spyOn(window, "print").mockImplementation(() => undefined);
     await user.click(screen.getByRole("button", { name: "Печать" }));
     await waitFor(() => expect(print).toHaveBeenCalledOnce());
-    expect(document.querySelectorAll("#calculator-print-sheet [data-print-row]")).toHaveLength(5);
+    // из 18 позиций введена только сосиска — на листе только она
+    const printRows = document.querySelectorAll("#calculator-print-sheet [data-print-row]");
+    expect([...printRows].map((row) => row.textContent)).toEqual(["Сосиска в тестедефрост 1 ч5"]);
     act(() => window.dispatchEvent(new Event("afterprint")));
     print.mockRestore();
   } finally {
     rect.mockRestore();
   }
 });
+    vi.unstubAllGlobals();
+  }
+});
+
+it("на широком экране длинная категория идёт в два столбца сверху вниз, короткая — в один", async () => {
+  wideScreen();
+  try {
+    api.sheet = { ...sheet, items: fourteen };
+    renderCalculator("/Calculator/bakery");
+    await screen.findByRole("textbox", { name: "Осталось: Позиция 1" });
+    const columns = screen.getByRole("region", { name: "Позиции" }).children;
+    expect(columns).toHaveLength(2);
+    const names = (column: Element) => [...column.querySelectorAll("[data-calculator-row]")].map((row) => row.textContent?.match(/Позиция \d+/)?.[0]);
+    expect(names(columns[0])).toEqual(fourteen.slice(0, 7).map((x) => x.name));
+    expect(names(columns[1])).toEqual(fourteen.slice(7).map((x) => x.name));
+    cleanup();
+
+    api.sheet = sheet;
+    renderCalculator("/Calculator/bakery");
+    await screen.findByRole("textbox", { name: "Осталось: Круассан" });
+    expect(screen.getByRole("region", { name: "Позиции" }).children).toHaveLength(1);
+  } finally {
+    vi.unstubAllGlobals();
 
 it("введённое за полчаса видно сразу, как сохранили; новый ввод сохраняется сам", async () => {
   const user = userEvent.setup();
@@ -223,6 +277,35 @@ it("введённое за полчаса видно сразу, как сох�
 
 it("ввод, не дождавшийся паузы, отправляется при уходе со страницы", async () => {
   const user = userEvent.setup();
+it("таймер сессии идёт по времени сервера и не продлевается вводом", async () => {
+  const user = userEvent.setup();
+  renderCalculator("/Calculator/bakery");
+
+  // сервер: сейчас 10:05, конец в 11:05 — часы браузера не важны
+  expect(await screen.findByTitle("До конца сессии")).toHaveTextContent("60:00");
+
+  await user.type(screen.getByRole("textbox", { name: "Осталось: Круассан" }), "3");
+  await waitFor(() => expect(posts("/entries")).toHaveLength(1), { timeout: 3000 });
+  // сохранили в 10:06, конец тот же — осталось 59 минут
+  await waitFor(() => expect(screen.getByTitle("До конца сессии")).toHaveTextContent("59:00"));
+});
+
+it("когда час истёк, работа продолжается только с новой сессией", async () => {
+  const user = userEvent.setup();
+  api.sheet = { ...sheet, sessionEnd: sheet.now };
+  renderCalculator("/Calculator/bakery");
+
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("Сессия закончилась")).toBeInTheDocument();
+
+  api.sheet = sheet;
+  const loads = api.calls.filter((call) => call.method === "GET" && call.url === "/Calculator/bakery").length;
+  await user.click(within(dialog).getByRole("button", { name: "Начать новую сессию" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(api.calls.filter((call) => call.method === "GET" && call.url === "/Calculator/bakery")).toHaveLength(loads + 1);
+  expect(screen.getByTitle("До конца сессии")).toHaveTextContent("60:00");
+});
+
   renderCalculator("/Calculator/bakery");
 
   await user.type(await screen.findByRole("textbox", { name: "Осталось: Круассан" }), "3");

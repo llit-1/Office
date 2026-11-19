@@ -1,5 +1,3 @@
-import AcUnitOutlinedIcon from "@mui/icons-material/AcUnitOutlined";
-import LocalFireDepartmentOutlinedIcon from "@mui/icons-material/LocalFireDepartmentOutlined";
 import LockOpenOutlinedIcon from "@mui/icons-material/LockOpenOutlined";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import type { CalculatorCategory } from "../calculator.categories";
@@ -10,6 +8,8 @@ import styles from "../CalculatorPage.module.css";
 interface CalculatorRowProps {
   row: RowModel;
   category: CalculatorCategory;
+  /** Цвет метки режима печи, 0–3; null — у позиции режима нет, но место под метку держим ради ровных названий. */
+  modeTone?: number | null;
   locking: boolean;
   onRest: (value: string) => void;
   onFact: (value: string) => void;
@@ -19,29 +19,33 @@ interface CalculatorRowProps {
 
 const digits = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
-export default function CalculatorRow({ row, category, locking, onRest, onFact, onLock, onUnlock }: CalculatorRowProps) {
+export default function CalculatorRow({ row, category, modeTone, locking, onRest, onFact, onLock, onUnlock }: CalculatorRowProps) {
   const { item, entry, plan } = row;
   const block = item.block;
   const locked = block !== null;
   const differs = plan !== null && entry.fact !== "" && Number(entry.fact) !== plan;
   const buns = item.bunsPer && row.taken ? bunsFor(row.taken, item.bunsPer) : null;
+  // строка в одну линию: подробности — во всплывающей подсказке
+  const details = [
+    item.name,
+    item.bunsPer ? `${item.bunsPer} шт из булки` : null,
+    item.defrostMinutes ? `дефрост ${formatDuration(item.defrostMinutes)}` : null,
+    item.bakingMode ? `режим ${item.bakingMode}` : null,
+  ].filter(Boolean).join(" · ");
 
   return (
     <div className={styles.row} data-calculator-row data-locked={locked || undefined} data-entered={entry.rest !== "" || undefined}>
       <div className={styles.rowMain} data-sandwich={item.bunsPer ? true : undefined}>
-        <div className={styles.name}>
-          <span className={styles.itemName} title={item.name}>{item.name}</span>
-          <span className={styles.meta}>
-            {block ? (
-              <span className={styles.lockedNote} title={block.text}>{block.text}</span>
-            ) : (
-              <>
-                {item.bunsPer ? <span>{item.bunsPer} шт из булки</span> : null}
-                {item.defrostMinutes ? <span><AcUnitOutlinedIcon aria-hidden="true" />дефрост {formatDuration(item.defrostMinutes)}</span> : null}
-                {item.bakingMode ? <span><LocalFireDepartmentOutlinedIcon aria-hidden="true" />режим {item.bakingMode}</span> : null}
-              </>
-            )}
+        <div className={styles.name} title={block ? `${item.name} · ${block.text}` : details}>
+          <span className={styles.itemLine}>
+            {item.bakingMode ? (
+              <span className={styles.mode} data-tone={modeTone ?? undefined}>{item.bakingMode}</span>
+            ) : modeTone === null ? (
+              <span className={styles.mode} data-empty aria-hidden="true" />
+            ) : null}
+            <span className={styles.itemName}>{item.name}</span>
           </span>
+          {block ? <span className={styles.lockedNote}>{block.text}</span> : null}
         </div>
 
         <label className={`${styles.cell} ${styles.restCell}`}>

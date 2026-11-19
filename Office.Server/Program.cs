@@ -150,6 +150,7 @@ builder.Services.AddScoped<Office.Server.VideoDevices.VideoDeviceHeartbeatSchema
 builder.Services.AddScoped<DeliveryCashRoleInitializer>();
 builder.Services.AddScoped<StockRoleInitializer>();
 builder.Services.AddScoped<Office.Server.Calculator.CalculatorRoleInitializer>();
+builder.Services.AddScoped<Office.Server.Calculator.CalculatorSessionSchemaInitializer>();
 builder.Services.AddScoped<NxRoleInitializer>();
 // Сервер Nx отвечает по https с самоподписанным сертификатом — проверку отключаем только для этого клиента.
 builder.Services
@@ -163,11 +164,11 @@ builder.Services.AddScoped<Office.Server.Nx.NxUserSyncService>();
 builder.Services.AddScoped<KnowledgeLibraryIndexer>();
 builder.Services.AddSingleton<KnowledgeLibraryIndexQueue>();
 builder.Services.AddSingleton<KnowledgeLibraryFileTickets>();
-builder.Services.AddHostedService<KnowledgeLibraryIndexWorker>();
 builder.Services.AddSingleton<Office.Server.VideoDevices.VideoPreviewTickets>();
 // Сжатие включается только для API приставок (см. UseWhen ниже): JSON списков музыки сжимается ~в 10 раз.
 // Видео и аудио (video/*, audio/*) не входят в сжимаемые типы и отдаются как есть, с поддержкой Range.
 builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
+builder.Services.AddHostedService<KnowledgeLibraryIndexWorker>();
 
 builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(options =>
 {
@@ -215,6 +216,17 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Location schema (AltName, requisites) initialization failed.");
+try
+{
+    // до первого запроса к OfficeUser: без колонок сессии не читается вся таблица
+    await using var calculatorSessionScope = app.Services.CreateAsyncScope();
+    await calculatorSessionScope.ServiceProvider.GetRequiredService<Office.Server.Calculator.CalculatorSessionSchemaInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Calculator session columns (OfficeUser) initialization failed.");
+}
+
 }
 
 try

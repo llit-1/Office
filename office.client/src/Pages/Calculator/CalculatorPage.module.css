@@ -13,6 +13,11 @@
 }
 
 .summary {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  /* закрываем отступ страницы над итогом, чтобы под ним не просвечивали строки */
+  box-shadow: 0 calc(-1 * var(--page-padding)) 0 var(--page-padding) var(--color-bg);
   min-width: 0;
   display: flex;
   align-items: center;
@@ -104,6 +109,24 @@
   white-space: normal;
 }
 
+.status[data-tone="warn"] {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}
+
+.sessionLeft {
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionText {
+  margin: 0 0 var(--space-3);
+}
+
+.sessionActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .statusRetry {
   padding: 0;
   border: 0;
@@ -115,6 +138,18 @@
 }
 
 .list {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-3);
+}
+
+.list[data-columns="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.column {
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -138,7 +173,6 @@
 
 .head {
   min-height: 36px;
-  border-bottom: 1px solid var(--color-border);
   background: var(--color-surface-muted);
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
@@ -186,7 +220,58 @@
   gap: 0;
 }
 
+.itemLine {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.mode {
+  flex: 0 0 auto;
+  min-width: 28px;
+  padding: 1px var(--space-1);
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-heading);
+  line-height: var(--line-height-caption);
+  text-align: center;
+}
+
+.mode[data-tone="0"] {
+  background: #fde7d6;
+  color: #8a3d06;
+}
+
+.mode[data-tone="1"] {
+  background: #e3ecfb;
+  color: #234a8a;
+}
+
+.mode[data-tone="2"] {
+  background: #e3f2e2;
+  color: #2f6a2b;
+}
+
+.mode[data-tone="3"] {
+  background: #efe4f7;
+  color: #5d2f80;
+}
+
+.mode[data-empty] {
+  background: transparent;
+}
+
+:global([data-theme="dark"]) .mode[data-tone] {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
 .itemName {
+  min-width: 0;
   overflow: hidden;
   color: var(--color-text);
   font-size: var(--font-size-compact);
@@ -196,34 +281,24 @@
   white-space: nowrap;
 }
 
-.meta {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.lockedNote {
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-caption);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.meta > span {
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
+/* два столбца: поля ввода уже, чтобы названиям хватило места */
+.list[data-columns="2"] .head,
+.list[data-columns="2"] .rowMain {
+  grid-template-columns: minmax(0, 1fr) 88px 72px 88px 40px;
 }
 
-.meta svg {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  flex: 0 0 auto;
-}
-
-.lockedNote {
-  overflow: hidden;
-  text-overflow: ellipsis;
+.list[data-columns="2"] .head[data-sandwich],
+.list[data-columns="2"] .rowMain[data-sandwich] {
+  grid-template-columns: minmax(0, 1fr) 76px 64px 76px 52px 40px;
 }
 
 .cell {
@@ -376,13 +451,38 @@
     min-width: 0;
   }
 
-  .summarySide {
-    width: 100%;
-    justify-content: space-between;
+  .summaryStats dd {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
   }
 
-  .status {
-    white-space: normal;
+  /* таймер и статус слева, печать — иконкой справа */
+  .summarySide {
+    width: 100%;
+    justify-content: flex-start;
+    gap: var(--space-1);
+  }
+
+  .summarySide > :last-child {
+    margin-left: auto;
+  }
+
+  .printLabel {
+    display: none;
+  }
+
+  .summarySide .printButton {
+    width: 40px;
+    min-width: 40px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+  }
+
+  /* подпись скрыта, но её пустое место с отступом сдвигало иконку влево */
+  .summarySide .printButton > span {
+    gap: 0;
+    justify-content: center;
   }
 
   .head,
@@ -395,17 +495,22 @@
     grid-template-columns: minmax(72px, 1fr) repeat(4, minmax(40px, 52px)) 40px;
   }
 
-  .itemName {
-    font-size: var(--font-size-caption);
-    line-height: var(--line-height-caption);
-  }
-
-  .meta {
-    gap: var(--space-1);
-  }
-
-  .meta > span:not(:first-child) {
+  /* узко: метка режима отнимает место у названия, а название переносится на вторую строку */
+  .mode {
     display: none;
+  }
+
+  .itemName,
+  .lockedNote {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    white-space: normal;
+  }
+
+  .itemName {
+    font-size: var(--font-size-compact);
+    line-height: var(--line-height-compact);
   }
 
   .input {

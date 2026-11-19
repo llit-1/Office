@@ -22,7 +22,7 @@ public sealed class CalculatorLogRecord
     public DateTime Date { get; set; }
     /// <summary>
     /// Триггер CalculatorLogsTest_UpdatesActualDatas оставляет по сессии + позиции + точке только последнюю строку.
-    /// Старый портал пишет сюда сессию входа, она живёт не дольше часа. Сессии входа у нас нет, поэтому сессия — час.
+    /// Старый портал пишет сюда сессию входа, она живёт не дольше часа; у нас — <see cref="CalculatorSession"/>.
     /// Buffer подставляет значение в SQL как есть: пустая сессия ломает всю пачку.
     /// </summary>
     public Guid SessionId { get; set; }
@@ -34,7 +34,7 @@ public sealed class CalculatorLogRecord
         return text.Length <= length ? text : text[..length];
     }
 
-    /// <summary>Устойчивый Guid пользователя на текущий час.</summary>
+    /// <summary>Запасная сессия, когда пользователя нет в базе: устойчивый Guid на календарный час.</summary>
     public static Guid SessionFor(int userId, DateTime now) =>
         new(MD5.HashData(Encoding.UTF8.GetBytes($"office:{userId}:{now:yyyy-MM-ddTHH}")));
 }

@@ -44,6 +44,16 @@ namespace Office.Server.DbContexts.RKNETDB.Models
         [Column("Personalities")]
         public Guid? PersonalitiesGuid { get; set; }
 
+        // Сессия работы с калькулятором, см. CalculatorSession; колонки создаёт CalculatorSessionSchemaInitializer
+        [Column("CalculatorSessionId")]
+        public Guid? CalculatorSessionId { get; set; }
+
+        [Column("CalculatorSessionStart")]
+        public DateTime? CalculatorSessionStart { get; set; }
+
+        [Column("CalculatorSessionEnd")]
+        public DateTime? CalculatorSessionEnd { get; set; }
+
         // ======================
         // Навигации
         // ======================

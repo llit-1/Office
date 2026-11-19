@@ -14,7 +14,7 @@ export const getCalculatorSheet = (slug: CalculatorSlug, tt: number) =>
   get<CalculatorSheet>(`/Calculator/${slug}`, { params: { tt } });
 
 export const saveCalculatorEntry = (slug: CalculatorSlug, entry: CalculatorEntry) =>
-  post<{ savedAt: string }>(`/Calculator/${slug}/entries`, entry);
+  post<{ savedAt: string; sessionEnd: string }>(`/Calculator/${slug}/entries`, entry);
 
 export const blockCalculatorItem = (slug: CalculatorSlug, tt: number, rkCode: number, rest: number) =>
   post<CalculatorBlock>(`/Calculator/${slug}/blocks`, { tt, rkCode, rest });

@@ -22,10 +22,17 @@ import CalculatorRow from "./components/CalculatorRow";
 import CalculatorPrintSheet from "./components/CalculatorPrintSheet";
 import CalculatorSummary from "./components/CalculatorSummary";
 import { useCalculatorTt } from "./useCalculatorTt";
+import { useSessionTimer } from "./useSessionTimer";
+import { useWideScreen } from "./useWideScreen";
+import Modal from "../../Components/Modal/Modal";
 import styles from "./CalculatorPage.module.css";
 
 /** Пауза во вводе, после которой значение уходит на сервер. */
 const SAVE_DELAY_MS = 700;
+/** Короткий список и на широком экране остаётся одним столбцом. */
+const TWO_COLUMNS_FROM = 13;
+/** Сколько разных цветов у меток режима печи. */
+const MODE_TONES = 4;
 
 export default function CalculatorPage() {
   const { category: slug } = useParams();
@@ -98,15 +105,18 @@ function CalculatorSheetView({ categorySlug, tt }: { categorySlug: string; tt: n
   entriesRef.current = entries;
   const timers = useRef(new Map<number, { timer: number; item: CalculatorItem }>());
   const saveRef = useRef<(item: CalculatorItem) => Promise<void>>(async () => undefined);
+  const session = useSessionTimer();
+  const wide = useWideScreen();
 
   const sheet: CalculatorSheet | null = sheetState.data;
   useEffect(() => {
     if (!sheet) return;
+    session.sync(sheet.now, sheet.sessionEnd);
     setItems(sheet.items);
     entriesRef.current = entriesFromLog(sheet.items);
     setEntries(entriesRef.current);
     setSavedAt(sheet.items.reduce<string | null>((latest, item) => (item.last && (!latest || item.last.at > latest) ? item.last.at : latest), null));
-  }, [sheet]);
+  }, [sheet, session.sync]);
   // ушли со страницы, не дождавшись паузы во вводе: отправляем сразу, иначе значение пропадёт
   useEffect(() => () => {
     timers.current.forEach(({ timer, item }) => {
@@ -139,10 +149,11 @@ function CalculatorSheetView({ categorySlug, tt }: { categorySlug: string; tt: n
       // за время запроса могли ввести новое значение — тогда статус выставит следующая отправка
       if (entriesRef.current[item.rkCode]?.status === "saving") patchEntry(item.rkCode, { status: "saved" });
       setSavedAt(result.savedAt);
+      session.sync(result.savedAt, result.sessionEnd);
     } catch {
       patchEntry(item.rkCode, { status: "error" });
     }
-  }, [category.slug, patchEntry, sheet, tt]);
+  }, [category.slug, patchEntry, session.sync, sheet, tt]);
   saveRef.current = save;
 
   const schedule = useCallback((item: CalculatorItem) => {
@@ -215,10 +226,30 @@ function CalculatorSheetView({ categorySlug, tt }: { categorySlug: string; tt: n
   );
   // заблокированные остаются на месте, но в итог не входят
   const summary = useMemo(() => buildSummary(rows.filter((row) => !row.item.block)), [rows]);
+  // у каждого режима печи свой цвет метки, одинаковый во всей категории
+  const modeTones = useMemo(() => {
+    const modes = [...new Set(items?.flatMap((item) => (item.bakingMode ? [item.bakingMode] : [])))].sort();
+    return new Map(modes.map((mode, index) => [mode, index % MODE_TONES]));
+  }, [items]);
+  // на широком экране длинная категория идёт в два столбца: сверху вниз, потом во втором
+  const columns = useMemo(() => {
+    if (!wide || rows.length < TWO_COLUMNS_FROM) return [rows];
+    const half = Math.ceil(rows.length / 2);
+    return [rows.slice(0, half), rows.slice(half)];
+  }, [rows, wide]);
 
+  const twoColumns = columns.length === 2;
+  /**
+   * Два столбца ужимаем, чтобы вся категория была на одном экране без прокрутки.
+   * В один столбец не ужимаем: на узком экране мелкий шрифт и поля хуже прокрутки — итог закреплён сверху.
+   */
   const fitToScreen = useCallback(() => {
     const page = pageRef.current;
     if (!page) return;
+    if (!twoColumns) {
+      page.style.zoom = "";
+      return;
+    }
     if (page.contains(document.activeElement) && document.activeElement instanceof HTMLInputElement) return;
 
     const main = page.closest(".main");
@@ -239,9 +270,9 @@ function CalculatorSheetView({ categorySlug, tt }: { categorySlug: string; tt: n
       else upper = middle;
     }
     page.style.zoom = String(lower);
-  }, []);
+  }, [twoColumns]);
 
-  useLayoutEffect(() => fitToScreen(), [fitToScreen, items, rows.length]);
+  useLayoutEffect(() => fitToScreen(), [fitToScreen, items, rows.length, columns.length]);
 
   useEffect(() => {
     window.addEventListener("resize", fitToScreen);
@@ -286,36 +317,54 @@ function CalculatorSheetView({ categorySlug, tt }: { categorySlug: string; tt: n
       <CalculatorSummary
         summary={summary}
         status={status}
-        action={<Button leadingIcon={<PrintOutlinedIcon />} onClick={() => setPrinting(true)}>Печать</Button>}
+        sessionLeft={session.left}
+        action={
+          <Button className={styles.printButton} leadingIcon={<PrintOutlinedIcon />} aria-label="Печать" title="Печать" onClick={() => setPrinting(true)}>
+            <span className={styles.printLabel}>Печать</span>
+          </Button>
+        }
       />
-      <section className={styles.list} aria-label="Позиции">
-        <div className={styles.head} data-sandwich={category.slug === "sandwiches" || undefined} aria-hidden="true">
-          <span>Позиция</span>
-          <span>Осталось</span>
-          <span>План</span>
-          <span>Факт</span>
-          {category.slug === "sandwiches" ? <span>Булок</span> : null}
-          <span />
-        </div>
-        {rows.length === 0 ? (
-          <p className={styles.empty}>В этой категории нет позиций для точки.</p>
-        ) : (
-          rows.map((row) => (
-            <CalculatorRow
-              key={row.item.rkCode}
-              row={row}
-              category={category}
-              locking={locking === row.item.rkCode}
-              onRest={(rest) => change(row.item, rest === "" ? { rest, fact: "" } : { rest })}
-              onFact={(fact) => change(row.item, { fact })}
-              onLock={() => setAsking({ item: row.item, lock: true })}
-              onUnlock={() => setAsking({ item: row.item, lock: false })}
-            />
-          ))
-        )}
+      <section className={styles.list} aria-label="Позиции" data-columns={columns.length}>
+        {columns.map((column, index) => (
+          <div key={index} className={styles.column}>
+            <div className={styles.head} data-sandwich={category.slug === "sandwiches" || undefined} aria-hidden="true">
+              <span>Позиция</span>
+              <span>Осталось</span>
+              <span>План</span>
+              <span>Факт</span>
+              {category.slug === "sandwiches" ? <span>Булок</span> : null}
+              <span />
+            </div>
+            {column.length === 0 ? (
+              <p className={styles.empty}>В этой категории нет позиций для точки.</p>
+            ) : (
+              column.map((row) => (
+                <CalculatorRow
+                  key={row.item.rkCode}
+                  row={row}
+                  category={category}
+                  modeTone={modeTones.size === 0 ? undefined : row.item.bakingMode ? modeTones.get(row.item.bakingMode) : null}
+                  locking={locking === row.item.rkCode}
+                  onRest={(rest) => change(row.item, rest === "" ? { rest, fact: "" } : { rest })}
+                  onFact={(fact) => change(row.item, { fact })}
+                  onLock={() => setAsking({ item: row.item, lock: true })}
+                  onUnlock={() => setAsking({ item: row.item, lock: false })}
+                />
+              ))
+            )}
+          </div>
+        ))}
       </section>
 
       {printing ? <CalculatorPrintSheet sheet={sheet} rows={rows} summary={summary} /> : null}
+
+      {/* как старый портал: час истёк — работа начинается заново, с новой сессией */}
+      <Modal isOpen={session.left === 0} onClose={() => void sheetState.reload()} title="Сессия закончилась" size="sm" closeOnBackdropClick={false} showClose={false}>
+        <p className={styles.sessionText}>Час работы с калькулятором истёк. Начните новую сессию — введённое за последние полчаса останется на экране.</p>
+        <div className={styles.sessionActions}>
+          <Button variant="primary" onClick={() => void sheetState.reload()}>Начать новую сессию</Button>
+        </div>
+      </Modal>
 
       <ConfirmModal
         isOpen={asking !== null}

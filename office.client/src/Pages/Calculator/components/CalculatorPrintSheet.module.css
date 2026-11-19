@@ -1,15 +1,16 @@
+/* на экране лист не виден, только при печати; ровно одна страница A4 альбомом за вычетом полей */
 .printSheet {
   position: fixed;
   top: 0;
   left: -10000px;
-  width: 190mm;
-  height: 276mm;
+  width: 277mm;
+  height: 189mm;
   overflow: hidden;
   visibility: hidden;
   background: #fff;
   color: #111;
-  font-family: Arial, sans-serif;
-  font-size: 12pt;
+  font-family: "Roboto Condensed Variable", "Roboto Condensed", "Arial Narrow", Arial, sans-serif;
+  font-size: 14pt;
   line-height: 1.2;
 }
 
@@ -22,45 +23,11 @@
   transform-origin: top left;
 }
 
-.header {
-  margin-bottom: 4mm;
-}
-
-.header h1 {
-  margin: 0 0 1mm;
-  font-size: 21pt;
-  line-height: 1.15;
-}
-
-.header p {
-  margin: 0;
-  color: #444;
-  font-size: 12pt;
-}
-
-.summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2mm 6mm;
-  margin-bottom: 4mm;
-  padding: 2mm 0;
-  border-top: 1px solid #555;
-  border-bottom: 1px solid #555;
-}
-
-.summary span {
-  white-space: nowrap;
-}
-
-.summary strong {
-  margin-left: 1mm;
-  font-size: 15pt;
-}
-
 .columns {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 5mm;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 10mm;
 }
 
 .columns[data-columns="2"] {
@@ -71,84 +38,114 @@
   min-width: 0;
 }
 
-.columnHead,
-.item {
-  display: grid;
-  grid-template-columns: minmax(0, 46%) minmax(0, 54%);
-  align-items: center;
-  gap: 0;
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8mm;
+  margin-bottom: 5mm;
+  padding-bottom: 3mm;
+  border-bottom: 0.7mm solid #111;
 }
 
-.columnHead {
-  grid-template-columns: minmax(0, 46%) repeat(3, minmax(0, 18%));
-  padding: 1mm 0;
-  border-bottom: 2px solid #333;
+.header p {
+  margin: 0;
   color: #444;
-  font-size: 8pt;
-  font-weight: 700;
-  text-align: center;
+  font-size: 13pt;
 }
 
-.columnHead[data-sandwich] {
-  grid-template-columns: minmax(0, 40%) repeat(4, minmax(0, 15%));
-}
-
-.columnHead span:first-child {
-  text-align: left;
-}
-
-.columnHead span {
-  overflow-wrap: anywhere;
-}
-
-.item {
-  padding: 1.2mm 0;
-  border-bottom: 1px solid #aaa;
-  break-inside: avoid;
-}
-
-.item:has(.values[data-sandwich]) {
-  grid-template-columns: minmax(0, 40%) minmax(0, 60%);
-}
-
-.itemInfo {
-  min-width: 0;
-}
-
-.itemName {
-  display: block;
-  font-size: 12pt;
-  overflow-wrap: anywhere;
-}
-
-.notes {
-  display: block;
-  margin-top: 1mm;
-  color: #555;
-  font-size: 8.5pt;
-}
-
-.values {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: center;
-}
-
-.values[data-sandwich] {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.values b {
-  min-width: 0;
-  color: #111;
-  font-size: 15pt;
+.header h1 {
+  margin: 0;
+  font-size: 28pt;
+  font-weight: 800;
   line-height: 1.1;
-  text-align: center;
+}
+
+.total {
+  text-align: right;
+}
+
+.total strong {
+  display: block;
+  font-size: 28pt;
+  font-weight: 800;
+  line-height: 1.1;
   white-space: nowrap;
 }
 
+.nothing {
+  margin: 12mm 0 0;
+  color: #555;
+  font-size: 18pt;
+  text-align: center;
+}
+
+.group {
+  margin-bottom: 6mm;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4mm;
+  margin: 0;
+  padding-bottom: 1.2mm;
+  border-bottom: 0.5mm solid #111;
+  font-size: 17pt;
+  font-weight: 800;
+  break-after: avoid;
+}
+
+.groupTitle span small {
+  font-size: 12pt;
+}
+
+.groupTitle small {
+  color: #444;
+  font-size: 13pt;
+  font-weight: 400;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 6mm minmax(0, 1fr) auto auto 18mm;
+  align-items: center;
+  column-gap: 5mm;
+  min-height: 11mm;
+  border-bottom: 0.3mm dotted #888;
+  break-inside: avoid;
+}
+
+.check {
+  width: 5.5mm;
+  height: 5.5mm;
+  box-sizing: border-box;
+  border: 0.5mm solid #333;
+  border-radius: 1mm;
+}
+
+.name {
+  min-width: 0;
+  font-size: 16pt;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  color: #555;
+  font-size: 12pt;
+  white-space: nowrap;
+}
+
+.count {
+  grid-column: -2;
+  font-size: 22pt;
+  font-weight: 800;
+  text-align: right;
+}
+
 @page {
-  size: A4 portrait;
+  size: A4 landscape;
   margin: 10mm;
 }
 
@@ -166,8 +163,8 @@
 
   .printSheet {
     position: relative;
-    left: auto;
     top: auto;
+    left: auto;
     visibility: visible;
   }
 }

@@ -297,6 +297,15 @@ public class CalculatorTests
         calc.Items.AddRange(Item(1, "Круассан"), Item(2, "Слойка с мясом"));
         var croissant = OnTT(1);
         calc.ItemOnTT.AddRange(croissant, OnTT(2));
+        return new Env(db, calc, sink, NewController(db, calc, sink, userId, Thursday));
+    }
+
+    /// <summary>Контроллер живёт один запрос — для следующего запроса того же пользователя нужен новый.</summary>
+    private static CalculatorController CreateController(Env env, DateTime now, int userId = 5) =>
+        NewController(env.Db, env.Calc, env.Sink, userId, now);
+
+    private static CalculatorController NewController(RKNETDBContext db, CalculatorDbContext calc, FakeSink sink, int userId, DateTime now)
+    {
         calc.Sales.AddRange(Sales(croissant, Pair(Morning, ThuFri), 4, (11, 8)));
         calc.ItemBlocks.Add(new CalcItemBlock { Id = 1, ItemRkCode = 2, TTCode = null, Type = 3, Enable = true, Begin = Thursday.Date, End = Thursday.Date.AddDays(3) });
         calc.SaveChanges();
@@ -305,12 +314,11 @@ public class CalculatorTests
 
         var sink = new FakeSink();
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId.ToString()), new Claim(ClaimTypes.Role, "Calculator")], "Test");
-        var controller = new CalculatorController(db, calc, new GlobalService(db), new CalculatorService(calc, db), sink, NullLogger<CalculatorController>.Instance)
+        return new CalculatorController(db, calc, new GlobalService(db), new CalculatorService(calc, db), sink, NullLogger<CalculatorController>.Instance)
         {
-            Now = () => Thursday,
+            Now = () => now,
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) } },
         };
-        return new Env(db, calc, sink, controller);
     }
 
     private static T Clone<T>(T value) where T : class, new()
@@ -368,13 +376,71 @@ public class CalculatorTests
         var entry = Assert.Single(env.Sink.Sent);
         Assert.Equal(("Розница Невский 96", 1, "Круассан", Tt, "Невский 96", 3, 8, 6, Thursday),
             (entry.UserName, entry.ItemCode, entry.ItemName, entry.TTCode, entry.TTName, entry.Rest, entry.Result, entry.Fact, entry.Date));
-        // сессия всегда есть (пустая ломает пачку в Buffer) и одна на час: триггер лога оставит последнюю строку
+        // сессия всегда есть: пустая ломает пачку в Buffer
         Assert.NotEqual(Guid.Empty, entry.SessionId);
-        await env.Controller.SaveEntry("bakery", new() { Tt = Tt, RkCode = 1, Rest = 2, Result = 9 }, default);
-        Assert.Equal(entry.SessionId, env.Sink.Sent[1].SessionId);
-        Assert.NotEqual(entry.SessionId, CalculatorLogRecord.SessionFor(999, Thursday));
-        // следующий час: другая сессия, прошлые строки триггер не трогает
-        Assert.NotEqual(CalculatorLogRecord.SessionFor(1, Thursday.Date.AddHours(6)), CalculatorLogRecord.SessionFor(1, Thursday.Date.AddHours(10)));
+    }
+
+    /// <summary>Id сессии пользователя после действия через столько минут от начала теста.</summary>
+    private static async Task<Guid> SessionAtAsync(Env env, double minutes) =>
+        (await CalculatorSessions.TouchAsync(env.Db, 5, Thursday.AddMinutes(minutes))).Id;
+
+    [Fact]
+    public async Task Session_LastsExactlyAnHourFromTheFirstAction_LikeTheOldPortal()
+    {
+        using var env = CreateEnv();
+
+        // начало в 10:05: граница часа в 11:00 сессию не режет, действия в конце часа её не продлевают
+        var first = await SessionAtAsync(env, 0);
+        foreach (var minute in new[] { 49, 55, 59, 59.9 })
+            Assert.Equal(first, await SessionAtAsync(env, minute));
+        var second = await SessionAtAsync(env, 60);
+        Assert.NotEqual(first, second);
+        // новая сессия тоже ровно час — от своего первого действия
+        Assert.Equal(second, await SessionAtAsync(env, 119.9));
+        Assert.NotEqual(second, await SessionAtAsync(env, 120));
+    }
+
+    [Fact]
+    public async Task Session_EndIsReturnedForTheTimer()
+    {
+        using var env = CreateEnv();
+
+        var sheet = OkValue(await env.Controller.GetSheet("bakery", Tt, default));
+        Assert.Equal((Thursday, Thursday.AddMinutes(60)), (sheet.Now, sheet.SessionEnd));
+
+        // следующий запрос — новый контроллер, как в жизни; конец сессии не сдвигается
+        var later = CreateController(env, Thursday.AddMinutes(58));
+        var saved = OkValue(await later.SaveEntry("bakery", new() { Tt = Tt, RkCode = 1, Rest = 3, Result = 8 }, default));
+        Assert.Equal(Thursday.AddMinutes(60), saved.SessionEnd);
+    }
+
+    [Fact]
+    public async Task Session_StartsWhenTheCalculatorIsOpened_AndIsSharedByParallelInputs()
+    {
+        using var env = CreateEnv();
+
+        await env.Controller.GetSheet("bakery", Tt, default);
+        var opened = env.Db.OfficeUser.AsNoTracking().Single(x => x.Id == 5);
+        Assert.Equal((Thursday, Thursday.AddMinutes(60)), (opened.CalculatorSessionStart, opened.CalculatorSessionEnd));
+
+        // строка открытия (заблокированная позиция) и ввод через 20 минут — одна сессия
+        Assert.Equal(opened.CalculatorSessionId, env.Sink.Sent.Single().SessionId);
+        env.Controller.Now = () => Thursday.AddMinutes(20);
+        await env.Controller.SaveEntry("bakery", new() { Tt = Tt, RkCode = 1, Rest = 3, Result = 8 }, default);
+        Assert.Equal(opened.CalculatorSessionId, env.Sink.Sent[^1].SessionId);
+
+        // ввод в нескольких строках приходит одновременно: новая сессия всё равно одна
+        var sessions = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => SessionAtAsync(env, 300)));
+        Assert.Single(sessions.Distinct());
+        Assert.NotEqual(opened.CalculatorSessionId, sessions[0]);
+    }
+
+    [Fact]
+    public async Task Session_FallsBackToTheClockHour_WhenTheUserIsNotInTheDatabase()
+    {
+        using var env = CreateEnv();
+
+        Assert.Equal(CalculatorLogRecord.SessionFor(999, Thursday), (await CalculatorSessions.TouchAsync(env.Db, 999, Thursday)).Id);
     }
 
     [Fact]

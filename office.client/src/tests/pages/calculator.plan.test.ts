@@ -83,6 +83,7 @@ const sheet = (reaction: number, items: CalculatorItem[] = []): CalculatorSheet 
   ttCode: 1,
   ttName: "Невский 96",
   now: "2026-10-16T10:05:00",
+  sessionEnd: "2026-10-16T11:05:00",
   reaction,
   period: "Утро",
   periodFrom: 7,

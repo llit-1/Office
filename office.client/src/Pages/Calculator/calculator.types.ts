@@ -49,6 +49,8 @@ export interface CalculatorSheet {
   ttCode: number;
   ttName: string;
   now: string;
+  /** Конец сессии калькулятора, время сервера. */
+  sessionEnd: string;
   /** На сколько периодов вперёд считаем; 0 — сейчас не считаем. */
   reaction: number;
   period: string;
