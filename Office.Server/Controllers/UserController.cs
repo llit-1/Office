@@ -29,8 +29,134 @@ namespace Office.Server.Controllers
         [HttpGet("users")]
         public async Task<ActionResult<IEnumerable<OfficeUser>>> GetAllUsers()
         {
-            return await _context.OfficeUser.ToListAsync();
+            await SyncUsersWithAdAsync();
+            // Groups and points come along for the counts in the list (roles and location details are not loaded).
+            return await _context.OfficeUser.AsNoTracking()
+                .Include(x => x.OfficeGroup)
+                .Include(x => x.Locations)
+                .ToListAsync();
         }
+
+        /// <summary>
+        /// Сверка с AD при открытии списка. ФИО и должность берутся из AD у всех найденных там учёток — так же,
+        /// как при входе, только не дожидаясь входа. Активные учётки, которые в AD отключены или удалены,
+        /// выключаются (Actual = 0) вместе с доступом в NX: портал сверяется с AD только при вводе пароля,
+        /// а сессия продлевается по куке. Если AD не ответил или не нашёл никого, ничего не меняем.
+        /// </summary>
+        private async Task SyncUsersWithAdAsync()
+        {
+            var users = await _context.OfficeUser
+                .Include(x => x.OfficeGroup).ThenInclude(x => x.OfficeRole)
+                .Include(x => x.Locations)
+                .ToListAsync();
+            if (users.Count == 0)
+                return;
+
+            var accounts = LoadAdAccounts(users.Select(x => x.Login.Trim()).ToList());
+            // Nobody found at all looks like a directory failure, not a mass dismissal.
+            if (accounts is null || accounts.Count == 0)
+                return;
+
+            var logger = HttpContext?.RequestServices?.GetService<ILogger<UserController>>();
+            foreach (var user in users)
+            {
+                if (accounts.TryGetValue(user.Login.Trim(), out var account))
+                {
+                    // Same mapping as the login: an attribute missing in AD becomes null here too.
+                    user.Surname = account.Surname?.Trim();
+                    user.Name = account.Name?.Trim();
+                    user.Patronymic = account.Patronymic?.Trim();
+                    user.Position = account.Position?.Trim();
+                }
+
+                if (user.Actual != 1 || account is { Enabled: true })
+                    continue;
+
+                user.Actual = 0;
+                logger?.LogInformation("User {OfficeUserId} is disabled or missing in AD and was deactivated.", user.Id);
+                if (!NxUserSyncService.HasNxRole(user))
+                    continue;
+                try
+                {
+                    await _nxUserSync.SyncUserAsync(user);
+                }
+                catch (NxException ex)
+                {
+                    // The portal switch-off matters more than NX: keep it and leave a trace to fix NX by hand.
+                    logger?.LogWarning(ex, "NX access of deactivated user {OfficeUserId} was not removed.", user.Id);
+                }
+            }
+
+            // Only what actually differs from the database is written.
+            await _context.SaveChangesAsync();
+        }
+
+        public sealed record AdAccount(bool Enabled, string? Surname, string? Name, string? Patronymic, string? Position);
+
+        /// <summary>
+        /// Учётки в AD по логинам: включена ли и ФИО с должностью. Логина нет в словаре — учётки в AD нет.
+        /// Логин с «@» ищется по UPN (старые учётки). null — AD недоступен.
+        /// </summary>
+        protected virtual IReadOnlyDictionary<string, AdAccount>? LoadAdAccounts(IReadOnlyCollection<string> logins)
+        {
+            var accounts = new Dictionary<string, AdAccount>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                using var root = new DirectoryEntry();
+                foreach (var chunk in logins.Distinct(StringComparer.OrdinalIgnoreCase).Chunk(100))
+                {
+                    var terms = string.Concat(chunk.Select(login =>
+                        login.Contains('@')
+                            ? $"(userPrincipalName={EscapeLdap(login)})"
+                            : $"(sAMAccountName={EscapeLdap(login)})"));
+                    using var searcher = new DirectorySearcher(root, $"(&(objectCategory=person)(objectClass=user)(|{terms}))")
+                    {
+                        PageSize = 500
+                    };
+                    searcher.PropertiesToLoad.AddRange(
+                        ["sAMAccountName", "userPrincipalName", "userAccountControl", "sn", "givenName", "middleName", "title"]);
+
+                    using var results = searcher.FindAll();
+                    foreach (SearchResult result in results)
+                    {
+                        var flags = result.Properties["userAccountControl"] is { Count: > 0 } uac ? Convert.ToInt32(uac[0]) : 0;
+                        var account = new AdAccount(
+                            (flags & 2) == 0, // ACCOUNTDISABLE
+                            Read(result, "sn"),
+                            Read(result, "givenName"),
+                            Read(result, "middleName"),
+                            Read(result, "title"));
+                        foreach (var property in new[] { "sAMAccountName", "userPrincipalName" })
+                        {
+                            if (Read(result, property) is { Length: > 0 } key)
+                                accounts[key] = account;
+                        }
+                    }
+                }
+
+                return accounts;
+            }
+            catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or InvalidOperationException)
+            {
+                HttpContext?.RequestServices?.GetService<ILogger<UserController>>()
+                    ?.LogWarning(ex, "AD accounts could not be read; users were left as they are.");
+                return null;
+            }
+
+            static string? Read(SearchResult result, string property) =>
+                result.Properties[property] is { Count: > 0 } values ? values[0]?.ToString() : null;
+        }
+
+        private static string EscapeLdap(string value) =>
+            string.Concat(value.Select(ch => ch switch
+            {
+                '\\' => "\\5c",
+                '*' => "\\2a",
+                '(' => "\\28",
+                ')' => "\\29",
+                '\0' => "\\00",
+                _ => ch.ToString()
+            }));
 
         [HttpGet("ad-users")]
         public ActionResult<IEnumerable<AdDirectoryUserModel>> GetAdUsers()
