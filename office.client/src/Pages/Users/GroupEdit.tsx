@@ -44,6 +44,9 @@ function asApiSetError(setError: UseFormSetError<OfficeGroup>) {
   return setError as unknown as UseFormSetError<Record<string, unknown>>;
 }
 
+/** Сохранение возвращает предупреждения Nx, если роль NX появилась или пропала у пользователей. */
+type SaveAnswer = { nxWarnings?: string[] };
+
 export default function GroupEdit() {
   const { id } = useParams<{ id: string }>();
   const isCreate = !id || id === "new";
@@ -185,8 +188,8 @@ export default function GroupEdit() {
 
     const result = await callApi(
       isCreate
-        ? post<OfficeGroup>("/User/groups", payload)
-        : put<OfficeGroup>("/User/groups", payload),
+        ? post<SaveAnswer>("/User/groups", payload)
+        : put<SaveAnswer>("/User/groups", payload),
       {
         notifications,
         setError: asApiSetError(setError),
@@ -197,8 +200,14 @@ export default function GroupEdit() {
     );
 
     setSaving(false);
-    if (result.ok) navigate("/Users");
-    else setSaveError(getFriendlyErrorMessage(result.error));
+    if (result.ok) {
+      // the NX role entered or left the group: what Nx could not apply for its members
+      const nxWarnings = result.data?.nxWarnings ?? [];
+      for (const warning of nxWarnings) {
+        notifications.show(warning, { severity: "warning", autoHideDuration: 8000 });
+      }
+      navigate("/Users");
+    } else setSaveError(getFriendlyErrorMessage(result.error));
   };
 
   const [confirmOpen, setConfirmOpen] = useState(false);

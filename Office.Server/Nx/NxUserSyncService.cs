@@ -24,9 +24,11 @@ public sealed class NxUserSyncService(NxRestClient nxClient, RKNETDBContext db, 
     ];
 
     public static bool HasNxRole(OfficeUser user) =>
-        user.OfficeGroup.Any(group => group.OfficeRole.Any(role =>
-            string.Equals(role.Role, RoleCode, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(role.Name, RoleCode, StringComparison.OrdinalIgnoreCase)));
+        user.OfficeGroup.Any(group => group.OfficeRole.Any(IsNxRole));
+
+    public static bool IsNxRole(OfficeRole role) =>
+        string.Equals(role.Role, RoleCode, StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(role.Name, RoleCode, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Приводит доступы пользователя в Nx к текущим настройкам портала и возвращает предупреждения

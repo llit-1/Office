@@ -46,6 +46,9 @@ function asApiSetError(setError: UseFormSetError<OfficeRole>) {
   return setError as unknown as UseFormSetError<Record<string, unknown>>;
 }
 
+/** Сохранение возвращает предупреждения Nx, если роль NX появилась или пропала у пользователей. */
+type SaveAnswer = { nxWarnings?: string[] };
+
 export default function RoleEdit() {
   const { id } = useParams<{ id: string }>();
   const isCreate = !id || id === "new";
@@ -204,8 +207,8 @@ export default function RoleEdit() {
 
     const result = await callApi(
       isCreate
-        ? post<OfficeRole>("/User/roles", payload)
-        : put<OfficeRole>("/User/roles", payload),
+        ? post<SaveAnswer>("/User/roles", payload)
+        : put<SaveAnswer>("/User/roles", payload),
       {
         notifications,
         setError: asApiSetError(setError),
@@ -217,8 +220,14 @@ export default function RoleEdit() {
 
     setSaving(false);
 
-    if (result.ok) navigate("/Users");
-    else setSaveError(getFriendlyErrorMessage(result.error));
+    if (result.ok) {
+      // the role became or stopped being NX: what Nx could not apply for users with it
+      const nxWarnings = result.data?.nxWarnings ?? [];
+      for (const warning of nxWarnings) {
+        notifications.show(warning, { severity: "warning", autoHideDuration: 8000 });
+      }
+      navigate("/Users");
+    } else setSaveError(getFriendlyErrorMessage(result.error));
   };
 
   const [confirmOpen, setConfirmOpen] = useState(false);

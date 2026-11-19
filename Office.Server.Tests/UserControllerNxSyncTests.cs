@@ -20,11 +20,14 @@ public class UserControllerNxSyncTests
 {
     private const int UserId = 7;
 
-    private static (UserController Controller, RKNETDBContext Db) Create()
+    private static (UserController Controller, RKNETDBContext Db) Create(bool withNxRole = true)
     {
         var db = new RKNETDBContext(new DbContextOptionsBuilder<RKNETDBContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        db.OfficeUser.Add(new OfficeUser { Id = UserId, Login = "petrov", Surname = "Петров", Name = "Пётр", Actual = 1 });
+        var user = new OfficeUser { Id = UserId, Login = "petrov", Surname = "Петров", Name = "Пётр", Actual = 1 };
+        if (withNxRole)
+            user.OfficeGroup.Add(new OfficeGroup { ID = 1, Name = "ТТ", OfficeRole = [new OfficeRole { Name = "NX", Role = "NX" }] });
+        db.OfficeUser.Add(user);
         db.SaveChanges();
 
         var nxUserSync = new NxUserSyncService(
@@ -52,7 +55,7 @@ public class UserControllerNxSyncTests
         public HttpClient CreateClient(string name) => throw new InvalidOperationException("NX не должен вызываться в этом тесте.");
     }
 
-    private static UserController.OfficeUserUpdateModel Model(int defaultLocations, string name = "Пётр") => new()
+    private static UserController.OfficeUserUpdateModel Model(int defaultLocations, string name = "Пётр", bool withNxRole = true) => new()
     {
         Id = UserId,
         Login = "petrov",
@@ -60,6 +63,7 @@ public class UserControllerNxSyncTests
         Name = name,
         Actual = 1,
         DefaultLocations = defaultLocations,
+        OfficeGroup = withNxRole ? [1] : [],
     };
 
     [Fact]
@@ -84,7 +88,38 @@ public class UserControllerNxSyncTests
         var result = Assert.IsType<OkObjectResult>(await controller.UpdateUser(Model(defaultLocations: 0, name: "Пётр Второй")));
         var warnings = result.Value?.GetType().GetProperty("nxWarnings")?.GetValue(result.Value) as List<string>;
 
-        Assert.Equal("Пётр Второй", db.OfficeUser.Single(x => x.Id == UserId).Name);
+        // the name comes from AD only: a name in the request is ignored
+        Assert.Equal("Пётр", db.OfficeUser.Single(x => x.Id == UserId).Name);
+        Assert.Empty(warnings ?? []);
+    }
+
+    [Fact]
+    public async Task IgnoresNameAndPositionFromTheRequest()
+    {
+        var (controller, db) = Create();
+        using var _ = db;
+        var model = Model(defaultLocations: 0, name: "Чужое имя");
+        model.Surname = "Чужая фамилия";
+        model.Patronymic = "Чужое отчество";
+        model.Position = "Чужая должность";
+
+        Assert.IsType<OkObjectResult>(await controller.UpdateUser(model));
+
+        var user = db.OfficeUser.Single(x => x.Id == UserId);
+        Assert.Equal(("Петров", "Пётр", (string?)null, (string?)null), (user.Surname, user.Name, user.Patronymic, user.Position));
+    }
+
+    [Fact]
+    public async Task SkipsNxForUserWithoutNxRoleEvenWhenPointsChange()
+    {
+        var (controller, db) = Create(withNxRole: false);
+        using var _ = db;
+
+        // An unconfigured Nx would answer with a warning if it were asked at all.
+        var result = Assert.IsType<OkObjectResult>(await controller.UpdateUser(Model(defaultLocations: 1, withNxRole: false)));
+        var warnings = result.Value?.GetType().GetProperty("nxWarnings")?.GetValue(result.Value) as List<string>;
+
+        Assert.Equal(1, db.OfficeUser.Single(x => x.Id == UserId).DefaultLocations);
         Assert.Empty(warnings ?? []);
     }
 }

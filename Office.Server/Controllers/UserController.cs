@@ -318,7 +318,10 @@ namespace Office.Server.Controllers
 
             var nxWarnings = new List<string>();
 
-            if (!GetNxRelevantState(user).Equals(nxStateBefore))
+            var nxStateAfter = GetNxRelevantState(user);
+            // Without the NX role before and after the edit the user has no cameras: there is nothing to sync,
+            // and a round of Nx requests is what made saving slow.
+            if ((nxStateBefore.HasNxRole || nxStateAfter.HasNxRole) && !nxStateAfter.Equals(nxStateBefore))
             {
                 try
                 {
@@ -431,13 +434,20 @@ namespace Office.Server.Controllers
                     return BadRequest(new { message = $"Пользователь {member.Login}: {RoleConflicts.Describe(memberConflict)}" });
             }
 
+            // Members gain or lose cameras when the NX role enters or leaves the group: remember who had it.
+            var nxRoleToggled = group.OfficeRole.Any(NxUserSyncService.IsNxRole) != roles.Any(NxUserSyncService.IsNxRole);
+            var nxBefore = nxRoleToggled
+                ? members.ToDictionary(member => member.Id, NxUserSyncService.HasNxRole)
+                : [];
+
             group.Name = model.Name;
             group.OfficeRole.Clear();
             foreach (var role in roles)
                 group.OfficeRole.Add(role);
 
             await _context.SaveChangesAsync();
-            return Ok(group);
+            var nxWarnings = await SyncNxRoleChangesAsync(nxBefore);
+            return Ok(new { group, nxWarnings });
         }
 
         // 8) Удаление группы (если нет связей)
@@ -539,6 +549,17 @@ namespace Office.Server.Controllers
                 }
             }
 
+            // A role that becomes or stops being NX changes camera access of everyone who has it through a group.
+            var nxRoleToggled = NxUserSyncService.IsNxRole(role)
+                != NxUserSyncService.IsNxRole(new OfficeRole { Name = model.Name, Role = model.Role });
+            var nxBefore = nxRoleToggled
+                ? (await _context.OfficeUser.AsNoTracking()
+                    .Where(u => u.Actual == 1 && u.OfficeGroup.Any(g => g.OfficeRole.Any(r => r.ID == role.ID)))
+                    .Include(u => u.OfficeGroup).ThenInclude(g => g.OfficeRole)
+                    .ToListAsync())
+                    .ToDictionary(user => user.Id, NxUserSyncService.HasNxRole)
+                : [];
+
             role.Name = model.Name;
             role.Description = model.Description;
             role.Role = model.Role;
@@ -546,7 +567,8 @@ namespace Office.Server.Controllers
             role.ExclusiveKey = exclusiveKey;
 
             await _context.SaveChangesAsync();
-            return Ok(role);
+            var nxWarnings = await SyncNxRoleChangesAsync(nxBefore);
+            return Ok(new { role, nxWarnings });
         }
 
         // 13) Удаление роли (если нет связей)
@@ -562,6 +584,39 @@ namespace Office.Server.Controllers
             _context.OfficeRole.Remove(role);
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        /// <summary>
+        /// Синхронизирует с Nx тех, у кого после правки группы или роли роль NX появилась или пропала.
+        /// Группа или роль к этому моменту уже сохранены, поэтому сбой Nx не отменяет правку, а возвращается
+        /// предупреждением с логином: доступ этого пользователя в Nx надо поправить вручную.
+        /// </summary>
+        private async Task<List<string>> SyncNxRoleChangesAsync(IReadOnlyDictionary<int, bool> hadNxRole)
+        {
+            var warnings = new List<string>();
+            if (hadNxRole.Count == 0)
+                return warnings;
+
+            var ids = hadNxRole.Keys.ToList();
+            var users = await _context.OfficeUser
+                .Include(u => u.OfficeGroup).ThenInclude(g => g.OfficeRole)
+                .Include(u => u.Locations)
+                .Where(u => ids.Contains(u.Id))
+                .ToListAsync();
+
+            foreach (var user in users.Where(user => NxUserSyncService.HasNxRole(user) != hadNxRole[user.Id]))
+            {
+                try
+                {
+                    warnings.AddRange(await _nxUserSync.SyncUserAsync(user));
+                }
+                catch (NxException ex)
+                {
+                    warnings.Add($"Пользователь «{user.Login}»: не удалось применить изменения в NX: {ex.Message}");
+                }
+            }
+
+            return warnings;
         }
 
         /// <summary>Роли из базы по Id из запроса; несуществующие пропускаются.</summary>
