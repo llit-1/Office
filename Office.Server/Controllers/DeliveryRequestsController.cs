@@ -382,7 +382,7 @@ public sealed class DeliveryRequestsController(
         var user = await db.OfficeUser
             .AsNoTracking()
             .Include(x => x.Locations)
-            .FirstOrDefaultAsync(x => x.Id == userId && x.Actual == 1, cancellationToken);
+            .FirstOrDefaultAsync(x => x.Id == userId, cancellationToken);
         if (user is null)
             return null;
 

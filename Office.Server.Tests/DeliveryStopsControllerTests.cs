@@ -54,12 +54,12 @@ public class DeliveryStopsControllerTests
         public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
     }
 
-    private static (DeliveryStopsController Controller, FakeYeapi Api) Create()
+    private static (DeliveryStopsController Controller, FakeYeapi Api) Create(int actual = 1, string role = "MenuAuditor")
     {
         var db = new RKNETDBContext(new DbContextOptionsBuilder<RKNETDBContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
         db.Locations.Add(new Location { Guid = ShopGuid, Name = "Заставская 30", Actual = 1, LocationTypeGuid = TradePointType });
-        db.OfficeUser.Add(new OfficeUser { Id = UserId, Login = "kurguzov", Surname = "Кургузов", Name = "Владислав", Actual = 1, DefaultLocations = 1 });
+        db.OfficeUser.Add(new OfficeUser { Id = UserId, Login = "kurguzov", Surname = "Кургузов", Name = "Владислав", Actual = actual, DefaultLocations = 1 });
         db.SaveChanges();
 
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -74,7 +74,7 @@ public class DeliveryStopsControllerTests
         {
             new(ClaimTypes.Name, "kurguzov"),
             new(ClaimTypes.NameIdentifier, UserId.ToString()),
-            new(ClaimTypes.Role, "MenuAuditor"),
+            new(ClaimTypes.Role, role),
         };
         var controller = new DeliveryStopsController(
             db,
@@ -160,6 +160,17 @@ public class DeliveryStopsControllerTests
 
         var location = Assert.Single(Assert.IsAssignableFrom<IEnumerable<StopLocationDto>>(result.Value));
         Assert.Equal(ShopGuid, location.Guid);
+    }
+
+    [Fact]
+    public async Task GetLocations_WorksForInactiveAccountUnderImpersonation()
+    {
+        // Неактивная учётка получает токен только через «Войти как»; раньше здесь был 401 «Требуется авторизация».
+        var (controller, _) = Create(actual: 0, role: "Menu");
+
+        var result = Assert.IsType<OkObjectResult>((await controller.GetLocations(CancellationToken.None)).Result);
+
+        Assert.Equal(ShopGuid, Assert.Single(Assert.IsAssignableFrom<IEnumerable<StopLocationDto>>(result.Value)).Guid);
     }
 
     [Fact]
