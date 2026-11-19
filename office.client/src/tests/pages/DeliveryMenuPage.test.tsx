@@ -26,6 +26,7 @@ const lookupDeclarationMock = vi.fn();
 const createDeclarationMock = vi.fn();
 const getRequestLocationsMock = vi.fn();
 const importMenuMock = vi.fn();
+const getRkReferenceMock = vi.fn();
 
 vi.mock("@toolpad/core", () => ({
   useNotifications: () => ({ show: showMock }),
@@ -47,7 +48,7 @@ vi.mock("../../Pages/DeliveryMenu/deliveryMenu.api", () => ({
   findDeliveryItem: (...args: unknown[]) => findDeliveryItemMock(...args),
   getDeliveryGroupItems: (...args: unknown[]) => getDeliveryGroupItemsMock(...args),
   getDeliveryGroups: (...args: unknown[]) => getDeliveryGroupsMock(...args),
-  getRkReference: vi.fn(),
+  getRkReference: (...args: unknown[]) => getRkReferenceMock(...args),
   getStopPacks: (...args: unknown[]) => getStopPacksMock(...args),
   getStopLocations: (...args: unknown[]) => getStopLocationsMock(...args),
   getStopItems: (...args: unknown[]) => getStopItemsMock(...args),
@@ -587,18 +588,54 @@ describe("Declarations (platform economy law)", () => {
   });
 });
 
-it("marks the declaration as required for a new item and does not create it without one", async () => {
-  localStorage.clear();
-  vi.clearAllMocks();
-  getDeliveryGroupsMock.mockResolvedValue([group]);
-  getDeliveryGroupItemsMock.mockResolvedValue([item]);
-  getActualDeclarationsMock.mockResolvedValue([]);
-  renderPage(["MenuMarketing"]);
-  await openCategory();
+describe("Item without a declaration", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.clearAllMocks();
+    getDeliveryGroupsMock.mockResolvedValue([group]);
+    getDeliveryGroupItemsMock.mockResolvedValue([item]);
+    getStopPacksMock.mockResolvedValue([]);
+    getStopLocationsMock.mockResolvedValue([]);
+    getActualDeclarationsMock.mockResolvedValue([]);
+    findDeliveryItemMock.mockResolvedValue(null);
+    createDeliveryItemMock.mockResolvedValue(undefined);
+    updateDeliveryItemMock.mockResolvedValue(undefined);
+    getRkReferenceMock.mockResolvedValue({
+      categories: [{ code: 1, name: "Пицца", categories: [], items: [{ code: 202, name: "Пепперони", price: 60000 }] }],
+    });
+  });
 
-  fireEvent.click(screen.getByRole("button", { name: "Добавить позицию" }));
-  const dialog = await screen.findByRole("dialog", { name: "Новая позиция" });
-  expect(within(dialog).getByText("Декларация соответствия *")).toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "Добавить позицию" }));
-  expect(createDeliveryItemMock).not.toHaveBeenCalled();
+  it("adds a new item without a declaration and sends null", async () => {
+    renderPage(["MenuMarketing"]);
+    await openCategory();
+
+    fireEvent.click(screen.getByRole("button", { name: "Добавить позицию" }));
+    const dialog = await screen.findByRole("dialog", { name: "Новая позиция" });
+    expect(within(dialog).getByText("Декларация соответствия")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Декларация соответствия *")).not.toBeInTheDocument();
+
+    fireEvent.click(await within(dialog).findByRole("button", { name: /Пепперони/ }));
+    fireEvent.change(within(dialog).getByLabelText("Описание"), { target: { value: "Колбаса и сыр" } });
+    const fileInput = dialog.querySelector<HTMLInputElement>('input[type="file"]')!;
+    fireEvent.change(fileInput, { target: { files: [new File(["img"], "pizza.png", { type: "image/png" })] } });
+    expect(await within(dialog).findByAltText("Предпросмотр позиции")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Добавить позицию" }));
+
+    await waitFor(() => expect(createDeliveryItemMock).toHaveBeenCalledTimes(1));
+    expect(createDeliveryItemMock.mock.calls[0][0]).toMatchObject({ rkcode: 202, declaration: null, tnvedCode: null });
+    expect(createDeclarationMock).not.toHaveBeenCalled();
+  });
+
+  it("saves an edited item that has no declaration with null", async () => {
+    renderPage(["MenuMarketing"]);
+    await openCategory();
+    fireEvent.click(screen.getByRole("button", { name: "Редактировать Маргарита" }));
+    const dialog = await screen.findByRole("dialog", { name: "Редактирование позиции" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Сохранить изменения" }));
+
+    await waitFor(() => expect(updateDeliveryItemMock).toHaveBeenCalledTimes(1));
+    expect(updateDeliveryItemMock.mock.calls[0][1]).toMatchObject({ declaration: null, tnvedCode: null });
+  });
 });

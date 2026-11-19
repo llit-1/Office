@@ -25,8 +25,6 @@ type DeclarationFieldProps = {
   onTnvedCodeChange: (code: string) => void;
   tnvedError: string;
   disabled: boolean;
-  /** Для новой позиции декларация обязательна. */
-  required?: boolean;
 };
 
 const MAX_SUGGESTIONS = 30;
@@ -42,7 +40,6 @@ export default function DeclarationField({
   onTnvedCodeChange,
   tnvedError,
   disabled,
-  required = false,
 }: DeclarationFieldProps) {
   const inputId = useId();
   const [query, setQuery] = useState("");
@@ -85,7 +82,7 @@ export default function DeclarationField({
   return (
     <section className={styles.declarationField} aria-labelledby={`${inputId}-title`}>
       <div className={styles.declarationHeading}>
-        <strong id={`${inputId}-title`}>Декларация соответствия{required ? " *" : ""}</strong>
+        <strong id={`${inputId}-title`}>Декларация соответствия</strong>
         <small>Нужна Яндексу по закону о платформенной экономике</small>
       </div>
 

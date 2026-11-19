@@ -172,13 +172,9 @@ export default function ItemModal({
       setError("Добавьте изображение позиции.");
       return;
     }
-    // Новую позицию без декларации не добавляем: Яндекс требует её по закону о платформенной экономике.
-    if (!item && !declarationSelection) {
-      setError("Укажите декларацию соответствия — без неё новую позицию добавить нельзя.");
-      return;
-    }
+    // Декларация необязательна: без неё позиция сохраняется с declaration и tnvedCode = null.
     const tnvedChoices = selectionTnvedOptions(declarationSelection);
-    const selectedTnved = tnvedChoices.length === 1 ? tnvedChoices[0].code ?? "" : tnvedCode;
+    const selectedTnved = (tnvedChoices.length === 1 ? tnvedChoices[0].code ?? "" : tnvedCode).trim();
     if (declarationSelection && tnvedChoices.length > 1 && !selectedTnved) {
       setTnvedError("Выберите код ТН ВЭД из декларации.");
       setError("Выберите код ТН ВЭД из декларации.");
@@ -385,7 +381,6 @@ export default function ItemModal({
               }}
               tnvedError={tnvedError}
               disabled={saving}
-              required={!item}
             />
           </div>
         </section>
