@@ -98,6 +98,37 @@ describe("Header", () => {
     expect(store.getState().preferences.notificationSoundEnabled).toBe(false);
   });
 
+  it("offers a snow switch in season and remembers turning it off", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 11, 20));
+    try {
+      const { store } = renderHeader();
+      fireEvent.click(document.querySelector('[class*="header_logo"]') as Element);
+
+      const snow = screen.getByText("Снег").parentElement!.querySelector('[role="switch"]')!;
+      expect(snow).toHaveAttribute("aria-checked", "true");
+      fireEvent.click(snow);
+
+      expect(store.getState().preferences.snowEnabled).toBe(false);
+      expect(snow).toHaveAttribute("aria-checked", "false");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("has no snow switch out of season", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 5, 1));
+    try {
+      renderHeader();
+      fireEvent.click(document.querySelector('[class*="header_logo"]') as Element);
+
+      expect(screen.queryByText("Снег")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("renders user profile from auth state in the menu", () => {
     renderHeader();
 

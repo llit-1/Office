@@ -7,6 +7,7 @@ import { HeaderMobile } from "../HeaderMobile/HeaderMobile";
 import useUserDataPolling from "../Hooks/useUserDataPolling";
 import { navigateWithPreloadedRoute } from "./routes";
 import ImpersonationBanner from "../Components/ImpersonationBanner/ImpersonationBanner";
+import Snowfall from "../Components/Snowfall/Snowfall";
 import "./App.css";
 
 let notificationAudioContext: AudioContext | null = null;
@@ -178,6 +179,7 @@ function App() {
   return (
     <>
       <ImpersonationBanner />
+      <Snowfall />
       <main>
         {width >= 750 ? (
           <Header isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />

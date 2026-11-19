@@ -14,6 +14,7 @@ import { setUserData } from "../../Store/userDataSlice";
 import { getUserData } from "../../Services/userData";
 import { RootState } from "../../Store";
 import { setAccessToken } from "../../Services/api";
+import Snowfall from "../../Components/Snowfall/Snowfall";
 
 type ModalKind = "warning" | "error";
 
@@ -120,6 +121,8 @@ const Login = () => {
 
   return (
     <>
+      {/* same season and the same «Снег» choice as inside the portal */}
+      <Snowfall />
       <header className={styles.login_header}>
         <div className={styles.login_brand}>
           <div className={styles.login_brandMark} aria-hidden="true"></div>

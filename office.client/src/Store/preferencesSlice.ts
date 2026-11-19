@@ -6,6 +6,8 @@ interface PreferencesState {
   sensorChartLineWidth: number;
   /** Тип заказа, выбранный последним в разделе «Заказы ТТ». */
   ordersTypeId: number | null;
+  /** Снег в сезон: null — пользователь не выбирал (включён, если система не просит меньше анимации). */
+  snowEnabled?: boolean | null;
 }
 
 const initialState: PreferencesState = {
@@ -13,6 +15,7 @@ const initialState: PreferencesState = {
   sensorChartExpanded: false,
   sensorChartLineWidth: 2,
   ordersTypeId: null,
+  snowEnabled: null,
 };
 
 const preferencesSlice = createSlice({
@@ -31,9 +34,12 @@ const preferencesSlice = createSlice({
     setOrdersTypeId(state, action: PayloadAction<number | null>) {
       state.ordersTypeId = action.payload;
     },
+    setSnowEnabled(state, action: PayloadAction<boolean>) {
+      state.snowEnabled = action.payload;
+    },
   },
 });
 
-export const { setNotificationSoundEnabled, setSensorChartExpanded, setSensorChartLineWidth, setOrdersTypeId } = preferencesSlice.actions;
+export const { setNotificationSoundEnabled, setSensorChartExpanded, setSensorChartLineWidth, setOrdersTypeId, setSnowEnabled } = preferencesSlice.actions;
 
 export default preferencesSlice.reducer;

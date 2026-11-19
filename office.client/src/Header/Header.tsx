@@ -6,8 +6,9 @@ import Hamburger from "hamburger-react";
 import ArrowBackIosNewIcon from "@mui/icons-material/ArrowBackIosNew";
 import { useEffect, useRef, useState } from "react";
 import NotificationsNoneIcon from "@mui/icons-material/NotificationsNone";
-import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
 import WeatherNow from "../Components/WeatherNow/WeatherNow";
+import { setNotificationSoundEnabled, setSnowEnabled } from "../Store/preferencesSlice";
+import { isSnowSeason, prefersReducedMotion, shouldShowSnow } from "../Components/Snowfall/snowSeason";
 import { logout } from "../Store/authSlice";
 import { clearUserData } from "../Store/userDataSlice";
 import { logoutSession } from "../Services/api";
@@ -30,6 +31,9 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
   const notificationSoundEnabled = useSelector(
     (state: RootState) => state.preferences.notificationSoundEnabled,
   );
+  const snowChoice = useSelector((state: RootState) => state.preferences.snowEnabled);
+  // the switch shows what is on screen now, including the default for an untouched preference
+  const snowOn = shouldShowSnow(new Date(), snowChoice, prefersReducedMotion());
   const fullName = useSelector((state: RootState) => state.auth.fullName);
   const position = useSelector((state: RootState) => state.auth.position);
   const navigate = useNavigate();
@@ -200,6 +204,21 @@ const Header: React.FC<HeaderProps> = ({ isMenuOpen, setIsMenuOpen }) => {
                 <span className={styles.themeSwitchThumb}></span>
               </button>
             </div>
+
+            {isSnowSeason(new Date()) && (
+              <div className={styles.themeSwitchRow}>
+                <span>Снег</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={snowOn}
+                  className={`${styles.themeSwitch} ${snowOn ? styles.themeSwitchActive : ""}`}
+                  onClick={() => dispatch(setSnowEnabled(!snowOn))}
+                >
+                  <span className={styles.themeSwitchThumb}></span>
+                </button>
+              </div>
+            )}
 
             <button onClick={() => void handleLogout()}>
               Выйти

@@ -1,0 +1,18 @@
+/* Over the page and the header, under dropdowns and modals; fixed, so it adds no scrollbars. */
+.snow {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dropdown) - 1);
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  /* the canvas reads the flake colour from `color`: a plain token, transparency comes from opacity,
+     because a color-mix() string is not reliably understood by canvas fillStyle */
+  color: var(--color-blue);
+  opacity: 0.4;
+}
+
+:global([data-theme="dark"]) .snow {
+  color: var(--color-white);
+  opacity: 0.7;
+}

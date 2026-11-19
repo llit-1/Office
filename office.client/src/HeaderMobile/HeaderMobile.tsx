@@ -6,7 +6,8 @@ import { useDispatch, useSelector } from "react-redux";
 import type { RootState } from "../Store";
 import { useNavigate } from "react-router-dom";
 import { HamburgerMenuMobile } from "../HamburgerMenuMobile/HamburgerMenuMobile";
-import { setNotificationSoundEnabled } from "../Store/preferencesSlice";
+import { setNotificationSoundEnabled, setSnowEnabled } from "../Store/preferencesSlice";
+import { isSnowSeason, prefersReducedMotion, shouldShowSnow } from "../Components/Snowfall/snowSeason";
 import { logout } from "../Store/authSlice";
 import { clearUserData } from "../Store/userDataSlice";
 import { logoutSession } from "../Services/api";
@@ -26,6 +27,9 @@ export const HeaderMobile = () => {
   const notificationSoundEnabled = useSelector(
     (state: RootState) => state.preferences.notificationSoundEnabled,
   );
+  const snowChoice = useSelector((state: RootState) => state.preferences.snowEnabled);
+  // the switch shows what is on screen now, including the default for an untouched preference
+  const snowOn = shouldShowSnow(new Date(), snowChoice, prefersReducedMotion());
   const fullName = useSelector((state: RootState) => state.auth.fullName);
   const position = useSelector((state: RootState) => state.auth.position);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -161,6 +165,21 @@ export const HeaderMobile = () => {
                 <span className={styles.themeSwitchThumb}></span>
               </button>
             </div>
+
+            {isSnowSeason(new Date()) && (
+              <div className={styles.themeSwitchRow}>
+                <span>Снег</span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={snowOn}
+                  className={`${styles.themeSwitch} ${snowOn ? styles.themeSwitchActive : ""}`}
+                  onClick={() => dispatch(setSnowEnabled(!snowOn))}
+                >
+                  <span className={styles.themeSwitchThumb}></span>
+                </button>
+              </div>
+            )}
 
             <button onClick={() => void handleLogout()}>
               Выйти
