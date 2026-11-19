@@ -190,8 +190,8 @@ describe("UserEdit", () => {
       target: { value: "Бухгалтерия" },
     });
     fireEvent.click(screen.getByRole("checkbox", { name: "Бухгалтерия" }));
-    fireEvent.change(screen.getByLabelText("Имя *"), {
-      target: { value: "Екатерина" },
+    fireEvent.change(screen.getByLabelText("Логин *"), {
+      target: { value: "ivanova2" },
     });
     fireEvent.click(screen.getByRole("tab", { name: /Заявки/ }));
     fireEvent.keyDown(screen.getByRole("tab", { name: /Заявки/ }), {
@@ -202,13 +202,13 @@ describe("UserEdit", () => {
       "true",
     );
     expect(screen.getByRole("checkbox", { name: "Бухгалтерия" })).toBeChecked();
-    expect(screen.getByLabelText("Имя *")).toHaveValue("Екатерина");
+    expect(screen.getByLabelText("Логин *")).toHaveValue("ivanova2");
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     await waitFor(() =>
       expect(putMock).toHaveBeenCalledWith(
         "/User/users",
         expect.objectContaining({
-          name: "Екатерина",
+          login: "ivanova2",
           officeGroup: [1, 2],
           defaultLocations: 1,
           locations: [],
@@ -243,8 +243,8 @@ describe("UserEdit", () => {
     putMock.mockRejectedValueOnce(new Error("Ошибка сохранения"));
     renderEditor();
     await screen.findByDisplayValue("ivanova");
-    fireEvent.change(screen.getByLabelText("Фамилия *"), {
-      target: { value: "Петрова" },
+    fireEvent.change(screen.getByLabelText("Логин *"), {
+      target: { value: "petrova" },
     });
     fireEvent.submit(
       screen.getByRole("button", { name: "Сохранить" }).closest("form")!,
@@ -252,10 +252,19 @@ describe("UserEdit", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Ошибка сохранения",
     );
-    expect(screen.getByLabelText("Фамилия *")).toHaveValue("Петрова");
+    expect(screen.getByLabelText("Логин *")).toHaveValue("petrova");
     expect(screen.queryByText("Список пользователей")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Сохранить" }));
     expect(await screen.findByText("Список пользователей")).toBeVisible();
+  });
+
+  it("shows name and position from AD without letting them be edited", async () => {
+    renderEditor();
+    await screen.findByDisplayValue("ivanova");
+    for (const [label, value] of [["Фамилия", "Иванова"], ["Имя", "Анна"], ["Отчество", "Ивановна"], ["Должность", "Руководитель"]]) {
+      expect(screen.getByLabelText(label)).toBeDisabled();
+      expect(screen.getByLabelText(label)).toHaveValue(value);
+    }
   });
 
   it("shows a retry state instead of an empty editable form after loading fails", async () => {
@@ -275,8 +284,8 @@ describe("UserEdit", () => {
     postMock.mockRejectedValueOnce(new Error("Не удалось закрыть заявку"));
     renderEditor();
     await screen.findByDisplayValue("ivanova");
-    fireEvent.change(screen.getByLabelText("Имя *"), {
-      target: { value: "Екатерина" },
+    fireEvent.change(screen.getByLabelText("Логин *"), {
+      target: { value: "ivanova2" },
     });
     fireEvent.click(screen.getByRole("tab", { name: /Заявки/ }));
     fireEvent.click(screen.getByRole("button", { name: /Заявка № 7/ }));
@@ -289,7 +298,7 @@ describe("UserEdit", () => {
     fireEvent.click(dialog.getByRole("button", { name: "Закрыть заявку" }));
     expect(await screen.findByText("Активных заявок нет")).toBeVisible();
     expect(postMock).toHaveBeenLastCalledWith("/User/users/bids/7/close");
-    expect(screen.getByLabelText("Имя *")).toHaveValue("Екатерина");
+    expect(screen.getByLabelText("Логин *")).toHaveValue("ivanova2");
     expect(screen.getByText("Есть несохранённые изменения")).toBeVisible();
   });
 

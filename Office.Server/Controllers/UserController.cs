@@ -289,10 +289,7 @@ namespace Office.Server.Controllers
 
                 user.Login = canonicalLogin;
             }
-            user.Name = model.Name;
-            user.Surname = model.Surname;
-            user.Patronymic = model.Patronymic;
-            user.Position = model.Position;
+            // ФИО и должность не редактируются: их источник — AD (вход и открытие списка пользователей).
             user.Actual = model.Actual;
             user.DefaultLocations = model.DefaultLocations;
             user.OfficeGroup.Clear();

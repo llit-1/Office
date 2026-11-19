@@ -496,55 +496,25 @@ export default function UserEdit() {
                   </p>
                 )}
               </div>
-              <div className={styles.fullWidth}>
-                <Input
-                  label="Фамилия *"
-                  autoComplete="family-name"
-                  {...register("officeUser.surname", {
-                    required: "Фамилия обязательна",
-                  })}
-                  aria-invalid={Boolean(fieldError("surname"))}
-                  aria-describedby={
-                    fieldError("surname") ? "user-surname-error" : undefined
-                  }
-                />
-                {fieldError("surname") && (
-                  <p
-                    className={styles.fieldError}
-                    id="user-surname-error"
-                    role="alert"
-                  >
-                    {fieldError("surname")}
-                  </p>
-                )}
-              </div>
-              <div>
-                <Input
-                  label="Имя *"
-                  autoComplete="given-name"
-                  {...register("officeUser.name", {
-                    required: "Имя обязательно",
-                  })}
-                  aria-invalid={Boolean(fieldError("name"))}
-                  aria-describedby={
-                    fieldError("name") ? "user-name-error" : undefined
-                  }
-                />
-                {fieldError("name") && (
-                  <p
-                    className={styles.fieldError}
-                    id="user-name-error"
-                    role="alert"
-                  >
-                    {fieldError("name")}
-                  </p>
-                )}
-              </div>
+              {/* ФИО и должность приходят из AD при входе и при открытии списка пользователей: здесь их не правят */}
+              <Input
+                label="Фамилия"
+                wrapperClassName={styles.fullWidth}
+                placeholder="Не указана"
+                {...register("officeUser.surname")}
+                disabled
+              />
+              <Input
+                label="Имя"
+                placeholder="Не указано"
+                {...register("officeUser.name")}
+                disabled
+              />
               <Input
                 label="Отчество"
-                autoComplete="additional-name"
                 placeholder="Не указано"
                 {...register("officeUser.patronymic")}
+                disabled
               />
               <Input
                 label="Должность"
