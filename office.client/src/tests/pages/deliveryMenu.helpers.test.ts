@@ -44,9 +44,11 @@ describe("delivery menu helpers", () => {
   });
 
   it("converts stored measure unit codes to labels", () => {
-    expect(formatMeasureUnit("1")).toBe("гр");
+    expect(formatMeasureUnit("1")).toBe("г");
     expect(formatMeasureUnit("2")).toBe("мл");
-    expect(formatMeasureUnit("гр")).toBe("гр");
+    // старое значение «гр» показывается в новом виде
+    expect(formatMeasureUnit("гр")).toBe("г");
+    expect(formatMeasureUnit("г")).toBe("г");
     expect(formatMeasureUnit("мл")).toBe("мл");
   });
 });
