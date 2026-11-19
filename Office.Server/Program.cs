@@ -216,6 +216,8 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Location schema (AltName, requisites) initialization failed.");
+}
+
 try
 {
     // до первого запроса к OfficeUser: без колонок сессии не читается вся таблица
@@ -225,8 +227,6 @@ try
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Calculator session columns (OfficeUser) initialization failed.");
-}
-
 }
 
 try
@@ -271,22 +271,22 @@ catch (Exception ex)
 
 try
 {
-    await using var reportsScope = app.Services.CreateAsyncScope();
-    await reportsScope.ServiceProvider.GetRequiredService<Office.Server.Reports.ReportsInitializer>().InitializeAsync();
-}
-catch (Exception ex)
-{
-    app.Logger.LogError(ex, "Reports schema and role initialization failed.");
-}
-
-try
-{
     await using var heartbeatScope = app.Services.CreateAsyncScope();
     await heartbeatScope.ServiceProvider.GetRequiredService<Office.Server.VideoDevices.VideoDeviceHeartbeatSchemaInitializer>().InitializeAsync();
 }
 catch (Exception ex)
 {
     app.Logger.LogError(ex, "Video device heartbeat table initialization failed.");
+}
+
+try
+{
+    await using var reportsScope = app.Services.CreateAsyncScope();
+    await reportsScope.ServiceProvider.GetRequiredService<Office.Server.Reports.ReportsInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Reports schema and role initialization failed.");
 }
 
 try
@@ -337,6 +337,10 @@ app.Use(async (context, next) =>
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments("/" + Office.Server.Controllers.VideoDeviceApiController.RoutePrefix),
+    branch => branch.UseResponseCompression());
+
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -345,7 +349,3 @@ app.MapControllers();
 app.MapFallbackToFile("/index.html").AllowAnonymous();
 
 app.Run();
-app.UseWhen(
-    context => context.Request.Path.StartsWithSegments("/" + Office.Server.Controllers.VideoDeviceApiController.RoutePrefix),
-    branch => branch.UseResponseCompression());
-
