@@ -7,14 +7,149 @@
   gap: var(--space-4);
 }
 
-.deviceToolbar .deviceFilters {
-  width: auto;
-  flex: 1 1 auto;
+/* Панель над списком: поиск, какие точки, сортировка и действия — одной строкой */
+.toolbarTop {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.topBar {
+.toolbarSearch {
+  flex: 0 1 340px;
+  min-width: 200px;
+  height: var(--control-height-md);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: 0 var(--space-2) 0 var(--space-3);
+  color: var(--color-text-muted);
+}
+
+.toolbarSearch:focus-within {
+  border-color: var(--color-primary);
+}
+
+.toolbarSearch input {
   width: 100%;
-  flex: 0 0 auto;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-body);
+}
+
+.searchClear {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.searchClear:hover {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+.resultSummary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-compact);
+  white-space: nowrap;
+}
+
+.resultSummary strong {
+  color: var(--color-text);
+}
+
+.resetFilters {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--color-primary);
+  font: inherit;
+  font-weight: var(--font-weight-control);
+  cursor: pointer;
+}
+
+.resetFilters:hover {
+  text-decoration: underline;
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+/* Своя стрелка: у системной она прижата к самому краю */
+.selectWrap {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+
+.selectWrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--color-text-muted);
+  border-bottom: 2px solid var(--color-text-muted);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+.toolbarSelect {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 38px !important;
+  height: var(--control-height-md);
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  padding: 0 var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-compact);
+  font-weight: var(--font-weight-control);
+  outline: 0;
+  cursor: pointer;
+}
+
+.toolbarSelect:hover,
+.toolbarSelect:focus {
+  border-color: var(--color-primary);
+}
+
+@media (max-width: 1100px) {
+  .toolbarTop {
+    flex-wrap: wrap;
+  }
+
+  .toolbarSearch {
+    flex: 1 1 100%;
+  }
+
+  .toolbarActions {
+    margin-left: 0;
+    flex-wrap: wrap;
+  }
 }
 
 .deviceControls {
@@ -1228,4 +1363,317 @@
   .videoPreview {
     width: 100%;
   }
+}
+
+/* Статус по сигналам приставки: плашка справа от названия ТТ вместо точки.
+   Название ТТ важнее: оно всегда получает не меньше половины строки, плашка сокращается вплоть до точки. */
+.deviceTitleRow .deviceTitle {
+  flex: 1 1 auto;
+  min-width: 50%;
+}
+
+.presencePill {
+  /* Плашка не сжимается раньше названия: ей до половины строки, названию — остальное (с многоточием) */
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-caption);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.presenceText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.presenceDot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
+.presenceSuccess {
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-success) 82%, var(--color-text));
+}
+
+.presenceWarning {
+  background: color-mix(in srgb, var(--color-warning) 20%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-warning) 55%, var(--color-text));
+}
+
+/* Нет связи, но это не неисправность — серая, спокойная */
+.presenceNeutral {
+  background: color-mix(in srgb, var(--color-text-muted) 14%, var(--color-surface));
+  color: var(--color-text-muted);
+}
+
+.presenceDanger {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-danger) 82%, var(--color-text));
+}
+
+.versionNewer {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-info) 45%, transparent);
+}
+
+:global([data-theme="dark"]) .versionNewer {
+  background: var(--color-info-bg);
+  border-color: color-mix(in srgb, var(--color-info) 55%, transparent);
+  color: var(--color-info-text);
+}
+
+/* ── Диагностика приставки ─────────────────────────────────────────────── */
+
+/* Проблем две и больше: карточка выделяется рамкой, чтобы её было видно в сетке.
+   [class] поднимает специфичность над стилями карточки из entity-dashboard. */
+.cardManyProblems[class] {
+  border-color: var(--color-danger);
+  box-shadow: inset 0 0 0 1px var(--color-danger), var(--shadow-sm);
+}
+
+/* Несколько только жёлтых проблем — та же усиленная рамка, но жёлтая */
+.cardManyWarnings[class] {
+  border-color: var(--color-warning);
+  box-shadow: inset 0 0 0 1px var(--color-warning), var(--shadow-sm);
+}
+
+.diagnosticsButtonWarn[class] {
+  background: color-mix(in srgb, var(--color-warning) 22%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-warning) 55%, var(--color-text));
+}
+
+.diagnosticsButtonAlert[class] {
+  background: color-mix(in srgb, var(--color-danger) 16%, var(--color-surface));
+  color: var(--color-danger);
+}
+
+.diagnosticsPanel {
+  width: min(680px, calc(100vw - 24px));
+  max-height: calc(100vh - 48px);
+}
+
+.diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.diagnosticsSummary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.diagnosticsPill {
+  max-width: 100%;
+  font-size: var(--font-size-compact);
+  padding: 4px 10px;
+}
+
+.diagnosticsMeta,
+.diagnosticsHint {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.diagnosticsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.diagnosticsHeading {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.diagnosticsList {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: var(--radius-control);
+  font-size: var(--font-size-compact);
+}
+
+.diagnosticsList li {
+  position: relative;
+  padding-left: 14px;
+  overflow-wrap: anywhere;
+}
+
+.diagnosticsList li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
+.diagnosticsProblems {
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
+  color: color-mix(in srgb, var(--color-warning) 50%, var(--color-text));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+}
+
+.diagnosticsNotices {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+.diagnosticsFacts {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: var(--space-2);
+}
+
+.diagnosticsFact {
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+
+.diagnosticsFact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-caption);
+}
+
+.diagnosticsFact dd {
+  margin: 2px 0 0;
+  font-size: var(--font-size-compact);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diagnosticsFactWide {
+  grid-column: 1 / -1;
+}
+
+.diagnosticsFactWide dd {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.diagnosticsFactWarning {
+  border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+}
+
+.diagnosticsFactDanger {
+  border-color: color-mix(in srgb, var(--color-danger) 60%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
+}
+
+.diagnosticsFactDanger dd {
+  color: var(--color-danger);
+}
+
+.diagnosticsActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.diagnosticsRedownload {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: var(--space-2);
+}
+
+.diagnosticsLabel {
+  font-size: var(--font-size-compact);
+  font-weight: 600;
+}
+
+.diagnosticsRedownloadRow {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.diagnosticsInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-size-compact);
+}
+
+.diagnosticsInput:focus {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border-color: var(--color-primary);
+}
+
+@media (max-width: 520px) {
+  .diagnosticsRedownloadRow {
+    flex-direction: column;
+  }
+}
+
+.diagnosticsOffline {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-muted);
+  font-size: var(--font-size-compact);
+}
+
+.diagnosticsOfflineAttention {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-surface));
+}
+
+.diagnosticsVolumeInput {
+  flex: 0 0 110px;
+}
+
+.diagnosticsLinkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.diagnosticsLinkButton:disabled {
+  color: var(--color-disabled-text);
+  cursor: not-allowed;
 }

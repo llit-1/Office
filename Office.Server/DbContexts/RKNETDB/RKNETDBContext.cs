@@ -283,6 +283,7 @@ namespace Office.Server.DbContexts.RKNETDB
         public DbSet<VideoDevice> VideoDevices { get; set; }
         public DbSet<VideoInfo> VideoInfo { get; set; }
         public DbSet<VideoOrientation> VideoOrientation { get; set; }
+        public DbSet<VideoDeviceHeartbeat> VideoDeviceHeartbeats { get; set; }
         public DbSet<OfficeKnowledgeSection> OfficeKnowledgeSections { get; set; }
         public DbSet<OfficeKnowledgeSectionCover> OfficeKnowledgeSectionCovers { get; set; }
         public DbSet<OfficeKnowledgeSectionRole> OfficeKnowledgeSectionRoles { get; set; }

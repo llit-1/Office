@@ -4,7 +4,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Logging;
 using Office.Server.DbContexts.RKNETDB;
 using Office.Server.DbContexts.RKNETDB.Models;
+using Office.Server.Security;
+using Office.Server.VideoDevices;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 
 namespace Office.Server.Controllers
@@ -21,14 +24,6 @@ namespace Office.Server.Controllers
             Guid.Parse("8FE12BFC-1860-4B79-8763-81C984E2A643")
         ];
 
-        private static readonly HashSet<string> VideoLibraryExtensions = new(StringComparer.OrdinalIgnoreCase)
-        {
-            ".mp4",
-            ".avi",
-            ".mov",
-            ".mpeg"
-        };
-
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -38,21 +33,23 @@ namespace Office.Server.Controllers
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IConfiguration _configuration;
         private readonly ILogger<VideoDevicesController> _logger;
+        private readonly VideoPreviewTickets _previewTickets;
 
         public VideoDevicesController(
             RKNETDBContext context,
             IHttpClientFactory httpClientFactory,
             IConfiguration configuration,
-            ILogger<VideoDevicesController> logger)
+            ILogger<VideoDevicesController> logger,
+            VideoPreviewTickets previewTickets)
         {
             _context = context;
             _httpClientFactory = httpClientFactory;
             _configuration = configuration;
             _logger = logger;
+            _previewTickets = previewTickets;
         }
 
-        private string VideoTvRootPath => _configuration["VideoDevices:RootPath"]
-            ?? @"\\shzhleb.ru\shz\SHZWork\Обмен2\ВидеоТВ";
+        private string VideoTvRootPath => VideoLibrary.GetRootPath(_configuration);
 
         [HttpGet("devices")]
         public async Task<IActionResult> GetDevices()
@@ -84,6 +81,12 @@ namespace Office.Server.Controllers
                 })
                 .ToListAsync();
 
+            var presence = await LoadPresenceAsync();
+            foreach (var device in devices)
+            {
+                device.Presence = presence.GetValueOrDefault(device.Guid);
+            }
+
             return Ok(new
             {
                 devices,
@@ -95,6 +98,29 @@ namespace Office.Server.Controllers
                     .OrderBy(x => x)
                     .ToList()
             });
+        }
+
+        /// <summary>
+        /// Статусы приставок по их сигналам (без опроса самих приставок). Страница админки
+        /// запрашивает это раз в минуту, чтобы «нет связи» появлялось без перезагрузки.
+        /// </summary>
+        [HttpGet("devices/presence")]
+        public async Task<IActionResult> GetDevicesPresence()
+        {
+            var presence = await LoadPresenceAsync();
+            return Ok(presence.Select(x => new { deviceGuid = x.Key, presence = x.Value }));
+        }
+
+        private async Task<Dictionary<Guid, DevicePresence.PresenceDto>> LoadPresenceAsync()
+        {
+            var now = DateTime.UtcNow;
+            var offlineAfter = DevicePresence.OfflineAfter(_configuration);
+            var attentionAfter = DevicePresence.OfflineAttentionAfter(_configuration);
+            var heartbeats = await _context.VideoDeviceHeartbeats.AsNoTracking().ToListAsync();
+            return heartbeats
+                .Select(x => (x.DeviceGuid, Presence: DevicePresence.Describe(x, now, offlineAfter, attentionAfter)))
+                .Where(x => x.Presence != null)
+                .ToDictionary(x => x.DeviceGuid, x => x.Presence!);
         }
 
         [HttpGet("form-data")]
@@ -165,7 +191,7 @@ namespace Office.Server.Controllers
         [HttpPost("devices")]
         public async Task<IActionResult> CreateDevice([FromBody] SaveDeviceRequest request)
         {
-            var validationError = ValidateDeviceRequest(request);
+            var (validationError, ip) = await ValidateDeviceRequest(request, null);
             if (validationError != null)
             {
                 return BadRequest(new { message = validationError });
@@ -176,9 +202,9 @@ namespace Office.Server.Controllers
                 Guid = Guid.NewGuid(),
                 LocationGuid = request.LocationGuid,
                 Status = 1,
-                Ip = request.Ip.Trim(),
+                Ip = ip,
                 OrientationGuid = await GetDefaultOrientationGuid(),
-                VideoList = SerializeVideoList(request.VideoNames),
+                VideoList = VideoLibrary.SerializeVideoList(request.VideoNames),
                 OnlyMusic = request.ContentType,
                 CustomAds = NormalizeOptionalValue(request.CustomAds),
                 MuteStartTime = NormalizeOptionalValue(request.MuteStartTime),
@@ -193,22 +219,22 @@ namespace Office.Server.Controllers
         [HttpPut("devices/{guid:guid}")]
         public async Task<IActionResult> UpdateDevice(Guid guid, [FromBody] SaveDeviceRequest request)
         {
-            var validationError = ValidateDeviceRequest(request);
-            if (validationError != null)
-            {
-                return BadRequest(new { message = validationError });
-            }
-
             var device = await _context.VideoDevices.FirstOrDefaultAsync(x => x.Guid == guid);
             if (device == null)
             {
                 return NotFound(new { message = "Устройство не найдено." });
             }
 
+            var (validationError, ip) = await ValidateDeviceRequest(request, guid);
+            if (validationError != null)
+            {
+                return BadRequest(new { message = validationError });
+            }
+
             device.LocationGuid = request.LocationGuid;
             device.Status = 1;
-            device.Ip = request.Ip.Trim();
-            device.VideoList = SerializeVideoList(request.VideoNames);
+            device.Ip = ip;
+            device.VideoList = VideoLibrary.SerializeVideoList(request.VideoNames);
             device.OnlyMusic = request.ContentType;
             device.CustomAds = NormalizeOptionalValue(request.CustomAds);
             device.MuteStartTime = NormalizeOptionalValue(request.MuteStartTime);
@@ -238,6 +264,12 @@ namespace Office.Server.Controllers
             if (string.IsNullOrWhiteSpace(request.FromVideo) || string.IsNullOrWhiteSpace(request.ToVideo))
             {
                 return BadRequest(new { message = "Не выбраны видео для замены." });
+            }
+
+            var toVideoError = GetVideoNameError(request.ToVideo.Trim());
+            if (toVideoError != null)
+            {
+                return BadRequest(new { message = toVideoError });
             }
 
             var fromValue = $"[{request.FromVideo.Trim()}]";
@@ -277,7 +309,7 @@ namespace Office.Server.Controllers
                         ? Path.Combine(VideoTvRootPath, x.Name)
                         : x.Path;
                     var fileInfo = new FileInfo(fullPath);
-                    if (!fileInfo.Exists || !VideoLibraryExtensions.Contains(fileInfo.Extension))
+                    if (!fileInfo.Exists || !VideoLibrary.VideoExtensions.Contains(fileInfo.Extension))
                     {
                         return null;
                     }
@@ -288,7 +320,7 @@ namespace Office.Server.Controllers
                         Position = x.Position,
                         Name = x.Name,
                         SizeInMb = Math.Round(fileInfo.Length / (1024.0 * 1024.0), 2),
-                        Url = Url.Action(nameof(GetFile), "VideoDevices", new { path = EncodeFilePath(fileInfo.FullName) }, Request.Scheme)
+                        PreviewTicket = _previewTickets.Issue(x.Guid)
                     };
                 })
                 .Where(x => x != null)
@@ -306,21 +338,17 @@ namespace Office.Server.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = rootError });
             }
 
-            var files = Directory
-                .EnumerateFiles(VideoTvRootPath, "*.apk", SearchOption.TopDirectoryOnly)
-                .Select(path =>
+            // Порядок тот же, что у GetActualVersion: первым в списке идёт «серверная версия».
+            var files = VideoLibrary.OrderApkFiles(Directory
+                    .EnumerateFiles(VideoTvRootPath, "*.apk", SearchOption.TopDirectoryOnly)
+                    .Select(path => new FileInfo(path)))
+                .Select(fileInfo => new ApkFileDto
                 {
-                    var fileInfo = new FileInfo(path);
-                    return new ApkFileDto
-                    {
-                        Name = fileInfo.Name,
-                        Version = Path.GetFileNameWithoutExtension(fileInfo.Name),
-                        SizeInMb = Math.Round(fileInfo.Length / (1024.0 * 1024.0), 2),
-                        UpdatedAt = fileInfo.LastWriteTime
-                    };
+                    Name = fileInfo.Name,
+                    Version = Path.GetFileNameWithoutExtension(fileInfo.Name),
+                    SizeInMb = Math.Round(fileInfo.Length / (1024.0 * 1024.0), 2),
+                    UpdatedAt = fileInfo.LastWriteTime
                 })
-                .OrderByDescending(x => x.UpdatedAt)
-                .ThenBy(x => x.Name)
                 .ToList();
 
             return Ok(files);
@@ -346,45 +374,56 @@ namespace Office.Server.Controllers
             return Ok(new { ok = true });
         }
 
-        [HttpGet("files")]
-        public IActionResult GetFile([FromQuery] string path)
+        /// <summary>
+        /// Превью видео для &lt;video src&gt;. Браузер не шлёт JWT, поэтому доступ — по тикету из GET videos.
+        /// Раньше здесь был GetFile(path), который отдавал любой файл с сервера по произвольному пути.
+        /// </summary>
+        [AllowAnonymous]
+        [HttpGet("videos/preview/{ticket}")]
+        public async Task<IActionResult> GetVideoPreview(string ticket)
         {
+            if (!_previewTickets.TryGet(ticket, out var videoGuid))
+            {
+                return Unauthorized(new { message = "Ссылка на видео истекла. Обновите список видео." });
+            }
+
+            var name = await _context.VideoInfo
+                .AsNoTracking()
+                .Where(x => x.Guid == videoGuid)
+                .Select(x => x.Name)
+                .FirstOrDefaultAsync();
+            if (name == null
+                || !VideoLibrary.TryResolveVideoFile(VideoTvRootPath, name, out var fullPath)
+                || !System.IO.File.Exists(fullPath))
+            {
+                return NotFound(new { message = "Файл не найден." });
+            }
+
+            FileStream stream;
             try
             {
-                var filePath = DecodeFilePath(path);
-                var fileInfo = new FileInfo(filePath);
-                if (!fileInfo.Exists)
-                {
-                    return NotFound(new { message = "Файл не найден." });
-                }
-
-                var stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var contentType = fileInfo.Extension.ToLowerInvariant() switch
-                {
-                    ".avi" => "video/avi",
-                    ".mov" => "video/quicktime",
-                    ".mp4" => "video/mp4",
-                    ".mpeg" => "video/mpeg",
-                    _ => "application/octet-stream"
-                };
-
-                return File(stream, contentType, fileInfo.Name);
+                stream = VideoLibrary.OpenForServing(fullPath);
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+                _logger.LogWarning(ex, "Preview file is busy or unreadable: {Path}", fullPath);
+                return StatusCode(StatusCodes.Status503ServiceUnavailable,
+                    new { message = "Файл сейчас недоступен (возможно, ещё копируется)." });
             }
+
+            SafeFileHeaders.Apply(Response, name);
+            return File(stream, VideoLibrary.ContentTypeFor(name), enableRangeProcessing: true);
         }
 
+        /// <summary>Проверка связи с новой приставкой (ещё не сохранённой), поэтому IP может быть не из БД.</summary>
         [HttpPost("devices/check")]
         public async Task<IActionResult> TryToConnectDevice([FromBody] DeviceIpRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            if (!VideoLibrary.TryNormalizeDeviceAddress(request.Ip, out var ip))
             {
-                return BadRequest(new { message = "IP не указан." });
+                return BadRequest(new { message = InvalidIpMessage });
             }
 
-            var ip = NormalizeDeviceIp(request.Ip);
             var result = await GetDeviceStatusResult(Guid.Empty, ip, GetActualVersion());
             await UpdateDeviceVersion(result);
 
@@ -401,87 +440,29 @@ namespace Office.Server.Controllers
         [HttpPost("devices/status")]
         public async Task<IActionResult> GetDeviceStatus([FromBody] DeviceIpRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
             {
-                return BadRequest(new { message = "IP не указан." });
+                return error;
             }
 
-            var ip = NormalizeDeviceIp(request.Ip);
-            var serverVersion = GetActualVersion();
-
-            try
-            {
-                var client = _httpClientFactory.CreateClient();
-                client.Timeout = TimeSpan.FromSeconds(15);
-
-                using var response = await client.GetAsync($"http://{ip}/?action=getIP");
-                if (response.IsSuccessStatusCode)
-                {
-                    var versionFromDevice = (await response.Content.ReadAsStringAsync()).Trim();
-                    var device = await _context.VideoDevices.FirstOrDefaultAsync(x => x.Ip.Trim() == ip);
-                    if (device != null && device.Version != versionFromDevice)
-                    {
-                        device.Version = versionFromDevice;
-                        await _context.SaveChangesAsync();
-                    }
-
-                    return Ok(new
-                    {
-                        ok = true,
-                        status = "online",
-                        serverVersion,
-                        versionFromDevice
-                    });
-                }
-            }
-            catch
-            {
-                // fall back to ICMP ping below
-            }
-
-            var host = ExtractHost(ip);
-            if (!string.IsNullOrWhiteSpace(host))
-            {
-                try
-                {
-                    using var ping = new System.Net.NetworkInformation.Ping();
-                    var reply = await ping.SendPingAsync(host, 2000);
-                    if (reply.Status == System.Net.NetworkInformation.IPStatus.Success)
-                    {
-                        return Ok(new
-                        {
-                            ok = true,
-                            status = "ping",
-                            serverVersion
-                        });
-                    }
-                }
-                catch
-                {
-                    // unreachable
-                }
-            }
+            var result = await GetDeviceStatusResult(Guid.Empty, ip, GetActualVersion());
+            await UpdateDeviceVersion(result);
 
             return Ok(new
             {
-                ok = false,
-                status = "offline",
-                serverVersion,
-                errorMessage = "Приставка не отвечает, ping недоступен."
+                ok = result.Ok,
+                status = result.Status,
+                serverVersion = result.ServerVersion,
+                versionFromDevice = result.VersionFromDevice,
+                errorMessage = result.ErrorMessage
             });
         }
 
         [HttpPost("devices/status/batch")]
         public async Task<IActionResult> GetDevicesStatus([FromBody] DeviceStatusBatchRequest request)
         {
-            var devices = request.Devices
-                .Where(x => !string.IsNullOrWhiteSpace(x.Ip))
-                .Select(x => new DeviceStatusBatchItem
-                {
-                    Guid = x.Guid,
-                    Ip = NormalizeDeviceIp(x.Ip)
-                })
-                .ToList();
+            var devices = await FilterRegisteredDevicesAsync(request.Devices);
 
             if (devices.Count == 0)
             {
@@ -490,12 +471,9 @@ namespace Office.Server.Controllers
 
             var serverVersion = GetActualVersion();
 
-            var tasks = devices.Select(async device =>
-            {
-                return await GetDeviceStatusResult(device.Guid, device.Ip, serverVersion);
-            });
-
-            var results = await Task.WhenAll(tasks);
+            using var gate = new SemaphoreSlim(MaxParallelDeviceChecks);
+            var results = await Task.WhenAll(devices.Select(device =>
+                CheckDeviceLimited(gate, device.Guid, device.Ip, serverVersion)));
             var versionsByIp = results
                 .Where(x => !string.IsNullOrWhiteSpace(x.VersionFromDevice))
                 .GroupBy(x => x.Ip)
@@ -510,7 +488,7 @@ namespace Office.Server.Controllers
 
                 foreach (var device in dbDevices)
                 {
-                    var ip = NormalizeDeviceIp(device.Ip);
+                    var ip = device.Ip.Trim();
                     if (versionsByIp.TryGetValue(ip, out var versionFromDevice) && device.Version != versionFromDevice)
                     {
                         device.Version = versionFromDevice;
@@ -526,14 +504,7 @@ namespace Office.Server.Controllers
         [HttpPost("devices/status/stream")]
         public async Task StreamDevicesStatus([FromBody] DeviceStatusBatchRequest request)
         {
-            var devices = request.Devices
-                .Where(x => !string.IsNullOrWhiteSpace(x.Ip))
-                .Select(x => new DeviceStatusBatchItem
-                {
-                    Guid = x.Guid,
-                    Ip = NormalizeDeviceIp(x.Ip)
-                })
-                .ToList();
+            var devices = await FilterRegisteredDevicesAsync(request.Devices);
 
             Response.ContentType = "application/x-ndjson; charset=utf-8";
 
@@ -543,8 +514,9 @@ namespace Office.Server.Controllers
             }
 
             var serverVersion = GetActualVersion();
+            using var gate = new SemaphoreSlim(MaxParallelDeviceChecks);
             var tasks = devices
-                .Select(device => GetDeviceStatusResult(device.Guid, device.Ip, serverVersion))
+                .Select(device => CheckDeviceLimited(gate, device.Guid, device.Ip, serverVersion))
                 .ToList();
 
             while (tasks.Count > 0)
@@ -564,14 +536,14 @@ namespace Office.Server.Controllers
         [HttpPost("devices/reload")]
         public async Task<IActionResult> ReloadDevice([FromBody] DeviceIpRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
             {
-                return BadRequest(new { message = "IP не указан." });
+                return error;
             }
 
             try
             {
-                var ip = NormalizeDeviceIp(request.Ip);
                 var client = _httpClientFactory.CreateClient();
                 client.Timeout = TimeSpan.FromSeconds(10);
 
@@ -589,12 +561,178 @@ namespace Office.Server.Controllers
             }
         }
 
+        /// <summary>
+        /// Команды диагностики (приложение 2.0+): «синхронизировать сейчас», «перекачать файл», «перезагрузить
+        /// приставку». Уходят на порт 8080 приставки с ключом приставок — без него приставка их не выполнит.
+        /// </summary>
+        [HttpPost("devices/command")]
+        public async Task<IActionResult> SendDeviceCommand([FromBody] DeviceCommandRequest request)
+        {
+            if (request.Command is not ("sync" or "redownload" or "reboot" or "volume" or "update" or "owner-release"))
+            {
+                return BadRequest(new { message = "Неизвестная команда." });
+            }
+
+            var fileName = request.FileName?.Trim() ?? string.Empty;
+            if (request.Command == "redownload" && !IsSafeDeviceFileName(fileName))
+            {
+                return BadRequest(new { message = "Укажите имя файла." });
+            }
+
+            if (request.Command == "volume" && request.Value is not (>= 0 and <= 100))
+            {
+                return BadRequest(new { message = "Громкость — число от 0 до 100." });
+            }
+
+            // Приставка скачает APK у портала сама (api/video-device/apk) — проверяем, что такой файл есть
+            if (request.Command == "update"
+                && (!VideoLibrary.TryResolveApkFile(VideoTvRootPath, fileName, out var apkPath) || !System.IO.File.Exists(apkPath)))
+            {
+                return BadRequest(new { message = $"APK «{fileName}» не найден в папке ВидеоТВ." });
+            }
+
+            var key = _configuration[DeviceApiKeyAttribute.ConfigKey];
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return Ok(new { ok = false, errorMessage = "На портале не задан ключ приставок (VideoDevices:DeviceApiKey)." });
+            }
+
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
+            {
+                return error;
+            }
+
+            var url = $"http://{ip}/?action={request.Command}";
+            if (request.Command is "redownload" or "update")
+            {
+                url += "&param1=" + Uri.EscapeDataString(fileName);
+            }
+            else if (request.Command == "volume")
+            {
+                url += "&param1=" + request.Value;
+            }
+
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                client.Timeout = TimeSpan.FromSeconds(10);
+                using var message = new HttpRequestMessage(HttpMethod.Get, url);
+                message.Headers.TryAddWithoutValidation(DeviceApiKeyAttribute.HeaderName, key);
+                using var response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead);
+                var text = await ReadLimitedAsync(response, 4096);
+                var deviceMessage = TryReadDeviceMessage(text);
+
+                _logger.LogInformation("Device command {Command} {File} -> {Ip}: {Status}", request.Command, fileName, ip, (int)response.StatusCode);
+                if (response.IsSuccessStatusCode)
+                {
+                    return Ok(new { ok = true, data = deviceMessage ?? "Готово" });
+                }
+
+                // Старое приложение не знает этих команд и отвечает «Unknown action»
+                var errorMessage = deviceMessage
+                    ?? (response.StatusCode == System.Net.HttpStatusCode.BadRequest
+                        ? "Приложение на приставке не поддерживает эту команду — обновите его до последней версии."
+                        : $"Приставка ответила {(int)response.StatusCode}.");
+                return Ok(new { ok = false, errorMessage });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { ok = false, errorMessage = GetDeviceRequestErrorMessage(ex, "Приставка не ответила за 10 секунд.", "Не удалось отправить команду на приставку.") });
+            }
+        }
+
+        /// <summary>Имя файла без пути — приставка ищет его только в своих папках с контентом.</summary>
+        public static bool IsSafeDeviceFileName(string? name) =>
+            !string.IsNullOrWhiteSpace(name)
+            && name.Length <= 260
+            && name.Trim() is not ("." or "..")
+            && name.IndexOfAny(['/', '\\']) < 0
+            && !name.Any(char.IsControl);
+
+        private static async Task<string> ReadLimitedAsync(HttpResponseMessage response, int maxBytes)
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var buffer = new byte[maxBytes];
+            var total = 0;
+            int read;
+            while (total < maxBytes && (read = await stream.ReadAsync(buffer.AsMemory(total, maxBytes - total))) > 0)
+            {
+                total += read;
+            }
+
+            return Encoding.UTF8.GetString(buffer, 0, total);
+        }
+
+        private static string? TryReadDeviceMessage(string text)
+        {
+            try
+            {
+                using var json = JsonDocument.Parse(text);
+                return json.RootElement.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String
+                    ? message.GetString()
+                    : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Сделать приложение «владельцем устройства» (device owner) — для приставок без root: после этого
+        /// приложение само ставит обновления и перезагружает приставку, без ADB. Выполняется один раз через ADB.
+        /// Android откажет, если на приставке добавлены аккаунты (например, Google) — текст ошибки вернём как есть.
+        /// Снять права можно командой owner-release (без сброса приставки).
+        /// </summary>
+        [HttpPost("devices/grant-owner")]
+        public async Task<IActionResult> GrantDeviceOwner([FromBody] DeviceIpRequest request)
+        {
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
+            {
+                return error;
+            }
+
+            var appSettings = GetAndroidAppSettings();
+            if (appSettings.ErrorMessage != null)
+            {
+                return Ok(new { ok = false, errorMessage = appSettings.ErrorMessage });
+            }
+
+            var adbTarget = $"{VideoLibrary.HostOf(ip)}:5555";
+            try
+            {
+                var adbPath = GetAdbPath();
+                var connectResult = await RunProcessAsync(adbPath, ["connect", adbTarget], TimeSpan.FromMinutes(2));
+                if (!connectResult.Success || IsAdbConnectFailed(connectResult.Output))
+                {
+                    return Ok(new { ok = false, errorMessage = $"Не удалось подключиться по ADB к {adbTarget}. {connectResult.Output}".Trim() });
+                }
+
+                var component = $"{appSettings.PackageName}/.admin.VideoDeviceAdminReceiver";
+                var result = await RunProcessAsync(adbPath, ["-s", adbTarget, "shell", "dpm", "set-device-owner", component], TimeSpan.FromMinutes(2));
+                _logger.LogInformation("Grant device owner on {Target}: {Output}", adbTarget, result.Output);
+                if (!result.Output.Contains("Success", StringComparison.OrdinalIgnoreCase))
+                {
+                    return Ok(new { ok = false, errorMessage = $"Android не выдал права владельца: {result.Output}".Trim() });
+                }
+
+                return Ok(new { ok = true, data = "Права владельца устройства выданы" });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { ok = false, errorMessage = $"Не удалось выполнить ADB-команду: {ex.Message}" });
+            }
+        }
+
         [HttpPost("devices/start-app")]
         public async Task<IActionResult> StartDeviceApp([FromBody] DeviceIpRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
             {
-                return BadRequest(new { message = "IP не указан." });
+                return error;
             }
 
             var appSettings = GetAndroidAppSettings();
@@ -604,13 +742,7 @@ namespace Office.Server.Controllers
             }
 
             var adbPath = GetAdbPath();
-            var ip = NormalizeDeviceIp(request.Ip);
-            var host = ExtractHost(ip);
-            if (string.IsNullOrWhiteSpace(host))
-            {
-                return BadRequest(new { message = "Некорректный IP устройства." });
-            }
-
+            var host = VideoLibrary.HostOf(ip);
             var adbTarget = $"{host}:5555";
 
             try
@@ -647,9 +779,10 @@ namespace Office.Server.Controllers
         [HttpPost("devices/update-app")]
         public async Task<IActionResult> UpdateDeviceApp([FromBody] UpdateDeviceAppRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            var (error, ip) = await ResolveRegisteredDeviceAsync(request.Ip);
+            if (error != null)
             {
-                return BadRequest(new { message = "IP не указан." });
+                return error;
             }
 
             if (string.IsNullOrWhiteSpace(request.ApkName))
@@ -657,15 +790,12 @@ namespace Office.Server.Controllers
                 return BadRequest(new { message = "APK файл не выбран." });
             }
 
-            var ip = NormalizeDeviceIp(request.Ip);
-            var host = ExtractHost(ip);
-            if (string.IsNullOrWhiteSpace(host))
-            {
-                return BadRequest(new { message = "Некорректный IP устройства." });
-            }
-
+            var host = VideoLibrary.HostOf(ip);
             var adbTarget = $"{host}:5555";
             var installApkPath = string.Empty;
+            var connected = false;
+            AndroidAppSettings? appSettingsForRecovery = null;
+            string? adbPathForRecovery = null;
 
             try
             {
@@ -687,6 +817,8 @@ namespace Office.Server.Controllers
                 }
 
                 var adbPath = GetAdbPath();
+                adbPathForRecovery = adbPath;
+                appSettingsForRecovery = appSettings;
                 installApkPath = CopyApkToAdbSafeTempPath(apkPath);
 
                 var connectResult = await RunProcessAsync(adbPath, ["connect", adbTarget], TimeSpan.FromMinutes(5));
@@ -699,8 +831,22 @@ namespace Office.Server.Controllers
                     });
                 }
 
-                await RunProcessAsync(adbPath, ["-s", adbTarget, "shell", "am", "force-stop", appSettings.PackageName!], TimeSpan.FromMinutes(5));
+                connected = true;
 
+                // Место проверяем заранее: на приставках с маленькой памятью музыка забивает её целиком,
+                // и Android отказывает в установке («not enough space») — понятнее сказать об этом сразу.
+                var freeMb = await GetFreeDataSpaceMbAsync(adbPath, adbTarget);
+                if (freeMb is < MinFreeSpaceForInstallMb)
+                {
+                    return Ok(new
+                    {
+                        ok = false,
+                        errorMessage = $"На приставке почти нет места ({freeMb} МБ свободно) — Android не установит APK. Освободите место."
+                    });
+                }
+
+                // Приложение перед установкой не останавливаем: install -r сам заменит его и перезапустит процесс.
+                // Раньше здесь был force-stop, и если установка падала, приставка оставалась с тёмным экраном.
                 var installResult = await RunProcessAsync(adbPath, ["-s", adbTarget, "install", "-r", installApkPath], TimeSpan.FromMinutes(5));
                 if (!installResult.Success || IsAdbInstallFailed(installResult.Output))
                 {
@@ -723,7 +869,8 @@ namespace Office.Server.Controllers
 
                 var versionFromApk = Path.GetFileNameWithoutExtension(apkPath);
                 var device = await _context.VideoDevices.FirstOrDefaultAsync(x => x.Ip.Trim() == ip);
-                if (device != null)
+                // Имя APK вида "2.0-test" — не версия: в БД не пишем, приставка сама сообщит версию при проверке статуса.
+                if (device != null && VideoLibrary.IsValidAppVersion(versionFromApk))
                 {
                     device.Version = versionFromApk;
                     await _context.SaveChangesAsync();
@@ -760,20 +907,59 @@ namespace Office.Server.Controllers
             finally
             {
                 TryDeleteTempApk(installApkPath);
+                // Что бы ни случилось с установкой, приставка не должна остаться без приложения на экране.
+                // Сделать его рабочим столом по умолчанию: иначе после падения Android показывает окно выбора
+                // лаунчера, и точка стоит с тёмным экраном, пока кто-нибудь не нажмёт.
+                if (connected && adbPathForRecovery != null && appSettingsForRecovery?.PackageName != null)
+                {
+                    await EnsureAppRunningAsync(adbPathForRecovery, adbTarget, appSettingsForRecovery.PackageName, appSettingsForRecovery.ActivityName!);
+                }
+            }
+        }
+
+        /// <summary>Ниже этого Android обычно отказывает в установке (порог «мало места» ~10% раздела данных).</summary>
+        private const long MinFreeSpaceForInstallMb = 350;
+
+        private static async Task<long?> GetFreeDataSpaceMbAsync(string adbPath, string adbTarget)
+        {
+            try
+            {
+                // df -k /data: последняя строка, 4-й столбец — свободно, КБ
+                var result = await RunProcessAsync(adbPath, ["-s", adbTarget, "shell", "df", "-k", "/data"], TimeSpan.FromSeconds(30));
+                return VideoLibrary.ParseDfFreeMb(result.Output);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Сделать приложение рабочим столом по умолчанию и запустить. Ошибки не важны — это страховка.</summary>
+        private async Task EnsureAppRunningAsync(string adbPath, string adbTarget, string packageName, string activityName)
+        {
+            try
+            {
+                var component = $"{packageName}/{NormalizeAndroidActivityName(packageName, activityName)}";
+                await RunProcessAsync(adbPath, ["-s", adbTarget, "shell", "cmd", "package", "set-home-activity", component], TimeSpan.FromSeconds(30));
+                await StartAndroidApp(adbPath, adbTarget, packageName, activityName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not ensure app is running on {Target}", adbTarget);
             }
         }
 
         [HttpGet("devices/screenshot")]
         public async Task<IActionResult> GetScreenshot([FromQuery] string ip)
         {
-            if (string.IsNullOrWhiteSpace(ip))
+            var (error, normalizedIp) = await ResolveRegisteredDeviceAsync(ip);
+            if (error != null)
             {
-                return BadRequest(new { message = "IP не указан." });
+                return error;
             }
 
             try
             {
-                var normalizedIp = NormalizeDeviceIp(ip);
                 var client = _httpClientFactory.CreateClient();
                 client.Timeout = TimeSpan.FromSeconds(30);
 
@@ -784,6 +970,13 @@ namespace Office.Server.Controllers
                 }
 
                 var content = await response.Content.ReadAsByteArrayAsync();
+                // Отдаём только PNG: тело чужого ответа не должно уходить пользователю как есть.
+                // Проверяем сигнатуру, а не Content-Type: приставка шлёт этот заголовок дважды.
+                if (!content.AsSpan().StartsWith(PngSignature))
+                {
+                    return Ok(new { ok = false, errorMessage = "Приставка вернула не изображение." });
+                }
+
                 return File(content, "image/png");
             }
             catch (Exception ex)
@@ -798,19 +991,28 @@ namespace Office.Server.Controllers
             {
                 var client = _httpClientFactory.CreateClient();
                 client.Timeout = TimeSpan.FromSeconds(15);
+                // Приложение отвечает коротким номером версии; большой ответ — не наше приложение.
+                client.MaxResponseContentBufferSize = 1024;
 
                 using var response = await client.GetAsync($"http://{ip}/?action=getIP");
                 if (response.IsSuccessStatusCode)
                 {
-                    return new DeviceStatusResult
+                    var body = (await response.Content.ReadAsStringAsync()).Trim();
+                    if (VideoLibrary.IsValidAppVersion(body))
                     {
-                        Guid = guid,
-                        Ip = ip,
-                        Ok = true,
-                        Status = "online",
-                        ServerVersion = serverVersion,
-                        VersionFromDevice = (await response.Content.ReadAsStringAsync()).Trim()
-                    };
+                        return new DeviceStatusResult
+                        {
+                            Guid = guid,
+                            Ip = ip,
+                            Ok = true,
+                            Status = "online",
+                            ServerVersion = serverVersion,
+                            VersionFromDevice = body
+                        };
+                    }
+
+                    // Ответ не похож на версию приложения: тело не показываем и не сохраняем.
+                    _logger.LogWarning("Device {Ip} answered on port 8080, but not with an app version", ip);
                 }
             }
             catch
@@ -818,7 +1020,7 @@ namespace Office.Server.Controllers
                 // fall back to ICMP ping below
             }
 
-            var host = ExtractHost(ip);
+            var host = VideoLibrary.HostOf(ip);
             if (!string.IsNullOrWhiteSpace(host))
             {
                 try
@@ -854,9 +1056,22 @@ namespace Office.Server.Controllers
             };
         }
 
+        private async Task<DeviceStatusResult> CheckDeviceLimited(SemaphoreSlim gate, Guid guid, string ip, string serverVersion)
+        {
+            await gate.WaitAsync();
+            try
+            {
+                return await GetDeviceStatusResult(guid, ip, serverVersion);
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }
+
         private async Task UpdateDeviceVersion(DeviceStatusResult result)
         {
-            if (string.IsNullOrWhiteSpace(result.VersionFromDevice))
+            if (!VideoLibrary.IsValidAppVersion(result.VersionFromDevice))
             {
                 return;
             }
@@ -876,16 +1091,34 @@ namespace Office.Server.Controllers
                 : fallbackMessage;
         }
 
-        private string? ValidateDeviceRequest(SaveDeviceRequest request)
+        private const string InvalidIpMessage = "Укажите IP приставки в формате 10.0.0.1 или 10.0.0.1:8080 (только адреса локальной сети, порт приложения — 8080).";
+
+        /// <summary>Сколько приставок опрашивается одновременно: 176 разом — лишняя пиковая нагрузка на сеть и сервер.</summary>
+        private const int MaxParallelDeviceChecks = 16;
+        private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+
+        /// <summary>
+        /// Проверяет запрос и приводит данные к виду, который понимает приставка:
+        /// IP — "x.x.x.x:порт", время тишины — "ЧЧ:ММ" (другой формат приложение молча игнорирует).
+        /// </summary>
+        private async Task<(string? Error, string Ip)> ValidateDeviceRequest(SaveDeviceRequest request, Guid? currentDeviceGuid)
         {
             if (request.LocationGuid == Guid.Empty)
             {
-                return "Выберите ТТ.";
+                return ("Выберите ТТ.", string.Empty);
             }
 
-            if (string.IsNullOrWhiteSpace(request.Ip))
+            if (!VideoLibrary.TryNormalizeDeviceAddress(request.Ip, out var ip))
             {
-                return "Укажите IP.";
+                return (InvalidIpMessage, string.Empty);
+            }
+
+            // Приставка находит свои настройки по IP, поэтому два устройства с одним адресом недопустимы.
+            var ipTaken = await _context.VideoDevices
+                .AnyAsync(x => x.Ip.Trim() == ip && (currentDeviceGuid == null || x.Guid != currentDeviceGuid));
+            if (ipTaken)
+            {
+                return ($"Приставка с IP {ip} уже добавлена.", string.Empty);
             }
 
             var muteStartTime = NormalizeOptionalValue(request.MuteStartTime);
@@ -893,17 +1126,23 @@ namespace Office.Server.Controllers
 
             if ((muteStartTime == null) != (muteEndTime == null))
             {
-                return "Необходимо указать и время выключения, и время включения звука.";
+                return ("Необходимо указать и время выключения, и время включения звука.", string.Empty);
             }
 
-            if (muteStartTime != null && !TimeSpan.TryParse(muteStartTime, out _))
+            if (muteStartTime != null)
             {
-                return "Некорректное время выключения звука.";
-            }
+                if (!TryNormalizeMuteTime(muteStartTime, out var normalizedStart))
+                {
+                    return ("Некорректное время выключения звука.", string.Empty);
+                }
 
-            if (muteEndTime != null && !TimeSpan.TryParse(muteEndTime, out _))
-            {
-                return "Некорректное время включения звука.";
+                if (!TryNormalizeMuteTime(muteEndTime!, out var normalizedEnd))
+                {
+                    return ("Некорректное время включения звука.", string.Empty);
+                }
+
+                request.MuteStartTime = normalizedStart;
+                request.MuteEndTime = normalizedEnd;
             }
 
             var customAds = NormalizeOptionalValue(request.CustomAds);
@@ -912,16 +1151,98 @@ namespace Office.Server.Controllers
                 var allowedDirectories = new HashSet<string>(GetCustomAdsDirectoryNames(), StringComparer.OrdinalIgnoreCase);
                 if (!allowedDirectories.Contains(customAds))
                 {
-                    return "Выбранная папка рекламы не найдена.";
+                    return ("Выбранная папка рекламы не найдена.", string.Empty);
                 }
             }
 
+            // Смешанный режим (0) больше не поддерживается: только видео (null) или музыка (1).
             if (request.ContentType is not null and not 1)
             {
-                return "Некорректный тип контента.";
+                return ("Некорректный тип контента.", string.Empty);
+            }
+
+            foreach (var name in request.VideoNames.Select(x => x.Trim()).Where(x => x.Length > 0))
+            {
+                var videoError = GetVideoNameError(name);
+                if (videoError != null)
+                {
+                    return (videoError, string.Empty);
+                }
+            }
+
+            return (null, ip);
+        }
+
+        private string? GetVideoNameError(string name)
+        {
+            if (!VideoLibrary.IsStorableVideoName(name))
+            {
+                return $"Имя видео «{name}» содержит недопустимые символы (запятая, скобки или кавычки). Переименуйте файл.";
+            }
+
+            if (!VideoLibrary.TryResolveVideoFile(VideoTvRootPath, name, out var fullPath) || !System.IO.File.Exists(fullPath))
+            {
+                return $"Видео «{name}» не найдено в папке ВидеоТВ.";
             }
 
             return null;
+        }
+
+        public static bool TryNormalizeMuteTime(string value, out string normalized)
+        {
+            normalized = string.Empty;
+            var parts = value.Trim().Split(':');
+            if (parts.Length is < 2 or > 3
+                || !int.TryParse(parts[0], out var hours) || hours is < 0 or > 23
+                || !int.TryParse(parts[1], out var minutes) || minutes is < 0 or > 59
+                || (parts.Length == 3 && parts[2] != "00"))
+            {
+                return false;
+            }
+
+            normalized = $"{hours:00}:{minutes:00}";
+            return true;
+        }
+
+        /// <summary>
+        /// Команды на приставку (HTTP 8080, ADB 5555) отправляются только на адреса зарегистрированных устройств.
+        /// Иначе через портал можно было обратиться к любому хосту внутренней сети.
+        /// </summary>
+        private async Task<(IActionResult? Error, string Ip)> ResolveRegisteredDeviceAsync(string? rawIp)
+        {
+            if (!VideoLibrary.TryNormalizeDeviceAddress(rawIp, out var ip))
+            {
+                return (BadRequest(new { message = InvalidIpMessage }), string.Empty);
+            }
+
+            var registered = await _context.VideoDevices.AnyAsync(x => x.Ip.Trim() == ip);
+            return registered
+                ? (null, ip)
+                : (NotFound(new { message = $"Приставка {ip} не зарегистрирована." }), string.Empty);
+        }
+
+        private async Task<List<DeviceStatusBatchItem>> FilterRegisteredDevicesAsync(IEnumerable<DeviceStatusBatchItem> requested)
+        {
+            var normalized = requested
+                .Select(x => VideoLibrary.TryNormalizeDeviceAddress(x.Ip, out var ip)
+                    ? new DeviceStatusBatchItem { Guid = x.Guid, Ip = ip }
+                    : null)
+                .Where(x => x != null)
+                .Select(x => x!)
+                .ToList();
+            if (normalized.Count == 0)
+            {
+                return [];
+            }
+
+            var ips = normalized.Select(x => x.Ip).Distinct().ToList();
+            var registered = (await _context.VideoDevices
+                    .Where(x => ips.Contains(x.Ip.Trim()))
+                    .Select(x => x.Ip.Trim())
+                    .ToListAsync())
+                .ToHashSet(StringComparer.Ordinal);
+
+            return normalized.Where(x => registered.Contains(x.Ip)).ToList();
         }
 
         private async Task<Guid?> GetDefaultOrientationGuid()
@@ -962,6 +1283,14 @@ namespace Office.Server.Controllers
 
         private void SyncVideoLibraryWithDisk()
         {
+            lock (VideoLibrary.SyncLock)
+            {
+                SyncVideoLibraryWithDiskCore();
+            }
+        }
+
+        private void SyncVideoLibraryWithDiskCore()
+        {
             if (!Directory.Exists(VideoTvRootPath))
             {
                 return;
@@ -969,7 +1298,7 @@ namespace Office.Server.Controllers
 
             var filesOnDisk = Directory
                 .EnumerateFiles(VideoTvRootPath, "*.*", SearchOption.TopDirectoryOnly)
-                .Where(path => VideoLibraryExtensions.Contains(Path.GetExtension(path)))
+                .Where(path => VideoLibrary.VideoExtensions.Contains(Path.GetExtension(path)))
                 .Select(path => new FileInfo(path))
                 .ToList();
 
@@ -1074,11 +1403,11 @@ namespace Office.Server.Controllers
                 return "Error";
             }
 
-            return Directory
-                .EnumerateFiles(VideoTvRootPath, "*.apk", SearchOption.TopDirectoryOnly)
-                .Select(Path.GetFileNameWithoutExtension)
-                .FirstOrDefault(x => !string.IsNullOrWhiteSpace(x))
-                ?? "Error";
+            var latest = VideoLibrary.OrderApkFiles(Directory
+                    .EnumerateFiles(VideoTvRootPath, "*.apk", SearchOption.TopDirectoryOnly)
+                    .Select(path => new FileInfo(path)))
+                .FirstOrDefault();
+            return latest == null ? "Error" : Path.GetFileNameWithoutExtension(latest.Name);
         }
 
         private static string? NormalizeOptionalValue(string? value)
@@ -1091,72 +1420,10 @@ namespace Office.Server.Controllers
             return value.Trim();
         }
 
-        private static string SerializeVideoList(IEnumerable<string>? videoNames)
-        {
-            var values = videoNames?
-                .Select(x => x.Trim())
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .ToList() ?? [];
-
-            return $"[{string.Join(",", values)}]";
-        }
-
-        private static List<string> ParseVideoList(string? value)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return [];
-            }
-
-            return value
-                .Trim()
-                .Trim('[', ']')
-                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Select(x => x.Trim('"'))
-                .Where(x => !string.IsNullOrWhiteSpace(x))
-                .ToList();
-        }
-
         private static string? NormalizeSingleVideoName(string? value)
         {
-            var list = ParseVideoList(value);
+            var list = VideoLibrary.ParseVideoList(value);
             return list.Count == 1 ? list[0] : null;
-        }
-
-        private static string EncodeFilePath(string path)
-        {
-            return path.Replace("+", "plustoreplace").Replace(" ", "backspacetoreplace");
-        }
-
-        private static string DecodeFilePath(string path)
-        {
-            return path.Replace("plustoreplace", "+").Replace("backspacetoreplace", " ");
-        }
-
-        private static string NormalizeDeviceIp(string ip)
-        {
-            return ip.Trim().TrimEnd('\\', '/', ' ', '\t', '\r', '\n');
-        }
-
-        private static string ExtractHost(string ip)
-        {
-            var value = NormalizeDeviceIp(ip)
-                .Replace("http://", "", StringComparison.OrdinalIgnoreCase)
-                .Replace("https://", "", StringComparison.OrdinalIgnoreCase);
-
-            var slashIndex = value.IndexOf('/');
-            if (slashIndex >= 0)
-            {
-                value = value[..slashIndex];
-            }
-
-            var colonIndex = value.LastIndexOf(':');
-            if (colonIndex > 0 && value.Count(x => x == ':') == 1)
-            {
-                value = value[..colonIndex];
-            }
-
-            return value;
         }
 
         private static bool IsAdbConnectFailed(string output)
@@ -1465,6 +1732,8 @@ namespace Office.Server.Controllers
             public Guid? OrientationGuid { get; set; }
             public string? OrientationName { get; set; }
             public bool IsTestLocation { get; set; }
+            /// <summary>Статус по сигналам приставки; null — сигналов не было (старое приложение).</summary>
+            public DevicePresence.PresenceDto? Presence { get; set; }
         }
 
         private sealed record ProcessResult(bool Success, string Output);
@@ -1488,7 +1757,8 @@ namespace Office.Server.Controllers
             public int Position { get; set; }
             public string Name { get; set; } = string.Empty;
             public double SizeInMb { get; set; }
-            public string? Url { get; set; }
+            /// <summary>Тикет для превью: GET api/VideoDevices/videos/preview/{ticket}.</summary>
+            public string? PreviewTicket { get; set; }
         }
 
         public class ApkFileDto
@@ -1524,6 +1794,16 @@ namespace Office.Server.Controllers
         public class DeviceIpRequest
         {
             public string Ip { get; set; } = string.Empty;
+        }
+
+        public class DeviceCommandRequest : DeviceIpRequest
+        {
+            /// <summary>"sync", "redownload", "reboot", "volume" или "update".</summary>
+            public string Command { get; set; } = string.Empty;
+            /// <summary>Для "redownload": имя файла на приставке (видео, музыка или реклама); для "update": имя APK.</summary>
+            public string? FileName { get; set; }
+            /// <summary>Для "volume": громкость 0–100.</summary>
+            public int? Value { get; set; }
         }
 
         public class UpdateDeviceAppRequest : DeviceIpRequest

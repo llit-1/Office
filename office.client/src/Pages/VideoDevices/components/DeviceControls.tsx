@@ -1,22 +1,20 @@
 import type { Dispatch, SetStateAction } from "react";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
+import CloseRoundedIcon from "@mui/icons-material/CloseRounded";
 import Button from "../../../Components/Button/Button";
-import type { FilterState, SortMode } from "../videoDevices.types";
-import dashboard from "../../../styles/entity-dashboard.module.css";
+import type { FilterState, ScopeFilter, SortMode } from "../videoDevices.types";
+import { DEFAULT_FILTERS } from "../videoDevices.utils";
 import styles from "../VideoDevices.module.css";
 
-type DeviceCounts = {
-  video: number;
-  music: number;
-  test: number;
-};
+type ScopeCounts = Record<ScopeFilter, number>;
 
 type DeviceControlsProps = {
   searchText: string;
-  counts: DeviceCounts;
+  counts: ScopeCounts;
   filters: FilterState;
   sortMode: SortMode;
   outdatedCount: number;
+  shownCount: number;
   onSearchTextChange: (value: string) => void;
   onFiltersChange: Dispatch<SetStateAction<FilterState>>;
   onSortModeChange: (value: SortMode) => void;
@@ -25,10 +23,19 @@ type DeviceControlsProps = {
   onBulkUpdate: () => void;
 };
 
-const filterItems: Array<[keyof FilterState, (counts: DeviceCounts) => string]> = [
-  ["video", (counts) => `Видео (${counts.video})`],
-  ["music", (counts) => `Музыка (${counts.music})`],
-  ["test", (counts) => `Не розница/тест (${counts.test})`],
+const scopeOptions: Array<[ScopeFilter, string]> = [
+  ["all", "Все точки"],
+  ["video", "Только с видео"],
+  ["music", "Только с музыкой"],
+  ["test", "Тест и не розница"],
+];
+
+const sortOptions: Array<[SortMode, string]> = [
+  ["nameAsc", "По названию"],
+  ["versionDesc", "Сначала новые версии"],
+  ["versionAsc", "Сначала старые версии"],
+  ["offlineFirst", "Сначала без связи"],
+  ["onlineFirst", "Сначала на связи"],
 ];
 
 export default function DeviceControls({
@@ -37,6 +44,7 @@ export default function DeviceControls({
   filters,
   sortMode,
   outdatedCount,
+  shownCount,
   onSearchTextChange,
   onFiltersChange,
   onSortModeChange,
@@ -44,57 +52,107 @@ export default function DeviceControls({
   onReplaceVideo,
   onBulkUpdate,
 }: DeviceControlsProps) {
+  const isFiltered =
+    searchText.trim() !== "" ||
+    filters.scope !== DEFAULT_FILTERS.scope ||
+    filters.status !== DEFAULT_FILTERS.status;
+
+  const resetAll = () => {
+    onFiltersChange(DEFAULT_FILTERS);
+    onSearchTextChange("");
+  };
+
   return (
-    <div className={`${dashboard.toolbar} ${styles.deviceToolbar}`}>
-      <div className={dashboard.toolbarGroup}>
-        <label className={dashboard.search}>
-          <SearchRoundedIcon fontSize="small" />
-          <input
-            value={searchText}
-            onChange={(event) => onSearchTextChange(event.target.value)}
-            placeholder="Поиск по ТТ, IP или видео"
-          />
-        </label>
+    <div className={styles.toolbarTop}>
+      <label className={styles.toolbarSearch}>
+        <SearchRoundedIcon fontSize="small" />
+        <input
+          value={searchText}
+          onChange={(event) => onSearchTextChange(event.target.value)}
+          placeholder="Поиск по точке, IP или видео"
+          aria-label="Поиск устройств"
+        />
+        {searchText && (
+          <button
+            type="button"
+            className={styles.searchClear}
+            onClick={() => onSearchTextChange("")}
+            aria-label="Очистить поиск"
+          >
+            <CloseRoundedIcon fontSize="small" />
+          </button>
+        )}
+      </label>
 
-        <div className={dashboard.actionGroup}>
-          <Button variant="primary" onClick={onAddDevice}>
-            Добавить устройство
-          </Button>
-          <Button variant="secondary" onClick={onReplaceVideo}>
-            Замена видео
-          </Button>
-          <Button variant="secondary" onClick={onBulkUpdate} disabled={outdatedCount === 0}>
-            Обновить приложения
-          </Button>
-        </div>
-      </div>
-
-      <div className={dashboard.toolbarEnd}>
-        <div className={`${dashboard.filterGroup} ${styles.deviceFilters}`}>
-          {filterItems.map(([key, getLabel]) => (
-            <button
-              type="button"
-              key={key}
-              className={`${dashboard.filterButton} ${filters[key] ? dashboard.filterButtonActive : ""}`}
-              onClick={() => onFiltersChange((current) => ({ ...current, [key]: !current[key] }))}
-            >
-              {getLabel(counts)}
-            </button>
-          ))}
-        </div>
-
+      <span className={styles.selectWrap}>
         <select
-          className={dashboard.sortSelect}
+          className={styles.toolbarSelect}
+          value={filters.scope}
+          onChange={(event) =>
+            onFiltersChange((current) => ({
+              ...current,
+              scope: event.target.value as ScopeFilter,
+            }))
+          }
+          aria-label="Какие точки показывать"
+          title="Какие точки показывать"
+        >
+          {scopeOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label} ({counts[value]})
+            </option>
+          ))}
+        </select>
+      </span>
+
+      <span className={styles.selectWrap}>
+        <select
+          className={styles.toolbarSelect}
           value={sortMode}
           onChange={(event) => onSortModeChange(event.target.value as SortMode)}
           aria-label="Сортировка устройств"
+          title="Сортировка"
         >
-          <option value="nameAsc">По алфавиту</option>
-          <option value="versionDesc">Версия ↓</option>
-          <option value="versionAsc">Версия ↑</option>
-          <option value="offlineFirst">Сначала оффлайн</option>
-          <option value="onlineFirst">Сначала онлайн</option>
+          {sortOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
         </select>
+      </span>
+
+      {isFiltered && (
+        <div className={styles.resultSummary} aria-live="polite">
+          Найдено <strong>{shownCount}</strong>
+          <button
+            type="button"
+            className={styles.resetFilters}
+            onClick={resetAll}
+          >
+            Сбросить
+          </button>
+        </div>
+      )}
+
+      <div className={styles.toolbarActions}>
+        <Button variant="secondary" onClick={onReplaceVideo}>
+          Замена видео
+        </Button>
+        <Button
+          variant="secondary"
+          onClick={onBulkUpdate}
+          disabled={outdatedCount === 0}
+          title={
+            outdatedCount === 0
+              ? "Все приставки на связи уже на последней версии"
+              : undefined
+          }
+        >
+          Обновить приложения{outdatedCount > 0 ? ` (${outdatedCount})` : ""}
+        </Button>
+        <Button variant="primary" onClick={onAddDevice}>
+          Добавить устройство
+        </Button>
       </div>
     </div>
   );

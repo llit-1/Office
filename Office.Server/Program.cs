@@ -146,6 +146,7 @@ builder.Services.AddScoped<AuthTokenService>();
 builder.Services.AddSingleton<ClientInfoParser>();
 builder.Services.AddScoped<KnowledgeLibrarySchemaInitializer>();
 builder.Services.AddScoped<Office.Server.Locations.LocationSchemaInitializer>();
+builder.Services.AddScoped<Office.Server.VideoDevices.VideoDeviceHeartbeatSchemaInitializer>();
 builder.Services.AddScoped<DeliveryCashRoleInitializer>();
 builder.Services.AddScoped<StockRoleInitializer>();
 builder.Services.AddScoped<Office.Server.Calculator.CalculatorRoleInitializer>();
@@ -163,6 +164,10 @@ builder.Services.AddScoped<KnowledgeLibraryIndexer>();
 builder.Services.AddSingleton<KnowledgeLibraryIndexQueue>();
 builder.Services.AddSingleton<KnowledgeLibraryFileTickets>();
 builder.Services.AddHostedService<KnowledgeLibraryIndexWorker>();
+builder.Services.AddSingleton<Office.Server.VideoDevices.VideoPreviewTickets>();
+// Сжатие включается только для API приставок (см. UseWhen ниже): JSON списков музыки сжимается ~в 10 раз.
+// Видео и аудио (video/*, audio/*) не входят в сжимаемые типы и отдаются как есть, с поддержкой Range.
+builder.Services.AddResponseCompression(options => options.EnableForHttps = true);
 
 builder.Services.AddDbContext<Office.Server.DbContexts.RKNETDB.RKNETDBContext>(options =>
 {
@@ -264,6 +269,16 @@ catch (Exception ex)
 
 try
 {
+    await using var heartbeatScope = app.Services.CreateAsyncScope();
+    await heartbeatScope.ServiceProvider.GetRequiredService<Office.Server.VideoDevices.VideoDeviceHeartbeatSchemaInitializer>().InitializeAsync();
+}
+catch (Exception ex)
+{
+    app.Logger.LogError(ex, "Video device heartbeat table initialization failed.");
+}
+
+try
+{
     await using var knowledgeScope = app.Services.CreateAsyncScope();
     await knowledgeScope.ServiceProvider.GetRequiredService<KnowledgeLibrarySchemaInitializer>().InitializeAsync();
 }
@@ -318,3 +333,7 @@ app.MapControllers();
 app.MapFallbackToFile("/index.html").AllowAnonymous();
 
 app.Run();
+app.UseWhen(
+    context => context.Request.Path.StartsWithSegments("/" + Office.Server.Controllers.VideoDeviceApiController.RoutePrefix),
+    branch => branch.UseResponseCompression());
+

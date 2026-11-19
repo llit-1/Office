@@ -73,7 +73,7 @@ async function mount() {
     </Provider>,
   );
   const button = await screen.findByRole("button", {
-    name: "Повторно проверить устройства с ошибками",
+    name: "Повторно проверить приставки со старым приложением, которые не ответили",
   });
   await waitFor(() => expect(button).toBeEnabled());
   return button;
@@ -106,14 +106,14 @@ it("rechecks only red and yellow devices counted by the errors card and blocks d
   );
   await waitFor(() => expect(button).not.toHaveAttribute("aria-busy"));
   expect(button).toBeDisabled();
-  expect(screen.getByText("Ошибки").parentElement).toHaveTextContent("0");
+  expect(screen.getByText("Требуют внимания", { selector: "span" }).parentElement).toHaveTextContent("0");
 });
 it("allows retry after an interrupted stream and clears pending check states", async () => {
   fetchMock.mockResolvedValueOnce(response([{ guid: "1", status: "online" }]));
   const button = await mount();
   fireEvent.click(button);
   await waitFor(() => expect(button).toBeEnabled());
-  expect(screen.getByText("Ошибки").parentElement).toHaveTextContent("1");
+  expect(screen.getByText("Требуют внимания", { selector: "span" }).parentElement).toHaveTextContent("1");
   fetchMock.mockResolvedValueOnce(response([{ guid: "2", status: "online" }]));
   fireEvent.click(button);
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
