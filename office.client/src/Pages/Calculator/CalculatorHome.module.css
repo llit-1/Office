@@ -21,26 +21,6 @@
   gap: var(--space-4);
 }
 
-.heading {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.heading h1 {
-  margin: 0;
-  color: var(--color-text);
-  font-size: var(--font-size-title-lg);
-  font-weight: var(--font-weight-heading);
-  line-height: var(--line-height-title-lg);
-}
-
-.heading p {
-  margin: 0;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-body);
-}
-
 .storeSelect {
   width: 320px;
   max-width: 100%;
@@ -48,7 +28,8 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  /* auto-fit: свободные колонки схлопываются, и ряд плиток тянется от края до края */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-4);
 }
 
@@ -97,35 +78,36 @@
     gap: var(--space-4);
   }
 
+  /* подпись поля выбора точки выступает над рамкой — даём ей место сверху */
   .header {
     align-items: stretch;
     gap: var(--space-3);
-  }
-
-  .heading h1 {
-    font-size: var(--font-size-title-md);
-    line-height: var(--line-height-title-md);
+    padding-top: var(--space-3);
   }
 
   .storeSelect {
     width: 100%;
   }
 
+  /* на телефоне категории — список: все пять видно без прокрутки */
   .grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1fr);
     gap: var(--space-2);
   }
 
   .card {
-    min-height: 160px;
-    gap: var(--space-2);
-    padding: var(--space-3) var(--space-2);
+    min-height: 72px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-card);
+    text-align: left;
   }
 
   .image {
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
   }
 
   .title {

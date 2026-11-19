@@ -13,11 +13,6 @@ import { CALCULATOR_CATEGORIES } from "./calculator.categories";
 import { useCalculatorTt } from "./useCalculatorTt";
 import styles from "./CalculatorHome.module.css";
 
-const today = () =>
-  new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" })
-    .format(new Date())
-    .replace(/^./, (letter) => letter.toUpperCase());
-
 export default function CalculatorHome() {
   const dispatch = useDispatch();
   const { locations, current, select } = useCalculatorTt();
@@ -52,12 +47,9 @@ export default function CalculatorHome() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div className={styles.heading}>
-          <h1>{current.name}</h1>
-          <p>{today()}</p>
-        </div>
-        {locations.data.length > 1 ? (
+      {/* одна точка — только плитки; несколько — выбор точки над ними */}
+      {locations.data.length > 1 && (
+        <header className={styles.header}>
           <Select
             label="Торговая точка"
             search
@@ -66,8 +58,8 @@ export default function CalculatorHome() {
             options={locations.data.map((location) => ({ value: String(location.code), label: location.name }))}
             onChange={(event) => select(Number(event.target.value))}
           />
-        ) : null}
-      </header>
+        </header>
+      )}
 
       <div className={styles.grid}>
         {CALCULATOR_CATEGORIES.map(({ slug, title, image }) => (

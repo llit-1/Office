@@ -123,7 +123,9 @@ it("главная: все категории открыты в любое вр�
   const user = userEvent.setup();
   const store = renderCalculator("/Calculator");
 
-  expect(await screen.findByRole("heading", { name: "Невский 96" })).toBeInTheDocument();
+  // одна точка: названия нет, только плитки категорий
+  expect(await screen.findByRole("link", { name: "Хлеб" })).toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "Невский 96" })).not.toBeInTheDocument();
   for (const title of ["Хлеб", "Выпечка", "Кондитерские изделия", "Сэндвичи", "Прочий ассортимент"]) {
     expect(screen.getByRole("link", { name: title })).toBeInTheDocument();
   }
@@ -166,8 +168,6 @@ it("печать показывает актуальный расчёт отде
   print.mockRestore();
 });
 
-it("все позиции остаются на одном экране без пагинации", async () => {
-  const user = userEvent.setup();
 const wideScreen = () =>
   vi.stubGlobal("matchMedia", (query: string) => ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined }));
 const fourteen = Array.from({ length: 14 }, (_, index) => item({ rkCode: 100 + index, name: `Позиция ${index + 1}` }));
@@ -193,9 +193,11 @@ it("на узком экране длинная категория не ужим
   }
 });
 
+it("все позиции остаются на одном экране без пагинации", async () => {
+  const user = userEvent.setup();
+  wideScreen();
   const originalRect = HTMLElement.prototype.getBoundingClientRect;
   const rect = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
-  wideScreen();
     const result = originalRect.call(this);
     if (this.tagName === "DIV" && this.querySelector('section[aria-label="Позиции"]')) {
       const height = (220 + this.querySelectorAll("[data-calculator-row]").length * 180) * Number(this.style.zoom || 1);
@@ -224,8 +226,6 @@ it("на узком экране длинная категория не ужим
     print.mockRestore();
   } finally {
     rect.mockRestore();
-  }
-});
     vi.unstubAllGlobals();
   }
 });
@@ -249,6 +249,8 @@ it("на широком экране длинная категория идёт 
     expect(screen.getByRole("region", { name: "Позиции" }).children).toHaveLength(1);
   } finally {
     vi.unstubAllGlobals();
+  }
+});
 
 it("введённое за полчаса видно сразу, как сохранили; новый ввод сохраняется сам", async () => {
   const user = userEvent.setup();
@@ -275,8 +277,6 @@ it("введённое за полчаса видно сразу, как сох�
   expect(within(summary).getByText("Введено").nextSibling).toHaveTextContent("2 из 2"); // две позиции заблокированы и в итог не входят
 });
 
-it("ввод, не дождавшийся паузы, отправляется при уходе со страницы", async () => {
-  const user = userEvent.setup();
 it("таймер сессии идёт по времени сервера и не продлевается вводом", async () => {
   const user = userEvent.setup();
   renderCalculator("/Calculator/bakery");
@@ -306,6 +306,8 @@ it("когда час истёк, работа продолжается толь
   expect(screen.getByTitle("До конца сессии")).toHaveTextContent("60:00");
 });
 
+it("ввод, не дождавшийся паузы, отправляется при уходе со страницы", async () => {
+  const user = userEvent.setup();
   renderCalculator("/Calculator/bakery");
 
   await user.type(await screen.findByRole("textbox", { name: "Осталось: Круассан" }), "3");
